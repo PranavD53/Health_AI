@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 
 export default function TopNavBar() {
+  const { currentLanguage, setCurrentLanguage, t } = useLanguage();
   const { user, logout } = useAuth();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileData, setProfileData] = useState(null);
@@ -14,6 +16,29 @@ export default function TopNavBar() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('theme') || 'light';
   });
+
+  const [tarsVoiceEnabled, setTarsVoiceEnabled] = useState(() => {
+    return localStorage.getItem('tars_voice_enabled') !== 'false';
+  });
+
+  const toggleTarsVoice = () => {
+    const newVal = !tarsVoiceEnabled;
+    setTarsVoiceEnabled(newVal);
+    localStorage.setItem('tars_voice_enabled', newVal ? 'true' : 'false');
+    window.dispatchEvent(new Event('tars_voice_toggle'));
+  };
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setTarsVoiceEnabled(localStorage.getItem('tars_voice_enabled') !== 'false');
+    };
+    window.addEventListener('tars_voice_toggle', handleStorageChange);
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('tars_voice_toggle', handleStorageChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -144,6 +169,35 @@ export default function TopNavBar() {
         </div>
         
         <div className="flex items-center gap-md">
+          {/* Language Selector Dropdown */}
+          <div className="flex items-center">
+            <select
+              value={currentLanguage}
+              onChange={(e) => setCurrentLanguage(e.target.value)}
+              className="text-xs border border-outline-variant/60 rounded-xl px-2 py-1 bg-surface font-semibold text-primary focus:outline-none transition-colors hover:border-primary cursor-pointer"
+            >
+              <option value="en">English</option>
+              <option value="hi">Hindi (हिन्दी)</option>
+              <option value="te">Telugu (తెలుగు)</option>
+            </select>
+          </div>
+
+          {/* TARS Global Toggle Switch */}
+          <button
+            onClick={toggleTarsVoice}
+            className={`p-2 rounded-full transition-all duration-300 focus:outline-none flex items-center justify-center relative hover:bg-surface-container-high active:scale-95 ${
+              tarsVoiceEnabled ? 'text-emerald-500 hover:text-emerald-600' : 'text-outline hover:text-primary'
+            }`}
+            title={tarsVoiceEnabled ? "Disable TARS Global Voice Wake-up" : "Enable TARS Global Voice Wake-up"}
+          >
+            {tarsVoiceEnabled && (
+              <span className="absolute -inset-0.5 rounded-full border border-emerald-500 animate-ping opacity-40 pointer-events-none"></span>
+            )}
+            <span className="material-symbols-outlined text-[22px]">
+              {tarsVoiceEnabled ? 'mic' : 'mic_off'}
+            </span>
+          </button>
+
           {/* Theme Toggle Button */}
           <button
             onClick={toggleTheme}

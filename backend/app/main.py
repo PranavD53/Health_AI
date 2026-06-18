@@ -887,6 +887,9 @@ async def global_ai_assistant(
                     "You are the HealthAI Global Assistant, a compassionate, precise, and highly fluent multilingual AI healthcare assistant.\n"
                     "You MUST converse fluently in English, Hindi (हिन्दी), Hinglish (transliterated Hindi, e.g. 'appointment book kar do'), Telugu (తెలుగు), or Telugu-transliterated (e.g. 'appointment book cheyyi') based on the user's preferred language or style.\n"
                     "Always reply in the same language style the user uses. If they use Hinglish or Telugu-transliterated, reply in the same transliterated style so it reads naturally.\n\n"
+                    "CRITICAL RESPONSE LENGTH CONSTRAINT:\n"
+                    "You MUST provide extremely concise, short, direct, and helpful answers (maximum 2-3 sentences, 40-50 words max). "
+                    "Do NOT write long paragraphs. Get straight to the point and do not drag the conversation.\n\n"
                     "You can perform actions on behalf of the user by appending a special JSON block to the END of your response.\n"
                     "For example, if you decide to execute an action, output EXACTLY like this:\n"
                     "[ACTION: {\"type\": \"ACTION_TYPE\", \"parameters\": { ... }}]\n\n"
@@ -930,6 +933,18 @@ async def global_ai_assistant(
                     "   type: \"view_chat\"\n"
                     "   parameters: {}\n"
                     "   Trigger this when the user wants to message, chat, send a prescription/file, or chat with a doctor, patient, or admin.\n\n"
+                    "9. Clinical Symptom Analysis & Doctor Mapping:\n"
+                    "   If the user lists their symptoms (even in broken, informal, or transliterated languages, e.g. 'mere chest me pain ho raha hai' or 'talanoppiga vundi'):\n"
+                    "   a) Diagnose/recommend the correct specialist to consult from our list:\n"
+                    "      - Dr. Alice Smith (Cardiology, ID 1) for chest pain, heart, BP, palpitations, or shortness of breath.\n"
+                    "      - Dr. Bob Johnson (Dermatology, ID 2) for skin rashes, itching, acne, hair fall, or eczema.\n"
+                    "      - Dr. Charlie Brown (General Medicine, ID 3) for cold, cough, mild fever, minor stomach aches, or general symptoms.\n"
+                    "      - Dr. Diana Prince (Neurology, ID 4) for headaches, migraines, nerve pain, dizziness, or seizures.\n"
+                    "      - Dr. Evan Wright (Pediatrics, ID 5) for child health or pediatric vaccines.\n"
+                    "   b) Safe OTC Medicine Recommendation:\n"
+                    "      For minor, simple, non-critical symptoms (e.g. mild fever, common cold, minor headache, acid reflux), you may suggest a standard safe over-the-counter medicine (e.g., Paracetamol for mild fever, Cetirizine for cold/allergies, Antacids for indigestion) with clear dosage guidelines. You MUST append a safety disclaimer: 'This is general advice. Please consult a doctor if symptoms persist or worsen.'\n"
+                    "   c) For critical or severe symptoms (e.g. severe chest pressure, unconsciousness, severe bleeding), advise them to seek emergency care immediately (dial 108/100).\n"
+                    "   d) Proactively offer to schedule a consultation with the matched doctor (e.g. 'Would you like to book an appointment with our specialist Dr. Alice Smith?') and collect their preferred date and time step-by-step before triggering the booking action.\n\n"
                     "Always prioritize safety, give clear advice in their language, and include the action JSON block if the user's intent matches one of the actions."
                 )
             }
@@ -1012,8 +1027,37 @@ async def global_ai_assistant(
                 reply = "To book an appointment, I need a few details from you:\n\n1. Which doctor would you like to see? (e.g., Dr. Alice Smith, Dr. Bob Johnson)\n2. What date would you prefer?\n3. What time works best for you?\n\nPlease provide these details so I can schedule your appointment."
             elif "record" in msg_lower or "file" in msg_lower or "report" in msg_lower:
                 reply = "I've pulled up your medical records directory. You can view or upload files there.\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
-            elif "symptom" in msg_lower or "pain" in msg_lower or "check" in msg_lower:
-                reply = "I can start a symptom assessment for you. Let's look at your symptoms.\n\n[ACTION: {\"type\": \"analyze_symptom\", \"parameters\": {\"symptoms\": \"health check\", \"severity\": \"mild\", \"duration\": \"1 day\"}}]"
+            elif "symptom" in msg_lower or "pain" in msg_lower or "check" in msg_lower or "sick" in msg_lower or "hurt" in msg_lower or "fever" in msg_lower or "cold" in msg_lower or "cough" in msg_lower or "headache" in msg_lower or "migraine" in msg_lower or "rash" in msg_lower or "acne" in msg_lower:
+                doc_recommendation = ""
+                otc_recommendation = ""
+                spec = "general"
+                
+                if any(k in msg_lower for k in ["chest", "heart", "bp", "cardio", "breath"]):
+                    doc_recommendation = "Dr. Alice Smith (Cardiology, ID 1)"
+                    otc_recommendation = "Please avoid self-medication for cardiovascular issues. Rest and consult a doctor immediately."
+                    spec = "cardiology"
+                elif any(k in msg_lower for k in ["skin", "rash", "acne", "itch", "eczema", "hair"]):
+                    doc_recommendation = "Dr. Bob Johnson (Dermatology, ID 2)"
+                    otc_recommendation = "For mild skin itching, apply Calamine lotion or take Cetirizine (10mg) daily."
+                    spec = "dermatology"
+                elif any(k in msg_lower for k in ["child", "kid", "baby", "pediatric", "vaccine"]):
+                    doc_recommendation = "Dr. Evan Wright (Pediatrics, ID 5)"
+                    otc_recommendation = "Pediatric dosages depend strictly on age and weight. Please consult a doctor."
+                    spec = "pediatrics"
+                elif any(k in msg_lower for k in ["headache", "migraine", "dizzy", "brain", "nerve", "head"]):
+                    doc_recommendation = "Dr. Diana Prince (Neurology, ID 4)"
+                    otc_recommendation = "For mild headaches, you can take a standard Paracetamol (500mg) tablet after meals."
+                    spec = "neurology"
+                else:
+                    doc_recommendation = "Dr. Charlie Brown (General Medicine, ID 3)"
+                    otc_recommendation = "For mild cold, cough or fever, a Paracetamol (500mg) or Cetirizine (10mg) after meals is suitable."
+                    spec = "general"
+                
+                reply = (
+                    f"I recommend consulting our specialist, {doc_recommendation}. "
+                    f"{otc_recommendation} (Disclaimer: This is general advice. Please consult a doctor if symptoms persist.)\n\n"
+                    f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
+                )
             elif "setting" in msg_lower or "profile" in msg_lower or "address" in msg_lower or "username" in msg_lower:
                 reply = "Opening your settings page where you can update your profile details and settings.\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
             elif "chat" in msg_lower or "message" in msg_lower or "conversation" in msg_lower or "inbox" in msg_lower:

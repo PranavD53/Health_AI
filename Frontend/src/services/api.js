@@ -298,6 +298,14 @@ export const api = {
     return handleResponse(res);
   },
 
+  deleteAppointment: async (id) => {
+    const res = await fetch(`/appointment/delete/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
   // Medical Records
   getRecords: async () => {
     const res = await fetch('/records/my-records', {
@@ -455,6 +463,14 @@ export const api = {
       method: 'POST',
       headers: getHeaders(true),
       body: formData
+    });
+    return handleResponse(res);
+  },
+
+  deleteConversation: async (conversationId) => {
+    const res = await fetch(`/chats/conversations/${conversationId}`, {
+      method: 'DELETE',
+      headers: getHeaders()
     });
     return handleResponse(res);
   },

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Chat() {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const [contacts, setContacts] = useState([]);
   const [conversations, setConversations] = useState([]);
@@ -34,17 +36,19 @@ export default function Chat() {
     };
   }, []);
 
-  // Poll messages every 3 seconds for the active conversation
+  // Poll messages every 1 second for the active conversation
   useEffect(() => {
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
     }
 
+    setPreviousMessageCount(0); // Reset message count when switching conversations
+
     if (activeConv) {
       fetchMessages(activeConv.id, false);
       pollIntervalRef.current = setInterval(() => {
         fetchMessages(activeConv.id, true);
-      }, 3000);
+      }, 1000);
     } else {
       setMessages([]);
     }
@@ -196,6 +200,19 @@ export default function Chat() {
     }
   };
 
+  const handleDeleteConversation = async (convId) => {
+    if (!window.confirm("Are you sure you want to delete this chat conversation? This will delete all messages permanently.")) {
+      return;
+    }
+    try {
+      await api.deleteConversation(convId);
+      setActiveConv(null);
+      fetchConversations();
+    } catch (err) {
+      alert("Failed to delete conversation: " + err.message);
+    }
+  };
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
@@ -248,7 +265,7 @@ export default function Chat() {
             <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-md">search</span>
             <input 
               type="text"
-              placeholder="Search contacts to chat..."
+              placeholder={t('searchContacts')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-surface-container-high border border-outline-variant/30 rounded-xl text-xs focus:outline-none focus:border-secondary transition-colors"
@@ -261,7 +278,7 @@ export default function Chat() {
           {searchQuery.trim() !== '' ? (
             // Search Mode: Contacts
             <div className="p-2 space-y-xs">
-              <p className="text-[10px] text-outline font-bold px-2 uppercase tracking-wider mb-2">Available Contacts</p>
+              <p className="text-[10px] text-outline font-bold px-2 uppercase tracking-wider mb-2">{t('availableContacts')}</p>
               {loadingContacts ? (
                 <div className="text-center py-4 text-xs text-outline">Searching contacts...</div>
               ) : filteredContacts.length === 0 ? (
@@ -271,7 +288,7 @@ export default function Chat() {
                   <div 
                     key={c.id}
                     onClick={() => handleStartConversation(c.id)}
-                    className="p-2 hover:bg-primary/5 rounded-xl cursor-pointer flex items-center gap-sm transition-colors"
+                    className="p-2 hover:bg-primary/5 rounded-xl cursor-pointer flex items-center gap-sm transition-colors animate-in slide-in-from-bottom-2 duration-150"
                   >
                     <div className="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container font-bold flex items-center justify-center text-xs shrink-0 shadow-sm">
                       {getInitials(c.name)}
@@ -287,7 +304,7 @@ export default function Chat() {
           ) : (
             // Default Mode: Active Conversations
             <div className="p-2 space-y-xs">
-              <p className="text-[10px] text-outline font-bold px-2 uppercase tracking-wider mb-2">Active Conversations</p>
+              <p className="text-[10px] text-outline font-bold px-2 uppercase tracking-wider mb-2">{t('activeConvs')}</p>
               {loadingConvs ? (
                 <div className="text-center py-8">
                   <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -295,7 +312,7 @@ export default function Chat() {
               ) : conversations.length === 0 ? (
                 <div className="text-center py-8 text-xs text-outline font-semibold">
                   <span className="material-symbols-outlined text-2xl block mb-xs text-outline/60">chat_bubble</span>
-                  No conversations yet. Type in search above to start one!
+                  {t('noConvs')}
                 </div>
               ) : (
                 conversations.map(conv => {
@@ -358,6 +375,13 @@ export default function Chat() {
                   </div>
                 </div>
               </div>
+              <button
+                onClick={() => handleDeleteConversation(activeConv.id)}
+                className="p-2 text-error hover:bg-error/10 rounded-xl transition-all focus:outline-none flex items-center justify-center"
+                title={t('deleteConversation') || 'Delete Conversation'}
+              >
+                <span className="material-symbols-outlined text-md">delete</span>
+              </button>
             </div>
 
             {/* Messages feed */}
@@ -433,7 +457,7 @@ export default function Chat() {
                   {/* Input field */}
                   <input 
                     type="text"
-                    placeholder="Type a message or describe attached documents..."
+                    placeholder={t('typeMessage')}
                     value={messageText}
                     onChange={(e) => setMessageText(e.target.value)}
                     className="flex-1 px-4 py-2.5 bg-surface-container-low border border-outline-variant/30 rounded-xl text-xs focus:outline-none focus:border-secondary transition-colors shadow-inner"
@@ -458,7 +482,7 @@ export default function Chat() {
         ) : (
           <div className="flex-1 flex flex-col justify-center items-center text-outline font-semibold select-none bg-surface-container-lowest">
             <span className="material-symbols-outlined text-6xl mb-sm text-outline/40">forum</span>
-            <h3 className="text-on-surface text-sm font-bold">Select a Chat Conversation</h3>
+            <h3 className="text-on-surface text-sm font-bold">{t('selectChat')}</h3>
             <p className="text-[11px] text-outline font-normal max-w-xs text-center mt-xs">
               Search for doctor or patient contacts in the left pane to initialize a private consultation workspace.
             </p>

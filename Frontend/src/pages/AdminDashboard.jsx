@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function AdminDashboard() {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
   const [complaints, setComplaints] = useState([]);
@@ -136,7 +138,7 @@ export default function AdminDashboard() {
     <div className="space-y-xl animate-in fade-in duration-300">
       <header>
         <h2 className="text-on-surface font-headline-lg text-headline-lg">
-          Platform Administration
+          {t('adminPortal')}
         </h2>
         <p className="text-on-surface-variant font-body-md text-body-md">Configure user access roles, verify clinician documents, and inspect feedback complaints.</p>
       </header>

@@ -317,6 +317,28 @@ def send_message(
     return new_msg
 
 
+@router.delete("/conversations/{conversation_id}")
+def delete_conversation(conversation_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    conv = db.query(models.PrivateConversation).filter(
+        models.PrivateConversation.id == conversation_id
+    ).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    if conv.user1_id != current_user.id and conv.user2_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Permission denied")
+        
+    # Clean up related notifications
+    db.query(models.Notification).filter(
+        models.Notification.notification_type == "chat_message",
+        models.Notification.related_id == conversation_id
+    ).delete(synchronize_session=False)
+    
+    db.delete(conv)
+    db.commit()
+    return {"status": "success", "message": "Conversation successfully deleted"}
+
+
 # --- Notifications ---
 
 @router.get("/notifications", response_model=List[NotificationResponse])

@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function PatientDashboard() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
@@ -62,24 +64,24 @@ export default function PatientDashboard() {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
         <div>
           <h2 className="text-on-surface font-headline-lg text-headline-lg">
-            Welcome back, <span className="text-primary font-bold">{greetingName}</span>
+            {t('welcomeBack')} <span className="text-primary font-bold">{greetingName}</span>
           </h2>
-          <p className="text-on-surface-variant font-body-md text-body-md">Your clinical health records and appointments are fully synchronized.</p>
+          <p className="text-on-surface-variant font-body-md text-body-md">{t('syncRecords')}</p>
         </div>
         <div className="flex gap-sm">
           <button 
             onClick={() => navigate('/appointments')}
-            className="px-4 py-2 bg-primary hover:bg-primary/95 text-white font-bold rounded-lg text-sm transition-colors flex items-center gap-xs shadow-sm"
+            className="px-4 py-2 bg-primary hover:bg-primary/95 text-white font-bold rounded-lg text-sm transition-colors flex items-center gap-xs shadow-sm active:scale-95 duration-150"
           >
             <span className="material-symbols-outlined text-[18px]">event</span>
-            Book Visit
+            {t('bookVisit')}
           </button>
           <button 
             onClick={() => navigate('/records')}
-            className="px-4 py-2 bg-secondary-container hover:bg-secondary-container/90 text-on-secondary-container font-bold rounded-lg text-sm transition-colors flex items-center gap-xs"
+            className="px-4 py-2 bg-secondary-container hover:bg-secondary-container/90 text-on-secondary-container font-bold rounded-lg text-sm transition-colors flex items-center gap-xs active:scale-95 duration-150"
           >
             <span className="material-symbols-outlined text-[18px]">upload_file</span>
-            Upload Records
+            {t('uploadRecords')}
           </button>
         </div>
       </header>
@@ -99,18 +101,18 @@ export default function PatientDashboard() {
           <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card">
             <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
               <span className="material-symbols-outlined text-secondary">calendar_today</span>
-              Upcoming Appointments
+              {t('upcomingAppts')}
             </h3>
             
             {dashboardData?.upcoming_appointments?.length === 0 ? (
               <div className="p-xl border border-dashed border-outline-variant rounded-xl text-center text-outline">
                 <span className="material-symbols-outlined text-4xl mb-sm">event_busy</span>
-                <p className="text-sm font-semibold">No upcoming appointments booked.</p>
+                <p className="text-sm font-semibold">{t('noAppts')}</p>
                 <button 
                   onClick={() => navigate('/appointments')} 
                   className="text-secondary font-bold text-xs hover:underline mt-xs"
                 >
-                  Find a Doctor to Book Now
+                  {t('findDocToBook')}
                 </button>
               </div>
             ) : (
@@ -135,9 +137,9 @@ export default function PatientDashboard() {
                     <div className="flex gap-sm w-full md:w-auto">
                       <button 
                         onClick={() => handleCancelAppointment(appt.id)}
-                        className="flex-1 md:flex-initial px-3 py-1.5 border border-error/30 hover:bg-error/5 text-error text-xs font-bold rounded-lg transition-colors"
+                        className="flex-1 md:flex-initial px-3 py-1.5 border border-error/30 hover:bg-error/5 text-error text-xs font-bold rounded-lg transition-colors active:scale-[0.98]"
                       >
-                        Cancel
+                        {t('cancel')}
                       </button>
                     </div>
                   </div>
@@ -175,19 +177,30 @@ export default function PatientDashboard() {
             
             <div className="flex-1 space-y-md overflow-y-auto max-h-[360px]">
               {dashboardData?.activity_logs?.map((log, index) => (
-                <div key={log.id || index} className="flex gap-md items-start">
-                  <div className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-[16px]">
-                      {log.action.includes('LOGIN') ? 'login' : log.action.includes('REGISTER') ? 'how_to_reg' : 'history_toggle_off'}
-                    </span>
+                <div key={log.id || index} className="flex gap-md items-center justify-between border-b border-outline-variant/10 pb-3 last:border-0">
+                  <div className="flex gap-md items-start min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[16px]">
+                        {log.action === "Appointment Booked" ? "calendar_today" : "info"}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-on-surface text-sm truncate">{log.action}</h4>
+                      <p className="text-xs text-on-surface-variant mb-0.5 break-words">{log.details}</p>
+                      <span className="text-[10px] text-outline">
+                        {new Date(log.timestamp).toLocaleString()}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-bold text-on-surface text-sm">{log.action}</h4>
-                    <p className="text-xs text-on-surface-variant mb-0.5">{log.details}</p>
-                    <span className="text-[10px] text-outline">
-                      {new Date(log.timestamp).toLocaleString()}
-                    </span>
-                  </div>
+                  {log.action === "Appointment Booked" && (
+                    <button
+                      onClick={() => handleCancelAppointment(log.id)}
+                      className="p-1 hover:bg-error/10 text-error rounded-lg transition-all focus:outline-none shrink-0"
+                      title={t('cancel') || "Cancel Appointment"}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">cancel</span>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

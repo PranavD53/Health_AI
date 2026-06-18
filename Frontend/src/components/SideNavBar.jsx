@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { api } from '../services/api';
 
 export default function SideNavBar() {
+  const { t } = useLanguage();
   const { user, logout, checkAuth } = useAuth();
   const location = useLocation();
   const [sosLoading, setSosLoading] = useState(false);
@@ -72,8 +74,8 @@ export default function SideNavBar() {
             <span className="material-symbols-outlined text-[24px]">health_and_safety</span>
           </div>
           <div>
-            <p className="text-label-md font-bold text-primary">HealthAI Assistant</p>
-            <p className="text-label-sm text-outline capitalize">Role: {user?.role}</p>
+            <p className="text-label-md font-bold text-primary">{t('assistant')}</p>
+            <p className="text-label-sm text-outline capitalize">{t('role')}: {user?.role}</p>
           </div>
         </div>
 
@@ -83,23 +85,23 @@ export default function SideNavBar() {
             <>
               <Link to="/dashboard" className={getLinkClass('/dashboard')}>
                 <span className="material-symbols-outlined">dashboard</span>
-                <span className="text-label-md">Dashboard</span>
+                <span className="text-label-md">{t('dashboard')}</span>
               </Link>
               <Link to="/appointments" className={getLinkClass('/appointments')}>
                 <span className="material-symbols-outlined">event</span>
-                <span className="text-label-md">Appointments</span>
+                <span className="text-label-md">{t('appointments')}</span>
               </Link>
               <Link to="/records" className={getLinkClass('/records')}>
                 <span className="material-symbols-outlined">description</span>
-                <span className="text-label-md">Medical Records</span>
+                <span className="text-label-md">{t('records')}</span>
               </Link>
               <Link to="/chat" className={getLinkClass('/chat')}>
                 <span className="material-symbols-outlined">chat</span>
-                <span className="text-label-md">Chat Workspace</span>
+                <span className="text-label-md">{t('chat')}</span>
               </Link>
               <Link to="/settings" className={getLinkClass('/settings')}>
                 <span className="material-symbols-outlined">settings</span>
-                <span className="text-label-md">Settings</span>
+                <span className="text-label-md">{t('settings')}</span>
               </Link>
             </>
           )}
@@ -109,7 +111,7 @@ export default function SideNavBar() {
             <>
               <Link to="/dashboard" className={getLinkClass('/dashboard')}>
                 <span className="material-symbols-outlined">dashboard</span>
-                <span className="text-label-md">Workspace</span>
+                <span className="text-label-md">{t('workspace')}</span>
                 {activeAlertsCount > 0 && (
                   <span className="ml-auto bg-error text-on-error text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
                     {activeAlertsCount} SOS
@@ -118,11 +120,11 @@ export default function SideNavBar() {
               </Link>
               <Link to="/chat" className={getLinkClass('/chat')}>
                 <span className="material-symbols-outlined">chat</span>
-                <span className="text-label-md">Chat Workspace</span>
+                <span className="text-label-md">{t('chat')}</span>
               </Link>
               <Link to="/settings" className={getLinkClass('/settings')}>
                 <span className="material-symbols-outlined">settings</span>
-                <span className="text-label-md">Settings</span>
+                <span className="text-label-md">{t('settings')}</span>
               </Link>
             </>
           )}
@@ -132,15 +134,15 @@ export default function SideNavBar() {
             <>
               <Link to="/dashboard" className={getLinkClass('/dashboard')}>
                 <span className="material-symbols-outlined">admin_panel_settings</span>
-                <span className="text-label-md">Admin Portal</span>
+                <span className="text-label-md">{t('adminPortal')}</span>
               </Link>
               <Link to="/chat" className={getLinkClass('/chat')}>
                 <span className="material-symbols-outlined">chat</span>
-                <span className="text-label-md">Chat Workspace</span>
+                <span className="text-label-md">{t('chat')}</span>
               </Link>
               <Link to="/settings" className={getLinkClass('/settings')}>
                 <span className="material-symbols-outlined">settings</span>
-                <span className="text-label-md">Settings</span>
+                <span className="text-label-md">{t('settings')}</span>
               </Link>
             </>
           )}
@@ -156,7 +158,7 @@ export default function SideNavBar() {
               }`}
             >
               <span className="material-symbols-outlined animate-pulse">emergency</span> 
-              {sosLoading ? 'Triggering...' : sosSuccess ? 'SOS Alert Sent!' : 'Emergency SOS'}
+              {sosLoading ? 'Triggering...' : sosSuccess ? 'SOS Alert Sent!' : t('sosTrigger')}
             </button>
           )}
 
@@ -168,7 +170,7 @@ export default function SideNavBar() {
             >
               <span className="material-symbols-outlined">swap_horiz</span>
               <span className="text-label-md">
-                {switching ? 'Switching...' : user.role === 'admin' ? `Switch to ${user.base_role === 'doctor' ? 'Doctor' : 'Patient'} Mode` : 'Switch to Admin Mode'}
+                {switching ? 'Switching...' : user.role === 'admin' ? t('switchToUser') : t('switchToAdmin')}
               </span>
             </button>
           )}
@@ -178,7 +180,7 @@ export default function SideNavBar() {
             className="flex items-center gap-md px-4 py-2 text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-colors text-left focus:outline-none w-full"
           >
             <span className="material-symbols-outlined">logout</span>
-            <span className="text-label-md">Logout</span>
+            <span className="text-label-md">{t('logout')}</span>
           </button>
         </div>
       </aside>

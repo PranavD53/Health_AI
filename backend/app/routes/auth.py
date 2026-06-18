@@ -141,7 +141,7 @@ def require_role(allowed_roles: list[str]):
         return current_user
     return role_dependency
 
-def send_via_brevo(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None, sender_name: str = "Phoenix AI Platform"):
+def send_via_brevo(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None, sender_name: str = "Health AI Platform"):
     token = os.getenv("BREVO_API_KEY")
     if token:
         token = token.strip().strip("\"'")

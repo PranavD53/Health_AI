@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function MedicalRecords() {
+  const { t } = useLanguage();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -76,7 +78,7 @@ export default function MedicalRecords() {
     <div className="space-y-xl animate-in fade-in duration-300">
       <header>
         <h2 className="text-on-surface font-headline-lg text-headline-lg">
-          Medical Records Management
+          {t('records')}
         </h2>
         <p className="text-on-surface-variant font-body-md text-body-md">Store, organize, and view your diagnostic reports and medical files with secure backup.</p>
       </header>

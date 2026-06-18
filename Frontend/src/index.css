@@ -114,8 +114,8 @@
   --color-surface-container-lowest: #ffffff;
   --color-surface-container-low: #f1f5f9;
   --color-surface-container: #f8fafc;
-  --color-surface-container-high: #e2e8f0;
-  --color-surface-container-highest: #cbd5e1;
+  --color-surface-container-high: #f1f5f9;
+  --color-surface-container-highest: #e2e8f0;
   --color-secondary-container: #ebdffc;
   --color-on-secondary-container: #6d28d9;
   --color-outline: #94a3b8;
@@ -132,8 +132,8 @@
   --color-surface-container-lowest: #05050d;
   --color-surface-container-low: #0d0c1d;
   --color-surface-container: #090916;
-  --color-surface-container-high: #1a1932;
-  --color-surface-container-highest: #252340;
+  --color-surface-container-high: #1e1b38;
+  --color-surface-container-highest: #2d2a4a;
   --color-secondary-container: #311c52;
   --color-on-secondary-container: #c084fc;
   --color-outline: #475569;
@@ -169,19 +169,17 @@ body {
 }
 
 .glass-panel {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(15, 76, 129, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.06);
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(15, 76, 129, 0.06);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
 }
 
 .dark .glass-panel {
-  background: rgba(17, 16, 36, 0.7);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4), 0 0 20px rgba(129, 140, 248, 0.08);
+  background: rgba(17, 16, 36, 0.6);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37), 0 0 15px rgba(129, 140, 248, 0.05);
 }
 
 .interactive-card {

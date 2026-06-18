@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function DoctorDashboard() {
+  const { t } = useLanguage();
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
   const [activeSOS, setActiveSOS] = useState([]);
@@ -60,7 +62,7 @@ export default function DoctorDashboard() {
     <div className="space-y-xl animate-in fade-in duration-300">
       <header>
         <h2 className="text-on-surface font-headline-lg text-headline-lg">
-          Clinician Workspace
+          {t('workspace')}
         </h2>
         <p className="text-on-surface-variant font-body-md text-body-md">Manage active patient emergencies, upcoming consultations, and clinical records.</p>
       </header>
@@ -191,7 +193,7 @@ export default function DoctorDashboard() {
         </div>
 
         {/* Patients Summary Directory */}
-        <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg flex flex-col h-full">
+        <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg flex flex-col h-full interactive-card">
           <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
             <span className="material-symbols-outlined text-secondary">group</span>
             Patients Directory

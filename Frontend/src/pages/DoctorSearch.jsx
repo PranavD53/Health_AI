@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function DoctorSearch() {
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const [doctors, setDoctors] = useState([]);
   const [filteredDoctors, setFilteredDoctors] = useState([]);
@@ -111,7 +113,7 @@ export default function DoctorSearch() {
     <div className="space-y-xl animate-in fade-in duration-300">
       <header>
         <h2 className="text-on-surface font-headline-lg text-headline-lg">
-          Find a Medical Specialist
+          {t('appointments')}
         </h2>
         <p className="text-on-surface-variant font-body-md text-body-md">Search across verified clinical specialists and book appointments instantly.</p>
       </header>
@@ -131,10 +133,10 @@ export default function DoctorSearch() {
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
             <input 
               type="text" 
-              placeholder="Search doctors by name, clinic, or specialty..."
+              placeholder={t('searchDocPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:border-secondary text-sm"
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:border-secondary text-sm text-on-surface"
             />
           </div>
           

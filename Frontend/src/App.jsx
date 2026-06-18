@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { LanguageProvider } from './context/LanguageContext';
 import Layout from './components/Layout';
 
 // Pages
@@ -48,9 +49,10 @@ function RecordsRoute() {
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
+    <LanguageProvider>
+      <Router>
+        <AuthProvider>
+          <Routes>
           {/* Public routes */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
@@ -104,6 +106,7 @@ function App() {
         </Routes>
       </AuthProvider>
     </Router>
+  </LanguageProvider>
   );
 }
 

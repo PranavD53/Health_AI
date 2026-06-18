@@ -130,18 +130,21 @@ async def get_dashboard(
             "steps": st.value if st else "8,432 steps"
         }
 
-        # 6. User Activity Logs
-        logs = db.query(models.AuditLog).filter(
-            models.AuditLog.user_id == current_user.id
-        ).order_by(models.AuditLog.timestamp.desc()).limit(5).all()
+        # 6. User Activity Logs (Previously Booked Appointments only)
+        appts = db.query(models.Appointment).filter(
+            models.Appointment.patient_id == current_user.id,
+            models.Appointment.status != "cancelled"
+        ).order_by(models.Appointment.created_at.desc()).limit(5).all()
         
         activity_logs = []
-        for log in logs:
+        for app in appts:
+            doc = db.query(models.Doctor).filter(models.Doctor.id == app.doctor_id).first()
+            doc_name = doc.name if doc else "Doctor"
             activity_logs.append({
-                "id": log.id,
-                "action": log.action,
-                "details": log.details,
-                "timestamp": log.timestamp
+                "id": app.id,
+                "action": "Appointment Booked",
+                "details": f"Scheduled with {doc_name} on {app.date} at {app.time}",
+                "timestamp": app.created_at
             })
             
         if not activity_logs:
@@ -149,7 +152,7 @@ async def get_dashboard(
                 {
                     "id": 1,
                     "action": "Welcome",
-                    "details": "Account initialized.",
+                    "details": "Account initialized. No appointments booked yet.",
                     "timestamp": current_user.created_at
                 }
             ]

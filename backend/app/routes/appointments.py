@@ -182,3 +182,41 @@ def cancel_appointment(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"An error occurred while cancelling the appointment: {str(e)}"
         )
+
+@router.delete("/delete/{id}")
+def delete_appointment(
+    id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        appointment = db.query(models.Appointment).filter(models.Appointment.id == id).first()
+        if not appointment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Appointment not found"
+            )
+
+        # Patients can only delete/cancel their own appointments; Doctors/Admins can delete any
+        if current_user.role == "patient" and appointment.patient_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to delete this appointment"
+            )
+
+        db.delete(appointment)
+        db.commit()
+
+        # Audit logging
+        log_action(db, current_user.id, "DELETE_APPOINTMENT", f"Deleted appointment ID {id}")
+
+        return {"status": "success", "message": "Appointment successfully deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while deleting the appointment: {str(e)}"
+        )
+
