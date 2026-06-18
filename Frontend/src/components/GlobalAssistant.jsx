@@ -6,9 +6,10 @@ import { useLanguage } from '../context/LanguageContext';
 
 export default function GlobalAssistant() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   
   const [tarsVoiceEnabled, setTarsVoiceEnabled] = useState(() => {
     return localStorage.getItem('tars_voice_enabled') !== 'false';
@@ -38,9 +39,70 @@ export default function GlobalAssistant() {
   ]);
   const [inputValue, setInputValue] = useState('');
   const [language, setLanguage] = useState('en-US'); // en-US, hi-IN, te-IN
+
+  useEffect(() => {
+    if (currentLanguage === 'hi') {
+      setLanguage('hi-IN');
+    } else if (currentLanguage === 'te') {
+      setLanguage('te-IN');
+    } else {
+      setLanguage('en-US');
+    }
+  }, [currentLanguage]);
   const [isListening, setIsListening] = useState(false);
   const [backgroundListening, setBackgroundListening] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Load voices for speechSynthesis
+  useEffect(() => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
+      const handleVoices = () => {
+        window.speechSynthesis.getVoices();
+      };
+      window.speechSynthesis.addEventListener('voiceschanged', handleVoices);
+      return () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', handleVoices);
+      };
+    }
+  }, []);
+
+  // Autoplay and run on login via first user interaction
+  useEffect(() => {
+    if (!user || !tarsVoiceEnabled) return;
+
+    const initVoiceOnInteraction = () => {
+      const alreadyGreeted = sessionStorage.getItem('tars_greeted');
+      if (!alreadyGreeted) {
+        sessionStorage.setItem('tars_greeted', 'true');
+        
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+        } catch (e) {}
+
+        playActivationSound();
+        const uiLang = localStorage.getItem('app_lang') || 'en';
+        let greeting = "TARS is active and ready. Say my name to wake me up.";
+        if (uiLang === 'hi') {
+          greeting = "टार्स सक्रिय और तैयार है। मुझे जगाने के लिए मेरा नाम बोलें।";
+        } else if (uiLang === 'te') {
+          greeting = "టార్స్ యాక్టివ్ గా మరియు సిద్ధంగా ఉంది. నన్ను మేల్కొల్పడానికి నా పేరు చెప్పండి.";
+        }
+        speakMessage(greeting);
+      }
+    };
+
+    window.addEventListener('click', initVoiceOnInteraction, { once: true });
+    window.addEventListener('keydown', initVoiceOnInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('click', initVoiceOnInteraction);
+      window.removeEventListener('keydown', initVoiceOnInteraction);
+    };
+  }, [user, tarsVoiceEnabled]);
   
   const messagesEndRef = useRef(null);
   const bgRecognitionRef = useRef(null);
@@ -153,6 +215,7 @@ export default function GlobalAssistant() {
   const speakMessage = (text, callback = null) => {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+      setIsSpeaking(true);
       const utterance = new SpeechSynthesisUtterance(text);
       const voices = window.speechSynthesis.getVoices();
       
@@ -194,68 +257,42 @@ export default function GlobalAssistant() {
       utterance.pitch = 1.15; 
       utterance.rate = 0.82; 
       
-      if (callback) {
-        utterance.onend = callback;
-        utterance.onerror = callback; // fallback to continue even on error
-      }
+      const handleEnd = () => {
+        setIsSpeaking(false);
+        if (callback) callback();
+      };
+      
+      utterance.onend = handleEnd;
+      utterance.onerror = handleEnd; // fallback to continue even on error
       
       window.speechSynthesis.speak(utterance);
-    } else if (callback) {
-      callback();
+    } else {
+      setIsSpeaking(false);
+      if (callback) callback();
     }
   };
 
-  // Unified Toggle Open / Hello Greeting & Exit Goodbye sequence
-  const toggleOpen = (shouldOpen) => {
-    if (shouldOpen) {
-      playActivationSound();
-      setIsOpen(true);
-      
-      // Determine greeting based on current UI language
-      const uiLang = localStorage.getItem('app_lang') || 'en';
-      let greeting = "Hello, how can I assist you today?";
-      if (uiLang === 'hi') {
-        greeting = "नमस्ते, आज मैं आपकी क्या सहायता कर सकता हूँ?";
-      } else if (uiLang === 'te') {
-        greeting = "నమస్కారం, ఈ రోజు నేను మీకు ఎలా సహాయపడగలను?";
-      }
+  const cancelSpeech = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+  };
 
-      setMessages(prev => [...prev, { role: 'assistant', content: greeting }]);
-      
-      setTimeout(() => {
-        speakMessage(greeting, () => {
-          if (tarsVoiceEnabled) {
-            setVoiceSessionActive(true);
-            startListening();
-          }
-        });
-      }, 350);
-    } else {
-      playDeactivationSound();
-      
-      const uiLang = localStorage.getItem('app_lang') || 'en';
-      let goodbye = "It's been a pleasure working with you.";
-      if (uiLang === 'hi') {
-        goodbye = "आपके साथ काम करके बेहद खुशी हुई।";
-      } else if (uiLang === 'te') {
-        goodbye = "మీతో కలిసి పనిచేయడం సంతోషంగా ఉంది.";
-      }
-      
-      setMessages(prev => [...prev, { role: 'assistant', content: goodbye }]);
-      speakMessage(goodbye);
-      
+  // Cleanup speech and active listener when voice toggle is disabled manually
+  useEffect(() => {
+    if (!tarsVoiceEnabled) {
+      cancelSpeech();
       setVoiceSessionActive(false);
       if (activeRecognitionRef.current) {
         try { activeRecognitionRef.current.stop(); } catch(e){}
       }
-      setIsOpen(false);
-      setShowSettings(false);
     }
-  };
+  }, [tarsVoiceEnabled]);
 
-  // Background Standby listener logic
+  // Background Standby listener logic (runs globally, halts when speaking, active listening, or in session)
   useEffect(() => {
-    if (!user || !tarsVoiceEnabled || isOpen || isListening) {
+    if (!user || !tarsVoiceEnabled || isListening || isSpeaking || voiceSessionActive) {
       if (bgRecognitionRef.current) {
         try {
           bgRecognitionRef.current.stop();
@@ -283,16 +320,16 @@ export default function GlobalAssistant() {
 
     bgRec.onend = () => {
       setBackgroundListening(false);
-      if (user && tarsVoiceEnabled && !isOpen && !isListening && bgRecognitionRef.current === bgRec) {
+      if (user && tarsVoiceEnabled && !isListening && !isSpeaking && !voiceSessionActive && bgRecognitionRef.current === bgRec) {
         setTimeout(() => {
-          if (user && tarsVoiceEnabled && !isOpen && !isListening && bgRecognitionRef.current === bgRec) {
+          if (user && tarsVoiceEnabled && !isListening && !isSpeaking && !voiceSessionActive && bgRecognitionRef.current === bgRec) {
             try {
               bgRec.start();
             } catch (e) {
               console.error("Failed to restart background listener", e);
             }
           }
-        }, 3000);
+        }, 1500);
       }
     };
 
@@ -305,11 +342,47 @@ export default function GlobalAssistant() {
       const transcript = event.results[lastIndex][0].transcript.trim();
       console.log("Background heard:", transcript);
 
-      if (isActivationCommand(transcript)) {
+      const transcriptLower = transcript.toLowerCase();
+      const containsWakeWord = transcriptLower.includes("tars") || 
+                               transcriptLower.includes("tarz") || 
+                               transcriptLower.includes("stars") || 
+                               transcriptLower.includes("टार्स") || 
+                               transcriptLower.includes("టార్స్");
+
+      if (containsWakeWord) {
         try {
           bgRec.stop();
         } catch (e) {}
-        toggleOpen(true);
+
+        let processedText = transcript
+          .replace(/tars/gi, '')
+          .replace(/tarz/gi, '')
+          .replace(/stars/gi, '')
+          .replace(/टार्स/gi, '')
+          .replace(/టార్స్/gi, '')
+          .trim();
+
+        // Clean up leading/trailing punctuation/spaces
+        processedText = processedText.replace(/^[,.\s]+|[,.\s]+$/g, '');
+
+        playActivationSound();
+        setVoiceSessionActive(true);
+
+        if (processedText.length > 1) {
+          handleSend(processedText);
+        } else {
+          // Greet and start active listening
+          const uiLang = localStorage.getItem('app_lang') || 'en';
+          let greeting = "Yes, I am listening.";
+          if (uiLang === 'hi') {
+            greeting = "जी, मैं सुन रहा हूँ।";
+          } else if (uiLang === 'te') {
+            greeting = "అవును, నేను వింటున్నాను.";
+          }
+          speakMessage(greeting, () => {
+            startListening();
+          });
+        }
       }
     };
 
@@ -326,7 +399,7 @@ export default function GlobalAssistant() {
         bgRec.stop();
       } catch (e) {}
     };
-  }, [user, tarsVoiceEnabled, isOpen, isListening, language]);
+  }, [user, tarsVoiceEnabled, isListening, isSpeaking, voiceSessionActive, language]);
 
   const startListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -341,10 +414,14 @@ export default function GlobalAssistant() {
       } catch (e) {}
     }
 
+    cancelSpeech();
+
     const recognition = new SpeechRecognition();
     recognition.lang = language;
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
+
+    let resultReceived = false;
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -352,21 +429,35 @@ export default function GlobalAssistant() {
     
     recognition.onend = () => {
       setIsListening(false);
+      if (!resultReceived && voiceSessionActive) {
+        playDeactivationSound();
+        setVoiceSessionActive(false);
+      }
     };
 
     recognition.onerror = (e) => {
       console.error("Active recognition error:", e);
       setIsListening(false);
-      setVoiceSessionActive(false);
+      if (e.error !== 'aborted' && voiceSessionActive) {
+        playDeactivationSound();
+        setVoiceSessionActive(false);
+      }
     };
 
     recognition.onresult = (event) => {
+      resultReceived = true;
       const transcript = event.results[0][0].transcript.trim();
       setInputValue(transcript);
 
       // Check for voice deactivation command
       if (isDeactivationCommand(transcript)) {
-        toggleOpen(false);
+        playDeactivationSound();
+        const uiLang = localStorage.getItem('app_lang') || 'en';
+        let goodbye = "Goodbye.";
+        if (uiLang === 'hi') goodbye = "अलविदा।";
+        else if (uiLang === 'te') goodbye = "సెలవు.";
+        speakMessage(goodbye);
+        setVoiceSessionActive(false);
         return;
       }
 
@@ -405,7 +496,21 @@ export default function GlobalAssistant() {
       }
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+      const errorMsg = `Error: ${err.message}`;
+      setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
+      
+      const uiLang = localStorage.getItem('app_lang') || 'en';
+      let speechError = "Sorry, I encountered an error. Please try again.";
+      if (uiLang === 'hi') speechError = "क्षमा करें, मुझे कोई त्रुटि मिली। कृपया पुनः प्रयास करें।";
+      else if (uiLang === 'te') speechError = "క్షమించండి, ఒక లోపం సంభవించింది. దయచేసి మళ్ళీ ప్రయత్నించండి.";
+      
+      speakMessage(speechError, () => {
+        if (voiceSessionActive) {
+          setTimeout(() => {
+            startListening();
+          }, 300);
+        }
+      });
     } finally {
       setLoading(false);
     }
@@ -414,6 +519,14 @@ export default function GlobalAssistant() {
   const handleAction = async (action) => {
     const { type, parameters } = action;
     setMessages(prev => [...prev, { role: 'system', content: `Executing system action: ${type.replace('_', ' ')}...` }]);
+
+    const resumeVoice = () => {
+      if (voiceSessionActive) {
+        setTimeout(() => {
+          startListening();
+        }, 300);
+      }
+    };
 
     try {
       if (type === 'find_doctors') {
@@ -441,13 +554,15 @@ export default function GlobalAssistant() {
         const time = parameters.time || '10:00';
         
         await api.bookAppointment(docId, date, time);
-        setMessages(prev => [...prev, { role: 'assistant', content: `Appointment successfully booked for ${date} at ${time}!` }]);
-        speakMessage("Appointment successfully booked!");
+        const successMsg = `Appointment successfully booked for ${date} at ${time}!`;
+        setMessages(prev => [...prev, { role: 'assistant', content: successMsg }]);
+        speakMessage(successMsg, resumeVoice);
       } else if (type === 'lodge_complaint') {
         const msg = parameters.message || 'General Complaint';
         await api.submitComplaint(msg);
+        const successMsg = "Your complaint has been successfully filed with the admin panel.";
         setMessages(prev => [...prev, { role: 'assistant', content: `I have lodged your complaint in our admin panel. Our support team will resolve this shortly.` }]);
-        speakMessage("Your complaint has been successfully filed with the admin panel.");
+        speakMessage(successMsg, resumeVoice);
       } else if (type === 'analyze_symptom') {
         const sym = parameters.symptoms || '';
         const dur = parameters.duration || '1 day';
@@ -455,7 +570,7 @@ export default function GlobalAssistant() {
         
         const data = await api.analyzeSymptom(sym, dur, sev);
         setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
-        speakMessage(data.reply);
+        speakMessage(data.reply, resumeVoice);
       }
     } catch (err) {
       console.error(err);
@@ -464,6 +579,46 @@ export default function GlobalAssistant() {
   };
 
   if (!user) return null;
+
+  // Compute HUD state for TARS voice assistant
+  let hudIcon = 'forum';
+  let hudBg = 'bg-primary hover:bg-primary/95';
+  let hudTitle = t('assistant');
+
+  if (isOpen) {
+    hudIcon = 'close';
+    hudTitle = 'Close TARS';
+  } else {
+    if (loading) {
+      hudIcon = 'progress_activity';
+      hudBg = 'bg-indigo-600 hover:bg-indigo-700';
+      hudTitle = 'TARS is thinking...';
+    } else if (isListening) {
+      hudIcon = 'graphic_eq';
+      hudBg = 'bg-emerald-600 hover:bg-emerald-700';
+      hudTitle = 'TARS is listening... Speak now';
+    } else if (isSpeaking) {
+      hudIcon = 'volume_up';
+      hudBg = 'bg-cyan-600 hover:bg-cyan-700';
+      hudTitle = 'TARS is speaking...';
+    } else {
+      hudIcon = 'forum';
+      hudBg = tarsVoiceEnabled ? 'bg-primary hover:bg-primary/95' : 'bg-outline/60 hover:bg-outline/70';
+      hudTitle = tarsVoiceEnabled ? 'TARS Voice Standby is Active' : 'TARS Voice Standby is Disabled';
+    }
+  }
+
+  // Halos based on voice states
+  let haloColor = '';
+  if (loading) {
+    haloColor = 'border-indigo-500';
+  } else if (isListening) {
+    haloColor = 'border-emerald-500';
+  } else if (isSpeaking) {
+    haloColor = 'border-cyan-500';
+  } else if (tarsVoiceEnabled && !isOpen) {
+    haloColor = 'border-emerald-500/50';
+  }
 
   return (
     <div className="fixed bottom-6 right-6 z-[90] flex flex-col items-end">
@@ -657,8 +812,9 @@ export default function GlobalAssistant() {
               <div className="p-3 border-t border-outline-variant bg-white flex gap-sm items-center">
                 <button 
                   onClick={() => {
-                    if (isListening) {
+                    if (isListening || isSpeaking) {
                       setVoiceSessionActive(false);
+                      cancelSpeech();
                       if (activeRecognitionRef.current) {
                         try {
                           activeRecognitionRef.current.stop();
@@ -670,11 +826,11 @@ export default function GlobalAssistant() {
                     }
                   }}
                   className={`p-2 rounded-full transition-all focus:outline-none ${
-                    isListening ? 'bg-error text-white animate-pulse' : 'bg-surface-container-high text-outline hover:text-secondary'
+                    (isListening || isSpeaking) ? 'bg-error text-white animate-pulse' : 'bg-surface-container-high text-outline hover:text-secondary'
                   }`}
-                  title={isListening ? "Listening... Click to stop" : "Click to speak"}
+                  title={(isListening || isSpeaking) ? "Stop Assistant" : "Click to speak"}
                 >
-                  <span className="material-symbols-outlined">{isListening ? 'mic' : 'mic_off'}</span>
+                  <span className="material-symbols-outlined">{(isListening || isSpeaking) ? 'mic' : 'mic_off'}</span>
                 </button>
                 
                 <input 
@@ -698,21 +854,30 @@ export default function GlobalAssistant() {
         </div>
       )}
 
-      {/* Launcher Button with TARS background listening indicator */}
+      {/* Launcher Button with dynamic TARS HUD */}
       <button 
-        onClick={() => toggleOpen(!isOpen)}
-        className="w-14 h-14 bg-primary hover:bg-primary/95 text-white rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-all focus:outline-none relative"
-        title={tarsVoiceEnabled ? "TARS Voice Standby is Active" : "TARS Voice Standby is Disabled"}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-14 h-14 ${hudBg} text-white rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-all duration-300 focus:outline-none relative`}
+        title={hudTitle}
       >
-        {tarsVoiceEnabled && !isOpen && (
-          <span className="absolute -inset-1.5 rounded-full border-2 border-emerald-500 animate-ping opacity-45 pointer-events-none"></span>
+        {/* Glowing Halo Rings */}
+        {haloColor && (
+          <span className={`absolute -inset-1.5 rounded-full border-2 ${haloColor} ${
+            isListening ? 'animate-ping duration-1000' : isSpeaking ? 'animate-pulse' : tarsVoiceEnabled && !isOpen ? 'animate-pulse opacity-50' : 'animate-pulse'
+          } pointer-events-none`}></span>
         )}
-        {tarsVoiceEnabled && !isOpen && (
+        
+        {/* Status Indicator Dot (Standby) */}
+        {tarsVoiceEnabled && !isOpen && !isListening && !isSpeaking && !loading && (
           <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-md">
             <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
           </span>
         )}
-        <span className="material-symbols-outlined text-[28px]">{isOpen ? 'close' : 'forum'}</span>
+        
+        {/* Icon */}
+        <span className={`material-symbols-outlined text-[28px] ${hudIcon === 'progress_activity' ? 'animate-spin' : ''}`}>
+          {hudIcon}
+        </span>
       </button>
     </div>
   );

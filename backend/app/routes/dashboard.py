@@ -46,7 +46,25 @@ HEALTH_TIPS = [
     "Limit processed sugars and focus on whole food sources to stabilize energy levels and prevent mid-day crashes."
 ]
 
-async def fetch_ai_health_tip() -> str:
+HEALTH_TIPS_HI = [
+    "हाइड्रेटेड रहें! पाचन, ऊर्जा और समग्र स्वास्थ्य का समर्थन करने के लिए रोजाना कम से कम 8-10 गिलास पानी पीने का लक्ष्य रखें।",
+    "आज रात 7-8 घंटे की आरामदायक नींद को प्राथमिकता दें। मांसपेशियों की मरम्मत, ध्यान केंद्रित करने और प्रतिरक्षा कार्य के लिए गुणवत्तापूर्ण नींद आवश्यक है।",
+    "कार्डियोवैश्वुलर ताकत और मूड को बेहतर करने के लिए 30 मिनट की मध्यम गतिविधि, जैसे तेज चलना, शामिल करने का प्रयास करें।",
+    "अपने शरीर को महत्वपूर्ण एंटीऑक्सीडेंट और फाइबर की आपूर्ति करने के लिए अपनी प्लेट के आधे हिस्से को रंगीन सब्जियों और फलों से भरें।",
+    "गहरी सांस लेने या माइंडफुलनेस के लिए आज 5 मिनट का समय निकालें। तनाव का प्रबंधन करना रक्तचाप को नियंत्रित करने में बहुत मदद करता है।",
+    "प्रसंस्कृत शर्करा को सीमित करें और ऊर्जा के स्तर को स्थिर करने और दोपहर के समय की मंदी को रोकने के लिए संपूर्ण खाद्य स्रोतों पर ध्यान केंद्रित करें।"
+]
+
+HEALTH_TIPS_TE = [
+    "హైడ్రేటెడ్ గా ఉండండి! జీర్ణక్రియ, శక్తి మరియు మొత్తం ఆరోగ్యానికి తోడ్పడటానికి రోజుకు కనీసం 8-10 గ్లాసుల నీరు త్రాగాలని లక్ష్యంగా పెట్టుకోండి.",
+    "ఈ రాత్రి 7-8 గంటల ప్రశాంతమైన నిద్రకు ప్రాధాన్యత ఇవ్వండి. కండరాల మరమ్మత్తు, ఏకాగ్రత మరియు రోగనిరోధక శక్తి కోసం నాణ్యమైన నిద్ర చాలా అవసరం.",
+    "గుండె బలాన్ని మరియు మానసిక స్థితిని మెరుగుపరచడానికి 30 నిమిషాల మధ్యస్థ కార్యాచరణను, ఉదాహరణకు వేగంగా నడవడం వంటివి చేర్చడానికి ప్రయత్నించండి.",
+    "మీ శరీరానికి అవసరమైన యాంటీఆక్సిడెంట్లు మరియు ఫైబర్‌లను అందించడానికి మీ ప్లేట్‌లో సగం రంగురంగుల కూరగాయలు మరియు పండ్లతో నింపండి.",
+    "ఈ రోజు లోతైన శ్వాస లేదా మైండ్‌ఫుల్‌నెస్ కోసం 5 నిమిషాలు కేటాయించండి. రక్తపోటును నియంత్రించడంలో ఒత్తిడిని నిర్వహించడం చాలా సహాయపడుతుంది.",
+    "ప్రాసెస్ చేసిన చక్కెరలను పరిమితం చేయండి మరియు శక్తి స్థాయిలను స్థిరంగా ఉంచడానికి మరియు మధ్యాహ్నం అలసటను నివారించడానికి సహజ ఆహార వనరులపై దృష్టి పెట్టండి."
+]
+
+async def fetch_ai_health_tip(lang: str = "en") -> str:
     groq_key = os.getenv("GROQ_API_KEY", "")
     has_valid_key = groq_key and not groq_key.startswith("your_groq_api_key")
     
@@ -57,7 +75,14 @@ async def fetch_ai_health_tip() -> str:
                     "You are a helpful wellness and healthcare assistant. "
                     "Give a single, concise daily health or wellness tip."
                 )
-                user_prompt = "Generate a single random, concise health tip in 1-2 sentences. Return only the tip text."
+                
+                lang_name = "English"
+                if lang == "hi":
+                    lang_name = "Hindi"
+                elif lang == "te":
+                    lang_name = "Telugu"
+                    
+                user_prompt = f"Generate a single random, concise health tip in 1-2 sentences. Return only the tip text in the language: {lang_name}."
                 
                 response = await client.post(
                     "https://api.groq.com/openai/v1/chat/completions",
@@ -72,7 +97,7 @@ async def fetch_ai_health_tip() -> str:
                             {"role": "user", "content": user_prompt}
                         ],
                         "temperature": 0.7,
-                        "max_tokens": 100
+                        "max_tokens": 120
                     },
                     timeout=5.0
                 )
@@ -87,12 +112,17 @@ async def fetch_ai_health_tip() -> str:
         except Exception as e:
             print(f"Failed to fetch AI health tip: {e}")
             
+    if lang == "hi":
+        return random.choice(HEALTH_TIPS_HI)
+    elif lang == "te":
+        return random.choice(HEALTH_TIPS_TE)
     return random.choice(HEALTH_TIPS)
 
 # --- Endpoints ---
 
 @router.get("", response_model=DashboardResponse)
 async def get_dashboard(
+    lang: Optional[str] = "en",
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -117,7 +147,7 @@ async def get_dashboard(
         ).order_by(models.MedicalRecord.uploaded_at.desc()).limit(5).all()
 
         # 4. AI Health Tip
-        health_tip = await fetch_ai_health_tip()
+        health_tip = await fetch_ai_health_tip(lang)
 
         # 5. Patient Metrics
         hr = db.query(models.PatientMetric).filter(models.PatientMetric.user_id == current_user.id, models.PatientMetric.metric_type == "heart_rate").order_by(models.PatientMetric.recorded_at.desc()).first()

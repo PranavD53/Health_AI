@@ -178,9 +178,8 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Dashboard endpoints
-  getPatientDashboard: async () => {
-    const res = await fetch('/dashboard-data', {
+  getPatientDashboard: async (lang = 'en') => {
+    const res = await fetch(`/dashboard-data?lang=${lang}`, {
       method: 'GET',
       headers: getHeaders()
     });

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function PatientDashboard() {
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
@@ -14,7 +14,7 @@ export default function PatientDashboard() {
 
   const loadDashboard = async () => {
     try {
-      const data = await api.getPatientDashboard();
+      const data = await api.getPatientDashboard(currentLanguage);
       setDashboardData(data);
     } catch (err) {
       console.error(err);
@@ -26,7 +26,7 @@ export default function PatientDashboard() {
 
   useEffect(() => {
     loadDashboard();
-  }, []);
+  }, [currentLanguage]);
 
   const handleCancelAppointment = async (apptId) => {
     if (window.confirm("Are you sure you want to cancel this appointment?")) {

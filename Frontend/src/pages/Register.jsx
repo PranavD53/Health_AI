@@ -105,7 +105,7 @@ export default function Register() {
   return (
     <div className="bg-background text-on-surface min-h-screen flex overflow-hidden">
       {/* Left Branding Section */}
-      <section className="hidden lg:flex flex-col justify-between w-[45%] bg-primary-container relative overflow-hidden p-3xl">
+      <section className="hidden lg:flex flex-col justify-between w-[45%] bg-primary relative overflow-hidden p-3xl">
         <div className="relative z-10">
           <div className="flex items-center gap-sm mb-xl">
             <span className="material-symbols-outlined text-primary-fixed-dim text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>health_and_safety</span>

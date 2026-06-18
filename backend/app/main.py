@@ -885,8 +885,13 @@ async def global_ai_assistant(
                 "role": "system",
                 "content": (
                     "You are the HealthAI Global Assistant, a compassionate, precise, and highly fluent multilingual AI healthcare assistant.\n"
-                    "You MUST converse fluently in English, Hindi (हिन्दी), Hinglish (transliterated Hindi, e.g. 'appointment book kar do'), Telugu (తెలుగు), or Telugu-transliterated (e.g. 'appointment book cheyyi') based on the user's preferred language or style.\n"
-                    "Always reply in the same language style the user uses. If they use Hinglish or Telugu-transliterated, reply in the same transliterated style so it reads naturally.\n\n"
+                    "LANGUAGE PROTOCOL:\n"
+                    "- If the user communicates in English, you MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, or Telugu words.\n"
+                    "- If the user communicates in Hindi (हिन्दी), respond in Hindi.\n"
+                    "- If the user communicates in Telugu (తెలుగు), respond in Telugu.\n"
+                    "- Only respond in Hinglish (e.g., 'Aapka appointment book ho gaya hai') if the user explicitly typed their message in Hinglish.\n"
+                    "- Only respond in Telugu-transliterated (e.g., 'Me appointment book ayyindi') if the user explicitly typed their message in Telugu-transliterated.\n"
+                    "- Automatically detect and align with the user's input language style. Never default to Hinglish or transliterated styles for plain English queries.\n\n"
                     "CRITICAL RESPONSE LENGTH CONSTRAINT:\n"
                     "You MUST provide extremely concise, short, direct, and helpful answers (maximum 2-3 sentences, 40-50 words max). "
                     "Do NOT write long paragraphs. Get straight to the point and do not drag the conversation.\n\n"
@@ -1073,8 +1078,41 @@ async def global_ai_assistant(
         action_match = re.search(r'\[ACTION:\s*(\{.*?\})\s*\]', reply, re.DOTALL)
         if action_match:
             try:
-                action = json.loads(action_match.group(1))
-                reply = reply.replace(action_match.group(0), "").strip()
+                parsed_action = json.loads(action_match.group(1))
+                if parsed_action.get("type") == "book_appointment":
+                    # Check recent conversation history user messages for doctor, date, and time
+                    user_texts = " ".join([m.content.lower() for m in history_msgs if m.role == "user"])
+                    user_texts += " " + input_data.message.lower()
+                    
+                    doc_keywords = ["smith", "johnson", "brown", "prince", "wright", "cardiology", "dermatology", "medicine", "neurology", "pediatrics", "doctor", "specialist", "डॉक्टर", "विशेषज्ञ", "డాక్టర్", "వైద్యుడు"]
+                    date_keywords = ["tomorrow", "today", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "date", "/", "कल", "आज", "तारीख", "दिनांक", "రేపు", "ఈ రోజు", "తేదీ"]
+                    time_keywords = ["am", "pm", "morning", "afternoon", "evening", "o'clock", ":", "time", "बजे", "समय", "सुबह", "शाम", "दोपहर", "గంటల", "సమయం"]
+                    
+                    has_doctor = any(d in user_texts for d in doc_keywords)
+                    has_date = any(d in user_texts for d in date_keywords)
+                    has_time = any(t in user_texts for t in time_keywords)
+                    
+                    if not (has_doctor and has_date and has_time):
+                        action = None
+                        user_query = input_data.message
+                        detected_lang = "en"
+                        if any(ord(c) >= 0x0900 and ord(c) <= 0x097F for c in user_query):
+                            detected_lang = "hi"
+                        elif any(ord(c) >= 0x0C00 and ord(c) <= 0x0C7F for c in user_query):
+                            detected_lang = "te"
+                            
+                        if detected_lang == "hi":
+                            reply = "अपॉइंटमेंट बुक करने के लिए, मुझे कुछ और विवरण चाहिए। आप किस डॉक्टर से मिलना चाहते हैं, और किस तारीख और समय पर?"
+                        elif detected_lang == "te":
+                            reply = "అపాయింట్‌మెంట్ బుక్ చేయడానికి, నాకు మరికొన్ని వివరాలు కావాలి. మీరు ఏ వైద్యుడిని సంప్రదించాలనుకుంటున్నారు, మరియు ఏ తేదీ మరియు సమయంలో?"
+                        else:
+                            reply = "To book your appointment, I need a few more details. Which doctor or specialization would you like to consult, and on what date and time?"
+                    else:
+                        action = parsed_action
+                        reply = reply.replace(action_match.group(0), "").strip()
+                else:
+                    action = parsed_action
+                    reply = reply.replace(action_match.group(0), "").strip()
             except Exception as ex:
                 print(f"Action parse error: {ex}")
 
