@@ -9,7 +9,9 @@ from dotenv import load_dotenv
 env_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./healthcare.db")
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL environment variable is missing. Supabase connection required.")
 
 # Normalize postgres URL schema for SQLAlchemy 1.4+
 if DATABASE_URL.startswith("postgres://"):
