@@ -35,6 +35,8 @@
   --color-inverse-on-surface: #ebf1ff;
   --color-on-primary-fixed: #001c37;
   --color-error: #ba1a1a;
+  --color-success: #10b981;
+  --color-on-success: #ffffff;
   --color-surface-bright: #f9f9ff;
   --color-tertiary: #303436;
   --color-surface-variant: #d8e3fa;

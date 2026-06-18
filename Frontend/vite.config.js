@@ -21,6 +21,11 @@ export default defineConfig({
       '/admin/': 'http://127.0.0.1:8000',
       '/doctor/': 'http://127.0.0.1:8000'
     }
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/setupTests.js'],
   }
 })
 

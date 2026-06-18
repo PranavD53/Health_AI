@@ -95,7 +95,7 @@ export default function AdminDashboard() {
   const handleDeleteUser = async (userId) => {
     const confirmed = window.confirm("Are you sure you want to permanently delete this user account and all their medical, appointment, and communication history? This action is irreversible.");
     if (!confirmed) return;
-    
+
     setError('');
     setSuccessMsg('');
     try {
@@ -110,7 +110,7 @@ export default function AdminDashboard() {
   const handleCancelAppointment = async (apptId) => {
     const confirmed = window.confirm("Are you sure you want to cancel this appointment?");
     if (!confirmed) return;
-    
+
     setError('');
     setSuccessMsg('');
     try {
@@ -203,31 +203,28 @@ export default function AdminDashboard() {
       {/* Control Tabs */}
       <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm overflow-hidden interactive-card">
         <div className="border-b border-outline-variant/30 bg-surface flex overflow-x-auto">
-          <button 
+          <button
             onClick={() => setActiveSubTab('verifications')}
-            className={`px-6 py-4 font-bold text-sm flex items-center gap-xs focus:outline-none transition-colors border-b-2 ${
-              activeSubTab === 'verifications' ? 'border-primary text-primary' : 'border-transparent text-outline hover:text-on-surface'
-            }`}
+            className={`px-6 py-4 font-bold text-sm flex items-center gap-xs focus:outline-none transition-colors border-b-2 ${activeSubTab === 'verifications' ? 'border-primary text-primary' : 'border-transparent text-outline hover:text-on-surface'
+              }`}
           >
             <span className="material-symbols-outlined">verified_user</span>
             Verification Queue ({dashboardData?.verification_queue?.length || 0})
           </button>
-          
-          <button 
+
+          <button
             onClick={() => setActiveSubTab('users')}
-            className={`px-6 py-4 font-bold text-sm flex items-center gap-xs focus:outline-none transition-colors border-b-2 ${
-              activeSubTab === 'users' ? 'border-primary text-primary' : 'border-transparent text-outline hover:text-on-surface'
-            }`}
+            className={`px-6 py-4 font-bold text-sm flex items-center gap-xs focus:outline-none transition-colors border-b-2 ${activeSubTab === 'users' ? 'border-primary text-primary' : 'border-transparent text-outline hover:text-on-surface'
+              }`}
           >
             <span className="material-symbols-outlined">group</span>
             User Management ({dashboardData?.users?.length || 0})
           </button>
 
-          <button 
+          <button
             onClick={() => setActiveSubTab('complaints')}
-            className={`px-6 py-4 font-bold text-sm flex items-center gap-xs focus:outline-none transition-colors border-b-2 ${
-              activeSubTab === 'complaints' ? 'border-primary text-primary' : 'border-transparent text-outline hover:text-on-surface'
-            }`}
+            className={`px-6 py-4 font-bold text-sm flex items-center gap-xs focus:outline-none transition-colors border-b-2 ${activeSubTab === 'complaints' ? 'border-primary text-primary' : 'border-transparent text-outline hover:text-on-surface'
+              }`}
           >
             <span className="material-symbols-outlined">support_agent</span>
             Patient Complaints ({complaints.filter(c => c.status === 'pending').length || 0})
@@ -257,7 +254,7 @@ export default function AdminDashboard() {
                         )}
                         <p className="text-xs text-outline font-medium mt-xs">Email Contact: {req.contact}</p>
                       </div>
-                      
+
                       <div className="flex gap-md items-center w-full md:w-auto">
                         <button
                           onClick={() => {
@@ -276,14 +273,14 @@ export default function AdminDashboard() {
                           <span className="material-symbols-outlined text-[16px]">file_open</span>
                           View Documents
                         </button>
-                        
+
                         <button
                           onClick={() => handleVerifyDoctor(req.id, 'verified')}
-                          className="px-3 py-1.5 bg-success text-on-secondary text-xs font-bold rounded-lg hover:opacity-90 focus:outline-none"
+                          className="px-3 py-1.5 bg-success text-white text-xs font-bold rounded-lg hover:opacity-90 focus:outline-none"
                         >
                           Approve
                         </button>
-                        
+
                         <button
                           onClick={() => handleVerifyDoctor(req.id, 'rejected')}
                           className="px-3 py-1.5 bg-error text-on-error text-xs font-bold rounded-lg hover:opacity-90 focus:outline-none"
@@ -324,9 +321,8 @@ export default function AdminDashboard() {
                       </td>
                       <td className="py-3.5 capitalize text-secondary font-semibold">{u.role}</td>
                       <td className="py-3.5">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          u.is_active ? 'bg-success/10 text-success' : 'bg-error-container/20 text-error'
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.is_active ? 'bg-success/10 text-success' : 'bg-error-container/20 text-error'
+                          }`}>
                           {u.is_active ? 'Active' : 'Deactivated'}
                         </span>
                       </td>
@@ -356,9 +352,8 @@ export default function AdminDashboard() {
                           )}
                           <button
                             onClick={() => handleToggleUser(u.id, u.is_active)}
-                            className={`px-2.5 py-1 text-xs font-bold rounded-lg ${
-                              u.is_active ? 'border border-error/20 text-error hover:bg-error/5' : 'bg-primary text-white hover:opacity-95'
-                            }`}
+                            className={`px-2.5 py-1 text-xs font-bold rounded-lg ${u.is_active ? 'border border-error/20 text-error hover:bg-error/5' : 'bg-primary text-white hover:opacity-95'
+                              }`}
                           >
                             {u.is_active ? 'Deactivate' : 'Activate'}
                           </button>
@@ -392,9 +387,8 @@ export default function AdminDashboard() {
                       <div className="space-y-xs max-w-2xl">
                         <div className="flex items-center gap-sm">
                           <span className="font-bold text-primary text-sm">{c.user_email}</span>
-                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                            c.status === 'resolved' ? 'bg-success/10 text-success' : 'bg-error-container/20 text-error'
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${c.status === 'resolved' ? 'bg-success/10 text-success' : 'bg-error-container/20 text-error'
+                            }`}>
                             {c.status}
                           </span>
                         </div>
@@ -405,7 +399,7 @@ export default function AdminDashboard() {
                           Submitted: {new Date(c.created_at).toLocaleString()}
                         </span>
                       </div>
-                      
+
                       {c.status === 'pending' && (
                         <button
                           onClick={() => handleResolveComplaint(c.id)}

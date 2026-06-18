@@ -544,6 +544,18 @@ def request_admin(current_user: models.User = Depends(get_current_user), db: Ses
             raise HTTPException(status_code=400, detail="User is already an admin")
         
         current_user.admin_requested = True
+        
+        # Notify admins about the request
+        admins = db.query(models.User).filter(models.User.role == "admin").all()
+        for admin in admins:
+            notif = models.Notification(
+                user_id=admin.id,
+                message=f"User {current_user.email} has requested an Admin Role Promotion.",
+                notification_type="admin_promotion_request",
+                is_read=False
+            )
+            db.add(notif)
+            
         db.commit()
         
         log_action(db, current_user.id, "REQUEST_ADMIN_ROLE", f"User {current_user.email} requested admin promotion")
@@ -571,6 +583,16 @@ def approve_admin(
         user.has_admin_permission = True
         user.role = "admin"
         user.admin_requested = False
+        
+        # Notify the user about the approval
+        notif = models.Notification(
+            user_id=user.id,
+            message="Your Admin Role Promotion request has been approved. Your role has been updated successfully.",
+            notification_type="admin_promotion_approved",
+            is_read=False
+        )
+        db.add(notif)
+        
         db.commit()
         
         log_action(db, current_user.id, "APPROVE_ADMIN_PROMOTION", f"Superadmin promoted user {user.email} to Admin")
@@ -596,6 +618,16 @@ def reject_admin(
             raise HTTPException(status_code=404, detail="User not found")
         
         user.admin_requested = False
+        
+        # Notify the user about the rejection
+        notif = models.Notification(
+            user_id=user.id,
+            message="Your Admin Role Promotion request has been rejected. Please contact the administrator for more information.",
+            notification_type="admin_promotion_rejected",
+            is_read=False
+        )
+        db.add(notif)
+        
         db.commit()
         
         log_action(db, current_user.id, "REJECT_ADMIN_PROMOTION", f"Superadmin rejected admin request for user {user.email}")

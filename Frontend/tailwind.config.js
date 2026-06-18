@@ -41,6 +41,8 @@ export default {
         "inverse-on-surface": "#ebf1ff",
         "on-primary-fixed": "#001c37",
         "error": "#ba1a1a",
+        "success": "#10b981",
+        "on-success": "#ffffff",
         "surface-bright": "#f9f9ff",
         "tertiary": "#303436",
         "surface-variant": "#d8e3fa",
