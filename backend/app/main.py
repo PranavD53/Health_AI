@@ -25,6 +25,19 @@ UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 if not os.path.exists(UPLOADS_DIR):
     os.makedirs(UPLOADS_DIR)
 
+# Restore seeded uploads on startup to recover from test wipes
+SEED_UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+if os.path.exists(SEED_UPLOADS_DIR):
+    import shutil
+    for file_name in os.listdir(SEED_UPLOADS_DIR):
+        src_file = os.path.join(SEED_UPLOADS_DIR, file_name)
+        dst_file = os.path.join(UPLOADS_DIR, file_name)
+        if os.path.isfile(src_file) and not os.path.exists(dst_file):
+            try:
+                shutil.copy2(src_file, dst_file)
+            except Exception as e:
+                print(f"Error restoring seeded upload {file_name}: {e}")
+
 app = FastAPI(
     title="AI Healthcare Assistant",
     description="Backend API for managing user profiles, medical records, appointments, symptoms analysis, and AI chat capabilities.",

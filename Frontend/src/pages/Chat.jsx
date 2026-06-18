@@ -309,7 +309,7 @@ export default function Chat() {
   const getAttachmentPreview = (path, name) => {
     if (!path) return null;
     const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(name || '');
-    const fullUrl = path.startsWith('http') ? path : `http://127.0.0.1:8000${path}`;
+    const fullUrl = path;
 
     if (isImage) {
       return (

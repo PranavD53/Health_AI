@@ -418,7 +418,7 @@ export default function Settings() {
                   </label>
                   {existingLicensePath && (
                     <p className="text-[10px] text-secondary font-bold mt-1">
-                      Current: <a href={`http://127.0.0.1:8000${existingLicensePath}`} target="_blank" rel="noopener noreferrer" className="hover:underline">View Active License Document</a>
+                      Current: <a href={existingLicensePath} target="_blank" rel="noopener noreferrer" className="hover:underline">View Active License Document</a>
                     </p>
                   )}
                 </div>

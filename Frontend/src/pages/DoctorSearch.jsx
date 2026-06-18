@@ -182,7 +182,7 @@ export default function DoctorSearch() {
                     {doc.profile_picture ? (
                       <img 
                         alt={doc.name} 
-                        src={doc.profile_picture.startsWith('http') ? doc.profile_picture : `http://127.0.0.1:8000${doc.profile_picture}`}
+                        src={doc.profile_picture}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -267,7 +267,7 @@ export default function DoctorSearch() {
                     {bookingDoc.profile_picture ? (
                       <img 
                         alt={bookingDoc.name} 
-                        src={bookingDoc.profile_picture.startsWith('http') ? bookingDoc.profile_picture : `http://127.0.0.1:8000${bookingDoc.profile_picture}`} 
+                        src={bookingDoc.profile_picture} 
                         className="w-full h-full object-cover"
                       />
                     ) : (

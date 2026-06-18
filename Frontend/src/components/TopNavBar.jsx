@@ -326,7 +326,7 @@ export default function TopNavBar() {
               {profileData?.profile_picture ? (
                 <img 
                   alt="Profile" 
-                  src={profileData.profile_picture.startsWith('http') ? profileData.profile_picture : `http://127.0.0.1:8000${profileData.profile_picture}`} 
+                  src={profileData.profile_picture} 
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -367,7 +367,7 @@ export default function TopNavBar() {
                       {profileData?.profile_picture ? (
                         <img 
                           alt="Avatar" 
-                          src={profileData.profile_picture.startsWith('http') ? profileData.profile_picture : `http://127.0.0.1:8000${profileData.profile_picture}`} 
+                          src={profileData.profile_picture} 
                           className="w-full h-full object-cover"
                         />
                       ) : (

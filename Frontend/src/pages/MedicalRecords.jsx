@@ -175,7 +175,7 @@ export default function MedicalRecords() {
                       )}
 
                       <a 
-                        href={`http://127.0.0.1:8000${record.file_path}`} 
+                        href={record.file_path} 
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-3.5 py-1.5 bg-secondary hover:bg-secondary/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm"
