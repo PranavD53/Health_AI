@@ -120,8 +120,8 @@ export default function PatientDashboard() {
                 {dashboardData?.upcoming_appointments?.map((appt) => (
                   <div key={appt.id} className="p-md border border-outline-variant/50 rounded-xl bg-surface-container-lowest flex flex-col md:flex-row justify-between items-start md:items-center gap-md hover:border-secondary transition-all">
                     <div>
-                      <h4 className="font-bold text-on-surface">{appt.doctor_name || `Doctor ID: ${appt.doctor_id}`}</h4>
-                      <p className="text-xs text-outline font-semibold mb-xs">{appt.doctor_specialization || 'Specialist'}</p>
+                      <h4 className="font-bold text-on-surface">{appt.doctor?.name || 'Doctor'}</h4>
+                      <p className="text-xs text-outline font-semibold mb-xs">{appt.doctor?.specialization || 'Specialist'}</p>
                       <div className="flex gap-md text-xs text-on-surface-variant font-medium">
                         <span className="flex items-center gap-xs">
                           <span className="material-symbols-outlined text-[16px] text-secondary">calendar_month</span>

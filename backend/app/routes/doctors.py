@@ -244,6 +244,13 @@ async def register_doctor(
                 f.write(await profile_picture.read())
             pic_relative_path = f"/uploads/{pic_filename}"
 
+        # Ensure doctor name starts with "Dr." prefix
+        name_stripped = name.strip()
+        if not name_stripped.lower().startswith("dr.") and not name_stripped.lower().startswith("dr "):
+            name = f"Dr. {name_stripped}"
+        else:
+            name = name_stripped
+
         # Create Doctor entry
         new_doc = models.Doctor(
             user_id=current_user.id,

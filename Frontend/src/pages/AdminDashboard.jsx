@@ -250,7 +250,7 @@ export default function AdminDashboard() {
                         <h4 className="font-bold text-on-surface">{req.doctor_name}</h4>
                         <p className="text-xs text-secondary font-semibold">{req.specialization} | Experience: {req.experience_years} Years</p>
                         {req.license_number && (
-                          <p className="text-xs text-primary font-bold mt-xs">Doctor ID / License: {req.license_number}</p>
+                          <p className="text-xs text-primary font-bold mt-xs">License: {req.license_number}</p>
                         )}
                         <p className="text-xs text-outline font-medium mt-xs">Email Contact: {req.contact}</p>
                       </div>

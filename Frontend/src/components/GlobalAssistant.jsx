@@ -638,8 +638,13 @@ export default function GlobalAssistant() {
 
     try {
       if (type === 'find_doctors') {
-        if (user.role === 'doctor') {
-          navigate('/dashboard');
+        if (user.role === 'doctor' || user.role === 'admin') {
+          const errorMsg = user.role === 'doctor' 
+            ? "You cannot book or browse appointments as a doctor. You manage consultations from your dashboard workspace." 
+            : "You cannot book or browse appointments as an administrator.";
+          setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
+          speakMessage(errorMsg, resumeVoice);
+          return;
         } else {
           const spec = parameters.specialization || '';
           navigate(`/appointments?search=${spec}`);
@@ -658,8 +663,10 @@ export default function GlobalAssistant() {
         navigate('/chat');
         resumeVoice();
       } else if (type === 'book_appointment') {
-        if (user.role === 'doctor') {
-          const errorMsg = "As a registered doctor, you manage appointments from your dashboard workspace.";
+        if (user.role === 'doctor' || user.role === 'admin') {
+          const errorMsg = user.role === 'doctor' 
+            ? "You cannot book an appointment as a doctor. You manage consultations from your dashboard workspace." 
+            : "You cannot book an appointment as an administrator.";
           setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
           speakMessage(errorMsg, resumeVoice);
           return;

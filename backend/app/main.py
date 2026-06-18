@@ -993,17 +993,78 @@ async def global_ai_assistant(
             models.Message.conversation_id == conv.id
         ).order_by(models.Message.timestamp.asc()).all()
 
+        # Fetch current date and time dynamically
+        import datetime
+        today_date = datetime.date.today()
+        today_str = today_date.strftime("%Y-%m-%d")
+        current_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Load active/verified doctors directory dynamically
+        doctors_query = db.query(models.Doctor).all()
+        # Create doctors directory string for LLM mapping (do NOT output IDs in text responses!)
+        doctors_directory = "\n".join([f"- {doc.name} ({doc.specialization}, ID {doc.id})" for doc in doctors_query])
+
         user_context = (
+            f"CURRENT DATE AND TIME: {current_time_str}\n"
             f"CURRENT USER CONTEXT:\n"
             f"- Logged-in User Email: {current_user.email}\n"
             f"- Role: {current_user.role}\n"
         )
+        
+        patient_appts = []
+        doctor_appts = []
+        doctor = None
+        
+        if current_user.role == "patient":
+            # Query patient's upcoming appointments
+            patient_appts = db.query(models.Appointment).filter(
+                models.Appointment.patient_id == current_user.id,
+                models.Appointment.status == "booked",
+                models.Appointment.date >= today_str
+            ).order_by(models.Appointment.date.asc(), models.Appointment.time.asc()).all()
+            
+            appts_list = []
+            for appt in patient_appts:
+                doc_name = appt.doctor.name if appt.doctor else "Unknown Doctor"
+                doc_spec = appt.doctor.specialization if appt.doctor else "Specialist"
+                appts_list.append(f"- Appointment with {doc_name} ({doc_spec}) on {appt.date} at {appt.time}")
+            
+            if appts_list:
+                user_context += "YOUR UPCOMING APPOINTMENTS:\n" + "\n".join(appts_list) + "\n"
+            else:
+                user_context += "YOUR UPCOMING APPOINTMENTS: You have no upcoming appointments scheduled.\n"
+                
+        elif current_user.role == "doctor":
+            # Query doctor's profile and consultations
+            doctor = db.query(models.Doctor).filter(models.Doctor.user_id == current_user.id).first()
+            if not doctor:
+                doctor = db.query(models.Doctor).filter(models.Doctor.contact == current_user.email).first()
+            
+            if doctor:
+                doctor_appts = db.query(models.Appointment).filter(
+                    models.Appointment.doctor_id == doctor.id,
+                    models.Appointment.status == "booked",
+                    models.Appointment.date >= today_str
+                ).order_by(models.Appointment.date.asc(), models.Appointment.time.asc()).all()
+                
+                consults_list = []
+                for appt in doctor_appts:
+                    p_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == appt.patient_id).first()
+                    p_name = p_profile.name if p_profile else "Unknown Patient"
+                    consults_list.append(f"- Consultation with patient {p_name} on {appt.date} at {appt.time}")
+                
+                if consults_list:
+                    user_context += "YOUR UPCOMING CONSULTATIONS:\n" + "\n".join(consults_list) + "\n"
+                else:
+                    user_context += "YOUR UPCOMING CONSULTATIONS: You have no upcoming consultations scheduled.\n"
+            else:
+                user_context += "YOUR UPCOMING CONSULTATIONS: No doctor profile found.\n"
+
         if current_user.role == "doctor":
             user_context += (
                 "IMPORTANT ROLE CONSTRAINT: The user you are talking to is registered as a DOCTOR. "
                 "Doctors do NOT seek other doctors or book appointments for themselves. "
-                "Instead, their dashboard (/dashboard) contains their patient directory, queue, and upcoming consultations. "
-                "If they ask to see their appointments, schedule, or consultations, guide them to their dashboard and trigger the 'view_dashboard' action. "
+                "If they ask to see their consultations, schedule, or appointments, read their upcoming consultations (patient name, date, time) to them directly. "
                 "Do NOT recommend consulting other specialists or scheduling bookings for them unless they explicitly ask to consult another doctor as a patient.\n"
             )
         elif current_user.role == "admin":
@@ -1021,7 +1082,7 @@ async def global_ai_assistant(
             {
                 "role": "system",
                 "content": (
-                    "You are the HealthAI Global Assistant, a compassionate, precise, and highly fluent multilingual AI healthcare assistant.\n\n"
+                    "You are TARS, a multilingual global assistant that offers all types of assistance available on our website (symptom analysis, booking appointments, viewing medical records, settings, and lodging complaints). You are compassionate, precise, and highly fluent.\n\n"
                     f"{user_context}\n"
                     f"USER PREFERRED LANGUAGE: {pref_lang.upper()}\n"
                     "LANGUAGE PROTOCOL:\n"
@@ -1032,6 +1093,10 @@ async def global_ai_assistant(
                     "- Only respond in Hinglish (e.g., 'Aapka appointment book ho gaya hai') if the user explicitly typed their message in Hinglish.\n"
                     "- Only respond in Telugu-transliterated (e.g., 'Me appointment book ayyindi') if the user explicitly typed their message in Telugu-transliterated.\n"
                     "- Automatically detect and align with the user's input language style. Never default to Hinglish or transliterated styles for plain English queries.\n\n"
+                    "CRITICAL RESPONSE LANGUAGE CONSTRAINT:\n"
+                    "- Do NOT output or mention doctor IDs (e.g. 'ID 1', 'ID 2', etc.) in your conversational responses. "
+                    "When referring to a doctor, always refer to them by their name and department/specialization, e.g. 'Dr. Alice Smith (Cardiology)' or 'Bhargav Nama (Dermatology)'. "
+                    "You MUST use the correct doctor ID in the JSON action block parameter 'doctor_id', but keep the IDs completely hidden from the user-facing text response.\n\n"
                     "CRITICAL RESPONSE LENGTH CONSTRAINT:\n"
                     "You MUST provide extremely concise, short, direct, and helpful answers (maximum 2-3 sentences, 40-50 words max). "
                     "Do NOT write long paragraphs. Get straight to the point and do not drag the conversation.\n\n"
@@ -1053,7 +1118,8 @@ async def global_ai_assistant(
                     "   - Preferred time\n"
                     "   Only output the booking action block AFTER the user has provided all three details. Do not book with defaults.\n"
                     "   If any detail is missing, ask for it first before proceeding with the booking.\n"
-                    "   (Available Doctors: ID 1: Dr. Alice Smith, ID 2: Dr. Bob Johnson, ID 3: Dr. Charlie Brown, ID 4: Dr. Diana Prince, ID 5: Dr. Evan Wright)\n\n"
+                    "   Active Doctor Directory for Booking:\n"
+                    f"{doctors_directory}\n\n"
                     "3. View Medical Records:\n"
                     "   type: \"view_records\"\n"
                     "   parameters: {}\n"
@@ -1080,16 +1146,12 @@ async def global_ai_assistant(
                     "   Trigger this when the user wants to message, chat, send a prescription/file, or chat with a doctor, patient, or admin.\n\n"
                     "9. Clinical Symptom Analysis & Doctor Mapping:\n"
                     "   If the user lists their symptoms (even in broken, informal, or transliterated languages, e.g. 'mere chest me pain ho raha hai' or 'talanoppiga vundi'):\n"
-                    "   a) Diagnose/recommend the correct specialist to consult from our list:\n"
-                    "      - Dr. Alice Smith (Cardiology, ID 1) for chest pain, heart, BP, palpitations, or shortness of breath.\n"
-                    "      - Dr. Bob Johnson (Dermatology, ID 2) for skin rashes, itching, acne, hair fall, or eczema.\n"
-                    "      - Dr. Charlie Brown (General Medicine, ID 3) for cold, cough, mild fever, minor stomach aches, or general symptoms.\n"
-                    "      - Dr. Diana Prince (Neurology, ID 4) for headaches, migraines, nerve pain, dizziness, or seizures.\n"
-                    "      - Dr. Evan Wright (Pediatrics, ID 5) for child health or pediatric vaccines.\n"
+                    "   a) Recommend the correct doctor to consult from our active doctor directory based on their specialization/department matching the symptoms:\n"
+                    f"{doctors_directory}\n"
                     "   b) Safe OTC Medicine Recommendation:\n"
                     "      For minor, simple, non-critical symptoms (e.g. mild fever, common cold, minor headache, acid reflux), you may suggest a standard safe over-the-counter medicine (e.g., Paracetamol for mild fever, Cetirizine for cold/allergies, Antacids for indigestion) with clear dosage guidelines. You MUST append a safety disclaimer: 'This is general advice. Please consult a doctor if symptoms persist or worsen.'\n"
                     "   c) For critical or severe symptoms (e.g. severe chest pressure, unconsciousness, severe bleeding), advise them to seek emergency care immediately (dial 108/100).\n"
-                    "   d) Proactively offer to schedule a consultation with the matched doctor (e.g. 'Would you like to book an appointment with our specialist Dr. Alice Smith?') and collect their preferred date and time step-by-step before triggering the booking action.\n\n"
+                    "   d) Proactively offer to schedule a consultation with the matched doctor (e.g. 'Would you like to book an appointment with Dr. Alice Smith (Cardiology)?') and collect their preferred date and time step-by-step before triggering the booking action.\n\n"
                     "Always prioritize safety, give clear advice in their language, and include the action JSON block if the user's intent matches one of the actions."
                 )
             }
@@ -1102,15 +1164,15 @@ async def global_ai_assistant(
         if messages_payload and messages_payload[-1]["role"] == "user":
             prompt_instruction = ""
             if has_telugu or (not has_hindi and not is_user_speaking_hinglish and not is_user_speaking_tinglish and pref_lang == "te"):
-                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Telugu. You MUST respond strictly in Telugu (తెలుగు script). Do NOT use Hindi, Hinglish, or English. Keep your response brief - maximum 2-3 sentences.]"
+                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Telugu. You MUST respond strictly in Telugu (తెలుగు script). Do NOT use Hindi, Hinglish, or English. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
             elif has_hindi or (not has_telugu and not is_user_speaking_hinglish and not is_user_speaking_tinglish and pref_lang == "hi"):
-                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hindi. You MUST respond strictly in Hindi (हिन्दी script). Do NOT use English, Hinglish, or Telugu. Keep your response brief - maximum 2-3 sentences.]"
+                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hindi. You MUST respond strictly in Hindi (हिन्दी script). Do NOT use English, Hinglish, or Telugu. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
             elif is_user_speaking_tinglish:
-                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Tinglish. You MUST respond in Tinglish (Telugu words written in English/Latin letters). Keep your response brief - maximum 2-3 sentences.]"
+                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Tinglish. You MUST respond in Tinglish (Telugu words written in English/Latin letters). Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
             elif is_user_speaking_hinglish:
-                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hinglish. You MUST respond in Hinglish (Hindi words written in English/Latin letters). Keep your response brief - maximum 2-3 sentences.]"
+                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hinglish. You MUST respond in Hinglish (Hindi words written in English/Latin letters). Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
             else:
-                prompt_instruction = "\n\n[SYSTEM RULE: The user is speaking in English. You MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, Telugu, or Tinglish. Keep your response brief - maximum 2-3 sentences.]"
+                prompt_instruction = "\n\n[SYSTEM RULE: The user is speaking in English. You MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, Telugu, or Tinglish. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
             
             messages_payload[-1]["content"] += prompt_instruction
 
@@ -1183,6 +1245,9 @@ async def global_ai_assistant(
             # Offline rule-based fallback
             msg_lower = input_data.message.lower()
             
+            # Check if user is asking about their own schedule/appointments/consultations
+            is_schedule_query = any(k in msg_lower for k in ["show", "read", "view", "what", "my", "list", "check", "శెడ్యూల్", "అపాయింట్మెంట్", "షెడ్యూల్", "अपॉइंटमेंट", "शेड्यूल", "consultation", "consultations"]) and any(k in msg_lower for k in ["appointment", "appointments", "consultation", "consultations", "schedule", "visit", "visits", "meeting", "meetings", "record", "records"])
+            
             # Check if user is in booking flow (either started now or was recently active)
             history_user_texts = [m.content.lower() for m in history_msgs if m.role == "user" and m.content]
             history_assistant_texts = [m.content.lower() for m in history_msgs if m.role == "assistant" and m.content]
@@ -1193,7 +1258,74 @@ async def global_ai_assistant(
             
             in_booking_flow = is_booking_intent or was_booking_prompted
             
-            if in_booking_flow:
+            if is_schedule_query:
+                if current_user.role == "patient":
+                    if patient_appts:
+                        appts_txt = []
+                        for appt in patient_appts:
+                            doc_name = appt.doctor.name if appt.doctor else "Doctor"
+                            doc_spec = appt.doctor.specialization if appt.doctor else "Specialist"
+                            appts_txt.append(f"{doc_name} ({doc_spec}) on {appt.date} at {appt.time}")
+                        appts_joined = ", ".join(appts_txt)
+                        if pref_lang == "te":
+                            reply = f"మీకు ఈ క్రింది రాబోయే అపాయింట్‌మెంట్‌లు ఉన్నాయి: {appts_joined}."
+                        elif pref_lang == "hi":
+                            reply = f"आपके पास निम्नलिखित आगामी अपॉइंटमेंट हैं: {appts_joined}."
+                        else:
+                            reply = f"You have the following upcoming appointments: {appts_joined}."
+                    else:
+                        if pref_lang == "te":
+                            reply = "మీకు రాబోయే అపాయింట్‌మెంట్‌లు ఏవీ లేవు."
+                        elif pref_lang == "hi":
+                            reply = "आपके पास कोई आगामी अपॉइंटमेंट निर्धारित नहीं है।"
+                        else:
+                            reply = "You have no upcoming appointments scheduled."
+                elif current_user.role == "doctor":
+                    if doctor and doctor_appts:
+                        consults_txt = []
+                        for appt in doctor_appts:
+                            p_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == appt.patient_id).first()
+                            p_name = p_profile.name if p_profile else "Unknown Patient"
+                            consults_txt.append(f"patient {p_name} on {appt.date} at {appt.time}")
+                        consults_joined = ", ".join(consults_txt)
+                        if pref_lang == "te":
+                            reply = f"మీకు ఈ క్రింది రాబోయే సంప్రదింపులు ఉన్నాయి: {consults_joined}."
+                        elif pref_lang == "hi":
+                            reply = f"आपके पास निम्नलिखित आगामी परामर्श हैं: {consults_joined}."
+                        else:
+                            reply = f"You have the following upcoming consultations: {consults_joined}."
+                    else:
+                        if pref_lang == "te":
+                            reply = "మీకు రాబోయే సంప్రదింపులు ఏవీ లేవు."
+                        elif pref_lang == "hi":
+                            reply = "आपके पास कोई आगामी परामर्श निर्धारित नहीं है।"
+                        else:
+                            reply = "You have no upcoming consultations scheduled."
+                else:
+                    if pref_lang == "te":
+                        reply = "అడ్మినిస్ట్రేటర్‌గా, మీకు అపాయింట్‌మెంట్‌లు లేదా సంప్రదింపులు లేవు."
+                    elif pref_lang == "hi":
+                        reply = "एक प्रशासक के रूप में, आपके पास कोई अपॉइंटमेंट या परामर्श नहीं है।"
+                    else:
+                        reply = "As an administrator, you do not have any appointments or consultations."
+                        
+            elif current_user.role in ["doctor", "admin"] and (in_booking_flow or any(k in msg_lower for k in ["appointment", "appointments", "doctor", "specialist"])):
+                if current_user.role == "doctor":
+                    if pref_lang == "te":
+                        reply = "మీరు ఒక రిజిస్టర్డ్ వైద్యునిగా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు. మీరు మీ డాష్‌బోర్డ్ వర్క్‌స్పేస్ నుండి కన్సల్టేషన్‌లను నిర్వహించవచ్చు."
+                    elif pref_lang == "hi":
+                        reply = "आप एक पंजीकृत डॉक्टर के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते। आप अपने डैशबोर्ड कार्यक्षेत्र से परामर्श प्रबंधित करते हैं।"
+                    else:
+                        reply = "You cannot book or browse appointments as a registered doctor. You manage consultations from your dashboard workspace."
+                else:
+                    if pref_lang == "te":
+                        reply = "మీరు అడ్మినిస్ట్రేటర్‌గా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు."
+                    elif pref_lang == "hi":
+                        reply = "आप एक प्रशासक के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते।"
+                    else:
+                        reply = "You cannot book or browse appointments as an administrator."
+                        
+            elif in_booking_flow:
                 # 1. Extract Doctor
                 selected_doc_id = None
                 selected_doc_name = None
@@ -1521,6 +1653,24 @@ async def global_ai_assistant(
                     reply = reply.replace(action_match.group(0), "").strip()
             except Exception as ex:
                 print(f"Action parse error: {ex}")
+
+        # Guard action if the user role is doctor or admin
+        if action and action.get("type") in ["find_doctors", "book_appointment"] and current_user.role in ["doctor", "admin"]:
+            action = None
+            if current_user.role == "doctor":
+                if pref_lang == "te":
+                    reply = "మీరు ఒక రిజిస్టర్డ్ వైద్యునిగా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు. మీరు మీ డాష్‌బోర్డ్ వర్క్‌స్పేస్ నుండి కన్సల్టేషన్‌లను నిర్వహించవచ్చు."
+                elif pref_lang == "hi":
+                    reply = "आप एक पंजीकृत डॉक्टर के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते। आप अपने डैशबोर्ड कार्यक्षेत्र से परामर्श प्रबंधित करते हैं।"
+                else:
+                    reply = "You cannot book or browse appointments as a registered doctor. You manage consultations from your dashboard workspace."
+            else:
+                if pref_lang == "te":
+                    reply = "మీరు అడ్మినిస్ట్రేటర్‌గా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు."
+                elif pref_lang == "hi":
+                    reply = "आप एक प्रशासक के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते।"
+                else:
+                    reply = "You cannot book or browse appointments as an administrator."
 
         # Save assistant reply
         assistant_msg = models.Message(

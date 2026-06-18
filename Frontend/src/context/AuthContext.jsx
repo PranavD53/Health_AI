@@ -65,6 +65,7 @@ export const AuthProvider = ({ children }) => {
       setRole(null);
       setIsVerified(false);
       setLoading(false);
+      window.location.href = '/';
     }
   };
 
