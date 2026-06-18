@@ -314,11 +314,54 @@ def send_message(
         filename = f"chat_{int(datetime.datetime.utcnow().timestamp())}_{file.filename}"
         filepath = os.path.join(uploads_dir, filename)
         
+        content = file.file.read()
         with open(filepath, "wb") as f:
-            f.write(file.file.read())
+            f.write(content)
             
         attachment_path = f"/uploads/{filename}"
         attachment_name = file.filename
+
+        # Also store as a Medical Record for the patient
+        patient_id = None
+        if current_user.role == "patient":
+            patient_id = current_user.id
+        else:
+            other_user_id = conv.user2_id if conv.user1_id == current_user.id else conv.user1_id
+            other_user = db.query(models.User).filter(models.User.id == other_user_id).first()
+            if other_user and other_user.role == "patient":
+                patient_id = other_user_id
+
+        if patient_id:
+            _, ext = os.path.splitext(file.filename)
+            ext = ext.lower()
+            allowed_extensions = [".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".doc", ".docx"]
+            if ext in allowed_extensions:
+                content_lower = content.lower() if content else b""
+                filename_lower = file.filename.lower()
+                is_tampered = False
+                fraud_reason = "None"
+                
+                if any(w in filename_lower for w in ["tampered", "fake", "forged", "altered", "manipulated", "mock_fraud"]):
+                    is_tampered = True
+                    fraud_reason = "Suspicious file name metadata signature matching fraud database."
+                elif b"photoshop" in content_lower or b"gimp" in content_lower or b"tampered" in content_lower or b"altered" in content_lower:
+                    is_tampered = True
+                    fraud_reason = "Image metadata contains editing software signature tags."
+                elif b"fake medical" in content_lower or b"sample specimen" in content_lower:
+                    is_tampered = True
+                    fraud_reason = "Document content matches known fake medical report templates."
+
+                fraud_status = "FLAGGED (Tampering Detected)" if is_tampered else "VERIFIED (Authentic)"
+                
+                new_record = models.MedicalRecord(
+                    user_id=patient_id,
+                    file_name=file.filename,
+                    file_path=attachment_path,
+                    file_type=file.content_type or ext,
+                    fraud_status=fraud_status
+                )
+                db.add(new_record)
+
         
     new_msg = models.PrivateMessage(
         conversation_id=conversation_id,
@@ -381,6 +424,8 @@ def send_prescription(
     if not conv:
         raise HTTPException(status_code=403, detail="Not a participant in this conversation")
         
+    recipient_id = conv.user2_id if conv.user1_id == current_user.id else conv.user1_id
+
     # Get doctor name
     doctor_name = "Doctor"
     doc_profile = db.query(models.Doctor).filter(models.Doctor.user_id == current_user.id).first()
@@ -440,6 +485,17 @@ Instructions:
         attachment_name=attachment_name
     )
     db.add(new_msg)
+    
+    # Also store this prescription as a Medical Record for the patient
+    new_record = models.MedicalRecord(
+        user_id=recipient_id,
+        file_name=filename,
+        file_path=attachment_path,
+        file_type="text/plain",
+        fraud_status="VERIFIED (Authentic)"
+    )
+    db.add(new_record)
+    
     db.flush()
     
     # Create notification for recipient
@@ -478,6 +534,47 @@ def delete_conversation(conversation_id: int, current_user: models.User = Depend
     db.delete(conv)
     db.commit()
     return {"status": "success", "message": "Conversation successfully deleted"}
+
+
+@router.delete("/conversations/{conversation_id}/messages/{message_id}")
+def delete_message(
+    conversation_id: int,
+    message_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    conv = db.query(models.PrivateConversation).filter(
+        models.PrivateConversation.id == conversation_id,
+        or_(models.PrivateConversation.user1_id == current_user.id,
+            models.PrivateConversation.user2_id == current_user.id)
+    ).first()
+    if not conv:
+        raise HTTPException(status_code=403, detail="Not a participant in this conversation")
+        
+    msg = db.query(models.PrivateMessage).filter(
+        models.PrivateMessage.id == message_id,
+        models.PrivateMessage.conversation_id == conversation_id
+    ).first()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+        
+    if msg.sender_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Permission denied. You can only delete your own messages.")
+        
+    if msg.attachment_path:
+        filename = msg.attachment_path.split("/")[-1]
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        filepath = os.path.join(base_dir, "uploads", filename)
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except Exception as ex:
+                print(f"Failed to delete attachment: {ex}")
+                
+    db.delete(msg)
+    db.commit()
+    return {"status": "success", "message": "Message successfully deleted"}
+
 
 
 # --- Notifications ---

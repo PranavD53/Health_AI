@@ -4,8 +4,9 @@ import datetime
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
-os.environ["DATABASE_URL"] = "sqlite:///./test_healthcare_new.db"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test_secret_key_12345"
 os.environ["GROQ_API_KEY"] = "gsk_mockkeyforlocaltesting"
 
@@ -14,7 +15,11 @@ from app.database import Base, get_db
 from app import models
 
 # Create test database engine
-engine = create_engine("sqlite:///./test_healthcare_new.db", connect_args={"check_same_thread": False})
+engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool
+)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Override get_db
@@ -57,7 +62,7 @@ def teardown_module():
     # Clean up test files in uploads
     if os.path.exists("uploads"):
         for f in os.listdir("uploads"):
-            if f.startswith("Prescription_") or f.startswith("test_record"):
+            if f.startswith("Prescription_") or f.startswith("test_record") or f.startswith("chat_"):
                 try:
                     os.remove(os.path.join("uploads", f))
                 except Exception:
@@ -206,6 +211,60 @@ def test_new_endpoints():
             assert analyze_resp.json()["insights"] == "Elevated white blood cell count indicates infection."
             
         print("[OK] AI Medical Record Analysis mock-test passed successfully")
+
+        # 6. Test that prescription generated is in patient's records
+        print("Verifying prescription recorded in medical records...")
+        records_resp = client.get("/records/my-records", headers=patient_headers)
+        assert records_resp.status_code == 200, records_resp.text
+        patient_records = records_resp.json()
+        assert len(patient_records) > 0
+        presc_record = next((r for r in patient_records if "Prescription_" in r["file_name"]), None)
+        assert presc_record is not None, "Prescription not found in patient's medical records"
+        assert presc_record["file_type"] == "text/plain"
+
+        # 7. Test uploading file in chat and storing it as Medical Record
+        print("Testing file upload in chat & storage as medical record...")
+        chat_filename = "test_record_chat_uploaded.png"
+        chat_filepath = os.path.join("uploads", chat_filename)
+        with open(chat_filepath, "wb") as f:
+            f.write(b"PNG_FAKE_IMAGE_DATA")
+            
+        with open(chat_filepath, "rb") as f:
+            chat_upload_resp = client.post(
+                f"/chats/conversations/{conversation_id}/send",
+                headers=patient_headers,
+                data={"content": "Here is my report image"},
+                files={"file": (chat_filename, f, "image/png")}
+            )
+        assert chat_upload_resp.status_code == 200, chat_upload_resp.text
+        msg_id = chat_upload_resp.json()["id"]
+        
+        # Verify it got saved to patient's medical records
+        records_resp = client.get("/records/my-records", headers=patient_headers)
+        patient_records = records_resp.json()
+        chat_record = next((r for r in patient_records if r["file_name"] == chat_filename), None)
+        assert chat_record is not None, "Chat uploaded file not saved to patient's medical records"
+        assert chat_record["file_type"] == "image/png"
+        assert chat_record["fraud_status"] == "VERIFIED (Authentic)"
+
+        # 8. Test deleting a medical record
+        print("Testing DELETE /records/{id}...")
+        del_record_id = chat_record["id"]
+        del_resp = client.delete(f"/records/{del_record_id}", headers=patient_headers)
+        assert del_resp.status_code == 200, del_resp.text
+        # Verify it is deleted from db
+        records_resp = client.get("/records/my-records", headers=patient_headers)
+        assert not any(r["id"] == del_record_id for r in records_resp.json())
+        
+        # 9. Test deleting a chat message
+        print("Testing DELETE /chats/conversations/{id}/messages/{msg_id}...")
+        del_msg_resp = client.delete(f"/chats/conversations/{conversation_id}/messages/{msg_id}", headers=patient_headers)
+        assert del_msg_resp.status_code == 200, del_msg_resp.text
+        
+        # 10. Test deleting conversation
+        print("Testing DELETE /chats/conversations/{id}...")
+        del_conv_resp = client.delete(f"/chats/conversations/{conversation_id}", headers=patient_headers)
+        assert del_conv_resp.status_code == 200, del_conv_resp.text
 
         print("\n=== NEW ENDPOINTS TESTS PASSED SUCCESSFULLY ===")
 

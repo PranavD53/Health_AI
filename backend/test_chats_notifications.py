@@ -3,15 +3,20 @@ import shutil
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 # Setup test DB
-os.environ["DATABASE_URL"] = "sqlite:///./test_chats.db"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test_secret_key_12345"
 
 from app.main import app
 from app.database import Base, get_db
 
-engine = create_engine("sqlite:///./test_chats.db", connect_args={"check_same_thread": False})
+engine = create_engine(
+    "sqlite:///:memory:",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool
+)
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def override_get_db():

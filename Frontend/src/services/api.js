@@ -476,6 +476,14 @@ export const api = {
     return handleResponse(res);
   },
 
+  deleteMessage: async (conversationId, messageId) => {
+    const res = await fetch(`/chats/conversations/${conversationId}/messages/${messageId}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
   getNotifications: async () => {
     const res = await fetch('/chats/notifications', {
       method: 'GET',
@@ -512,6 +520,14 @@ export const api = {
   analyzeRecord: async (recordId) => {
     const res = await fetch(`/records/${recordId}/analyze`, {
       method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  deleteRecord: async (recordId) => {
+    const res = await fetch(`/records/${recordId}`, {
+      method: 'DELETE',
       headers: getHeaders()
     });
     return handleResponse(res);

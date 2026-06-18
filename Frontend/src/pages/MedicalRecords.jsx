@@ -92,6 +92,19 @@ export default function MedicalRecords() {
     }
   };
 
+  const handleDeleteRecord = async (recordId) => {
+    if (!window.confirm("Are you sure you want to delete this medical record? This will delete the file permanently.")) {
+      return;
+    }
+    try {
+      await api.deleteRecord(recordId);
+      loadRecords();
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete medical record: " + err.message);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-xl animate-pulse">
@@ -183,6 +196,14 @@ export default function MedicalRecords() {
                         <span className="material-symbols-outlined text-[16px]">visibility</span>
                         View File
                       </a>
+
+                      <button
+                        onClick={() => handleDeleteRecord(record.id)}
+                        className="px-3.5 py-1.5 bg-error hover:bg-error/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                        Delete
+                      </button>
                     </div>
                   </div>
                 ))}

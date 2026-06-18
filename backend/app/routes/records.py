@@ -146,6 +146,54 @@ def get_my_records(
         )
 
 
+@router.delete("/{id}", status_code=status.HTTP_200_OK)
+def delete_record(
+    id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        record = db.query(models.MedicalRecord).filter(models.MedicalRecord.id == id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="Medical record not found")
+            
+        # Check permissions (current user must be owner or admin or doctor)
+        if record.user_id != current_user.id and current_user.role not in ["admin", "doctor"]:
+            raise HTTPException(status_code=403, detail="Permission denied. You cannot delete this record.")
+            
+        # Delete file from disk if it exists
+        unique_filename = record.file_path.split("/")[-1]
+        local_filepath = os.path.join(UPLOAD_DIR, unique_filename)
+        if os.path.exists(local_filepath):
+            try:
+                os.remove(local_filepath)
+            except Exception as ex:
+                print(f"Failed to delete file from disk: {ex}")
+                
+        # Delete from DB
+        db.delete(record)
+        db.commit()
+        
+        # Audit logging
+        log_action(
+            db,
+            current_user.id,
+            "DELETE_RECORD",
+            f"Deleted medical record ID {id} ({record.file_name})"
+        )
+        
+        return {"status": "success", "message": "Medical record successfully deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while deleting the medical record: {str(e)}"
+        )
+
+
+
 class RecordAnalysisResponse(BaseModel):
     insights: str
     medications: str
@@ -252,7 +300,7 @@ async def analyze_record(
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "llama-3.2-11b-vision-preview",
+                        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
                         "messages": [
                             {"role": "system", "content": system_prompt},
                             {

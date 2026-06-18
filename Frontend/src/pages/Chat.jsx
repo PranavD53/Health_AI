@@ -289,6 +289,20 @@ export default function Chat() {
     }
   };
 
+  const handleDeleteMessage = async (msgId) => {
+    if (!activeConv) return;
+    if (!window.confirm("Are you sure you want to delete this message?")) {
+      return;
+    }
+    try {
+      await api.deleteMessage(activeConv.id, msgId);
+      await fetchMessages(activeConv.id, true);
+      fetchConversations();
+    } catch (err) {
+      alert("Failed to delete message: " + err.message);
+    }
+  };
+
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       setSelectedFile(e.target.files[0]);
@@ -397,33 +411,46 @@ export default function Chat() {
                     <div 
                       key={conv.id}
                       onClick={() => setActiveConv(conv)}
-                      className={`p-3 rounded-xl cursor-pointer flex items-center gap-sm transition-all duration-150 ${
+                      className={`p-3 rounded-xl cursor-pointer flex items-center justify-between gap-sm transition-all duration-150 group ${
                         isSelected 
                           ? 'bg-secondary-container/80 text-on-secondary-container shadow-sm border border-secondary-container' 
                           : 'hover:bg-surface-container-high border border-transparent'
                       }`}
                     >
-                      <div className="w-10 h-10 rounded-full bg-primary-fixed text-primary font-bold flex items-center justify-center text-xs shrink-0 shadow-sm">
-                        {getInitials(conv.other_user.name)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex justify-between items-baseline mb-0.5">
-                          <h4 className="font-bold text-xs text-on-surface truncate">{conv.other_user.name}</h4>
-                          {conv.last_message && (
-                            <span className="text-[9px] text-outline">
-                              {new Date(conv.last_message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
+                      <div className="flex items-center gap-sm min-w-0 flex-1">
+                        <div className="w-10 h-10 rounded-full bg-primary-fixed text-primary font-bold flex items-center justify-center text-xs shrink-0 shadow-sm">
+                          {getInitials(conv.other_user.name)}
                         </div>
-                        <p className="text-[10px] text-outline font-semibold uppercase mb-unit capitalize">{conv.other_user.role}</p>
-                        <p className="text-[11px] text-on-surface-variant truncate">
-                          {conv.last_message ? (
-                            conv.last_message.sender_id === user.id ? `You: ${conv.last_message.content || '[Attachment]'}` : conv.last_message.content || '[Attachment]'
-                          ) : (
-                            "No messages yet"
-                          )}
-                        </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex justify-between items-baseline mb-0.5">
+                            <h4 className="font-bold text-xs text-on-surface truncate">{conv.other_user.name}</h4>
+                            {conv.last_message && (
+                              <span className="text-[9px] text-outline shrink-0">
+                                {new Date(conv.last_message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-outline font-semibold uppercase mb-unit capitalize">{conv.other_user.role}</p>
+                          <p className="text-[11px] text-on-surface-variant truncate">
+                            {conv.last_message ? (
+                              conv.last_message.sender_id === user.id ? `You: ${conv.last_message.content || '[Attachment]'}` : conv.last_message.content || '[Attachment]'
+                            ) : (
+                              "No messages yet"
+                            )}
+                          </p>
+                        </div>
                       </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteConversation(conv.id);
+                        }}
+                        className="p-1.5 text-outline hover:text-error hover:bg-error/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none shrink-0"
+                        title={t('deleteConversation') || 'Delete Conversation'}
+                      >
+                        <span className="material-symbols-outlined text-sm">delete</span>
+                      </button>
                     </div>
                   );
                 })
@@ -474,11 +501,21 @@ export default function Chat() {
                       key={msg.id} 
                       className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in duration-200`}
                     >
-                      <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm relative ${
+                      <div className={`max-w-[70%] rounded-2xl px-4 py-2.5 shadow-sm relative group ${
                         isMe 
                           ? 'bg-primary text-on-primary rounded-tr-none' 
                           : 'bg-surface-container-high text-on-surface rounded-tl-none border border-outline-variant/20'
                       }`}>
+                        {isMe && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteMessage(msg.id)}
+                            className="absolute -left-7 top-1/2 -translate-y-1/2 p-1 text-outline hover:text-error hover:bg-error/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none"
+                            title="Delete Message"
+                          >
+                            <span className="material-symbols-outlined text-[14px]">delete</span>
+                          </button>
+                        )}
                         {msg.content && (
                           <p className="text-xs leading-relaxed whitespace-pre-wrap break-words">{msg.content}</p>
                         )}
