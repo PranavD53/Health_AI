@@ -1,7 +1,7 @@
 import os
 import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -28,6 +28,85 @@ class DoctorResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# --- Translation Support ---
+DOCTOR_TRANSLATIONS = {
+    "hi": {
+        "Dr. Alice Smith": {
+            "name": "डॉ. एलिस स्मिथ",
+            "specialization": "हृदय रोग विज्ञान (Cardiology)",
+            "location": "भवन A, कमरा 102, सिटी जनरल अस्पताल"
+        },
+        "Dr. Bob Johnson": {
+            "name": "डॉ. बॉब जॉनसन",
+            "specialization": "त्वचा विज्ञान (Dermatology)",
+            "location": "स्किन केयर क्लिनिक, 45 पार्क एवेन्यू"
+        },
+        "Dr. Charlie Brown": {
+            "name": "डॉ. चार्ली ब्राउन",
+            "specialization": "सामान्य चिकित्सा (General Medicine)",
+            "location": "सुइट 300, मेडिकल प्लाजा"
+        },
+        "Dr. Diana Prince": {
+            "name": "डॉ. डायना प्रिंस",
+            "specialization": "न्यूरोलॉजी (Neurology)",
+            "location": "न्यूरोसाइंस सेंटर, 88 ग्रैंड सेंट"
+        },
+        "Dr. Evan Wright": {
+            "name": "डॉ. एवन राइट",
+            "specialization": "बाल रोग विज्ञान (Pediatrics)",
+            "location": "चिल्ड्रन क्लिनिक, 12 मेपल सेंट"
+        }
+    },
+    "te": {
+        "Dr. Alice Smith": {
+            "name": "డా. ఆలిస్ స్మిత్",
+            "specialization": "గుండె జబ్బుల నిపుణులు (Cardiology)",
+            "location": "బిల్డింగ్ A, రూమ్ 102, సిటీ జనరల్ హాస్పిటల్"
+        },
+        "Dr. Bob Johnson": {
+            "name": "డా. బాబ్ జాన్సన్",
+            "specialization": "చర్మవ్యాధి నిపుణులు (Dermatology)",
+            "location": "స్కిన్ కేర్ క్లినిక్, 45 పార్క్ అవెన్యూ"
+        },
+        "Dr. Charlie Brown": {
+            "name": "డా. చార్లీ బ్రౌన్",
+            "specialization": "జనరల్ మెడిసిన్ (General Medicine)",
+            "location": "సూట్ 300, మెడికల్ ప్లాజా"
+        },
+        "Dr. Diana Prince": {
+            "name": "డా. డయానా ప్రిన్స్",
+            "specialization": "నరాల వ్యాధుల నిపుణులు (Neurology)",
+            "location": "న్యూరోసైన్స్ సెంటర్, 88 గ్రాండ్ సెయింట్"
+        },
+        "Dr. Evan Wright": {
+            "name": "డా. ఇవాన్ రైట్",
+            "specialization": "పిల్లల వైద్య నిపుణులు (Pediatrics)",
+            "location": "చిల్డ్రన్స్ క్లినిక్, 12 మేపుల్ సెయింట్"
+        }
+    }
+}
+
+def translate_doctor(doc_obj, lang: str):
+    if not lang or lang not in ["hi", "te"]:
+        return doc_obj
+    
+    is_dict = isinstance(doc_obj, dict)
+    name = doc_obj.get("name") if is_dict else getattr(doc_obj, "name", None)
+    
+    if name and name in DOCTOR_TRANSLATIONS[lang]:
+        trans = DOCTOR_TRANSLATIONS[lang][name]
+        if is_dict:
+            doc_obj["name"] = trans["name"]
+            doc_obj["specialization"] = trans["specialization"]
+            if "location" in doc_obj:
+                doc_obj["location"] = trans["location"]
+        else:
+            doc_obj.name = trans["name"]
+            doc_obj.specialization = trans["specialization"]
+            if hasattr(doc_obj, "location") and doc_obj.location is not None:
+                doc_obj.location = trans["location"]
+    return doc_obj
 
 # --- Database Seeding Helper ---
 def seed_doctors(db: Session):
@@ -89,6 +168,7 @@ def seed_doctors(db: Session):
 @router.get("", response_model=List[DoctorResponse])
 def get_doctors(
     specialization: Optional[str] = None,
+    accept_language: Optional[str] = Header(None),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -99,7 +179,23 @@ def get_doctors(
             query = query.filter(models.Doctor.specialization.ilike(f"%{specialization}%"))
         
         doctors = query.all()
-        return doctors
+        
+        # Translate dynamically
+        lang = "en"
+        if accept_language:
+            preferred = accept_language.split(",")[0].strip().lower()
+            if preferred.startswith("hi"):
+                lang = "hi"
+            elif preferred.startswith("te"):
+                lang = "te"
+
+        res = []
+        for d in doctors:
+            d_resp = DoctorResponse.from_orm(d)
+            translate_doctor(d_resp, lang)
+            res.append(d_resp)
+            
+        return res
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -126,8 +222,8 @@ async def register_doctor(
         if existing:
             raise HTTPException(status_code=400, detail="Doctor profile already exists for this user")
 
-        # Handle license document saving
-        uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+        # Handle license document saving (using correct backend/uploads path)
+        uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
         if not os.path.exists(uploads_dir):
             os.makedirs(uploads_dir)
 
@@ -224,7 +320,7 @@ async def update_doctor_profile(
         if license_number is not None:
             doctor.license_number = license_number
 
-        uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+        uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
         if not os.path.exists(uploads_dir):
             os.makedirs(uploads_dir)
 

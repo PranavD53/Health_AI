@@ -311,7 +311,14 @@ export default function AdminDashboard() {
                   {dashboardData?.users?.map(u => (
                     <tr key={u.id}>
                       <td className="py-3.5 font-bold text-on-surface">
-                        {u.email}
+                        <div className="flex flex-col">
+                          <span>{u.email}</span>
+                          {u.role === 'doctor' && u.doctor_name && (
+                            <span className="text-xs text-secondary font-semibold">
+                              {u.doctor_name} ({u.specialization || 'General'})
+                            </span>
+                          )}
+                        </div>
                         {u.admin_requested && (
                           <span className="ml-sm inline-flex items-center gap-0.5 border border-amber-300 bg-amber-50 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
                             <span className="material-symbols-outlined text-[10px]">pending</span>
@@ -321,13 +328,57 @@ export default function AdminDashboard() {
                       </td>
                       <td className="py-3.5 capitalize text-secondary font-semibold">{u.role}</td>
                       <td className="py-3.5">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.is_active ? 'bg-success/10 text-success' : 'bg-error-container/20 text-error'
-                          }`}>
-                          {u.is_active ? 'Active' : 'Deactivated'}
-                        </span>
+                        <div className="flex flex-col gap-xs">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-center w-28 ${u.is_active ? 'bg-success/10 text-success' : 'bg-error-container/20 text-error'
+                            }`}>
+                            {u.is_active ? 'Active' : 'Deactivated'}
+                          </span>
+                          {u.role === 'doctor' && (
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-center w-28 capitalize ${
+                              u.verification_status === 'verified' ? 'bg-emerald-100 text-emerald-800' : 
+                              u.verification_status === 'rejected' ? 'bg-error-container/40 text-error' : 
+                              'bg-amber-100 text-amber-800 animate-pulse'
+                            }`}>
+                              License: {u.verification_status || 'pending'}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3.5 text-right">
                         <div className="flex items-center justify-end gap-sm flex-wrap">
+                          {u.role === 'doctor' && (
+                            <>
+                              {u.license_document_path && (
+                                <a
+                                  href={`http://127.0.0.1:8000${u.license_document_path}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2.5 py-1 bg-surface-container-high hover:bg-surface-container-highest text-secondary border border-outline-variant/35 text-xs font-bold rounded-lg transition-colors flex items-center gap-0.5 shadow-sm"
+                                  title="View Uploaded License Document"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">description</span>
+                                  License Doc
+                                </a>
+                              )}
+                              {u.verification_status !== 'verified' ? (
+                                <button
+                                  onClick={() => handleVerifyDoctor(u.verification_id || u.id, 'verified')}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-0.5 animate-in fade-in duration-200"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">verified</span>
+                                  Approve
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleVerifyDoctor(u.verification_id || u.id, 'rejected')}
+                                  className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-0.5 animate-in fade-in duration-200"
+                                >
+                                  <span className="material-symbols-outlined text-[14px]">gavel</span>
+                                  Revoke License
+                                </button>
+                              )}
+                            </>
+                          )}
                           {u.admin_requested && (
                             <>
                               <button

@@ -10,6 +10,12 @@ export default function MedicalRecords() {
   const [error, setError] = useState('');
   const [fileToUpload, setFileToUpload] = useState(null);
 
+  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [showInsightsModal, setShowInsightsModal] = useState(false);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [analysisError, setAnalysisError] = useState('');
+
   const loadRecords = async () => {
     try {
       const data = await api.getRecords();
@@ -65,6 +71,24 @@ export default function MedicalRecords() {
       setError("File upload failed: " + err.message);
     } finally {
       setUploadLoading(false);
+    }
+  };
+
+  const handleAnalyzeRecord = async (record) => {
+    setSelectedRecord(record);
+    setShowInsightsModal(true);
+    setInsightsLoading(true);
+    setAnalysisResult(null);
+    setAnalysisError('');
+    
+    try {
+      const data = await api.analyzeRecord(record.id);
+      setAnalysisResult(data);
+    } catch (err) {
+      console.error(err);
+      setAnalysisError(err.message || "Failed to analyze document. Ensure your GROQ_API_KEY is configured.");
+    } finally {
+      setInsightsLoading(false);
     }
   };
 
@@ -139,15 +163,27 @@ export default function MedicalRecords() {
                       </div>
                     </div>
                     
-                    <a 
-                      href={`http://127.0.0.1:8000${record.file_path}`} 
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3.5 py-1.5 bg-secondary hover:bg-secondary/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">visibility</span>
-                      View File
-                    </a>
+                    <div className="flex flex-wrap items-center gap-xs">
+                      {record.fraud_status?.includes('VERIFIED') && (
+                        <button
+                          onClick={() => handleAnalyzeRecord(record)}
+                          className="px-3.5 py-1.5 bg-primary hover:bg-primary/95 text-on-primary font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">psychology</span>
+                          AI Insights
+                        </button>
+                      )}
+
+                      <a 
+                        href={`http://127.0.0.1:8000${record.file_path}`} 
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3.5 py-1.5 bg-secondary hover:bg-secondary/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">visibility</span>
+                        View File
+                      </a>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -203,6 +239,86 @@ export default function MedicalRecords() {
           </div>
         </div>
       </div>
+
+      {/* AI Insights Modal */}
+      {showInsightsModal && (
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[100] flex justify-center items-center p-4">
+          <div className="bg-white rounded-2xl border border-outline-variant shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-outline-variant bg-surface flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-xs">
+                <span className="material-symbols-outlined text-primary">psychology</span>
+                <div>
+                  <h3 className="font-bold text-primary text-sm">TARS Clinical AI Insights</h3>
+                  <p className="text-[10px] text-outline">Analyzing: {selectedRecord?.file_name}</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowInsightsModal(false)}
+                className="p-1 hover:bg-surface-container-high rounded-full transition-colors text-outline focus:outline-none"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto space-y-lg flex-1">
+              {insightsLoading ? (
+                <div className="flex flex-col justify-center items-center py-xl space-y-md text-outline">
+                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-xs font-semibold animate-pulse text-primary">TARS is reading your report and consulting medical models...</p>
+                </div>
+              ) : analysisError ? (
+                <div className="p-4 bg-error-container text-on-error-container rounded-xl flex items-center gap-sm">
+                  <span className="material-symbols-outlined">error</span>
+                  <p className="text-xs">{analysisError}</p>
+                </div>
+              ) : analysisResult ? (
+                <div className="space-y-lg text-left">
+                  {/* Clinical Insights */}
+                  <div className="space-y-xs">
+                    <h4 className="text-xs font-bold text-primary flex items-center gap-2xs uppercase tracking-wider">
+                      <span className="material-symbols-outlined text-md">analytics</span>
+                      Clinical Findings & Conditions
+                    </h4>
+                    <div className="p-4 bg-surface-container-low border border-outline-variant/40 rounded-xl">
+                      <p className="text-xs leading-relaxed text-on-surface whitespace-pre-wrap">{analysisResult.insights}</p>
+                    </div>
+                  </div>
+
+                  {/* Suggested Medications */}
+                  <div className="space-y-xs">
+                    <h4 className="text-xs font-bold text-secondary flex items-center gap-2xs uppercase tracking-wider">
+                      <span className="material-symbols-outlined text-md">medication</span>
+                      Suggested Medications
+                    </h4>
+                    <div className="p-4 bg-surface-container-low border border-outline-variant/40 rounded-xl">
+                      <p className="text-xs leading-relaxed text-on-surface whitespace-pre-wrap">{analysisResult.medications}</p>
+                    </div>
+                  </div>
+
+                  {/* Disclaimer */}
+                  <div className="p-4 bg-error-container/20 border border-error/20 rounded-xl flex gap-xs items-start">
+                    <span className="material-symbols-outlined text-error text-md mt-[2px]">warning</span>
+                    <p className="text-[10px] text-error font-semibold leading-normal">{analysisResult.disclaimer}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-outline text-center">No analysis data available.</p>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-outline-variant/50 bg-surface flex justify-end shrink-0">
+              <button 
+                type="button"
+                onClick={() => setShowInsightsModal(false)}
+                className="px-5 py-2 bg-primary hover:bg-primary/95 text-on-primary font-bold text-xs rounded-xl hover:shadow-md active:scale-95 transition-all focus:outline-none"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

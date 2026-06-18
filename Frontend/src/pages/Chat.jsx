@@ -22,6 +22,82 @@ export default function Chat() {
   const [sending, setSending] = useState(false);
   const [previousMessageCount, setPreviousMessageCount] = useState(0);
   
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false);
+  const [prescriptionForm, setPrescriptionForm] = useState({
+    patient_name: '',
+    diagnosis: '',
+    medicines: [{ name: '', dosage: '', frequency: '', duration: '' }],
+    instructions: ''
+  });
+
+  const handleAddMedicine = () => {
+    setPrescriptionForm(prev => ({
+      ...prev,
+      medicines: [...prev.medicines, { name: '', dosage: '', frequency: '', duration: '' }]
+    }));
+  };
+
+  const handleUpdateMedicine = (index, field, value) => {
+    const updated = [...prescriptionForm.medicines];
+    updated[index][field] = value;
+    setPrescriptionForm(prev => ({
+      ...prev,
+      medicines: updated
+    }));
+  };
+
+  const handleRemoveMedicine = (index) => {
+    if (prescriptionForm.medicines.length === 1) return;
+    setPrescriptionForm(prev => ({
+      ...prev,
+      medicines: prev.medicines.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleSendPrescription = async (e) => {
+    e.preventDefault();
+    if (!prescriptionForm.patient_name.trim() || !prescriptionForm.diagnosis.trim()) {
+      alert("Please fill in patient name and diagnosis.");
+      return;
+    }
+    const validMeds = prescriptionForm.medicines.filter(m => m.name.trim() !== '');
+    if (validMeds.length === 0) {
+      alert("Please add at least one medication.");
+      return;
+    }
+
+    try {
+      setSending(true);
+      const payload = {
+        ...prescriptionForm,
+        medicines: validMeds
+      };
+      await api.sendPrescription(activeConv.id, payload);
+      setPrescriptionForm({
+        patient_name: activeConv.other_user?.name || '',
+        diagnosis: '',
+        medicines: [{ name: '', dosage: '', frequency: '', duration: '' }],
+        instructions: ''
+      });
+      setShowPrescriptionModal(false);
+      fetchMessages(activeConv.id, false);
+    } catch (err) {
+      console.error(err);
+      alert(`Failed to send prescription: ${err.message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeConv) {
+      setPrescriptionForm(prev => ({
+        ...prev,
+        patient_name: activeConv.other_user?.name || ''
+      }));
+    }
+  }, [activeConv]);
+
   const messagesEndRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
@@ -454,6 +530,19 @@ export default function Chat() {
                     />
                   </label>
 
+                  {/* Doctor Prescription Button */}
+                  {user?.role === 'doctor' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPrescriptionModal(true)}
+                      className="p-2.5 bg-secondary text-on-secondary hover:bg-secondary/90 rounded-xl transition-all shadow-md active:scale-95 shrink-0 flex items-center justify-center gap-xs font-bold text-xs"
+                      title="Issue Prescription Document"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">medical_services</span>
+                      <span className="hidden sm:inline">Prescribe</span>
+                    </button>
+                  )}
+
                   {/* Input field */}
                   <input 
                     type="text"
@@ -490,6 +579,164 @@ export default function Chat() {
         )}
       </div>
 
+      {/* Prescription Modal */}
+      {showPrescriptionModal && (
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-sm z-[100] flex justify-center items-center p-4">
+          <div className="bg-white rounded-2xl border border-outline-variant shadow-2xl w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-outline-variant bg-surface flex justify-between items-center">
+              <div className="flex items-center gap-xs">
+                <span className="material-symbols-outlined text-secondary">medical_services</span>
+                <h3 className="font-bold text-primary text-sm">Write Online Prescription</h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowPrescriptionModal(false)}
+                className="p-1 hover:bg-surface-container-high rounded-full transition-colors text-outline focus:outline-none"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </div>
+            
+            <form onSubmit={handleSendPrescription} className="p-4 space-y-md">
+              <div className="grid grid-cols-2 gap-sm">
+                <div>
+                  <label className="block text-[10px] font-bold text-outline uppercase mb-xs">Patient Name</label>
+                  <input 
+                    type="text"
+                    required
+                    value={prescriptionForm.patient_name}
+                    onChange={(e) => setPrescriptionForm({...prescriptionForm, patient_name: e.target.value})}
+                    className="w-full px-3 py-2 border border-outline-variant rounded-lg text-xs bg-surface text-on-surface focus:outline-none focus:border-secondary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-outline uppercase mb-xs">Diagnosis</label>
+                  <input 
+                    type="text"
+                    required
+                    placeholder="e.g. Acute Bronchitis"
+                    value={prescriptionForm.diagnosis}
+                    onChange={(e) => setPrescriptionForm({...prescriptionForm, diagnosis: e.target.value})}
+                    className="w-full px-3 py-2 border border-outline-variant rounded-lg text-xs bg-surface text-on-surface focus:outline-none focus:border-secondary"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <div className="flex justify-between items-center mb-xs">
+                  <label className="block text-[10px] font-bold text-outline uppercase">Prescribed Medications</label>
+                  <button 
+                    type="button"
+                    onClick={handleAddMedicine}
+                    className="text-[10px] text-secondary font-bold hover:underline flex items-center gap-2xs focus:outline-none"
+                  >
+                    <span className="material-symbols-outlined text-xs">add</span> Add Row
+                  </button>
+                </div>
+                
+                <div className="max-h-48 overflow-y-auto border border-outline-variant rounded-xl overflow-hidden bg-surface">
+                  <table className="w-full text-left border-collapse text-[11px]">
+                    <thead>
+                      <tr className="bg-surface-container border-b border-outline-variant text-outline font-bold">
+                        <th className="p-2">Medication Name</th>
+                        <th className="p-2">Dosage</th>
+                        <th className="p-2">Frequency</th>
+                        <th className="p-2">Duration</th>
+                        <th className="p-2 w-10"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {prescriptionForm.medicines.map((med, idx) => (
+                        <tr key={idx} className="border-b border-outline-variant last:border-0 hover:bg-surface-container/30">
+                          <td className="p-1.5">
+                            <input 
+                              type="text"
+                              required
+                              placeholder="e.g. Paracetamol"
+                              value={med.name}
+                              onChange={(e) => handleUpdateMedicine(idx, 'name', e.target.value)}
+                              className="w-full px-2 py-1 border border-outline-variant/50 rounded bg-white text-[11px] focus:outline-none focus:border-secondary"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="text"
+                              required
+                              placeholder="e.g. 500 mg"
+                              value={med.dosage}
+                              onChange={(e) => handleUpdateMedicine(idx, 'dosage', e.target.value)}
+                              className="w-full px-2 py-1 border border-outline-variant/50 rounded bg-white text-[11px] focus:outline-none focus:border-secondary"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="text"
+                              required
+                              placeholder="e.g. 1-0-1"
+                              value={med.frequency}
+                              onChange={(e) => handleUpdateMedicine(idx, 'frequency', e.target.value)}
+                              className="w-full px-2 py-1 border border-outline-variant/50 rounded bg-white text-[11px] focus:outline-none focus:border-secondary"
+                            />
+                          </td>
+                          <td className="p-1.5">
+                            <input 
+                              type="text"
+                              required
+                              placeholder="e.g. 5 days"
+                              value={med.duration}
+                              onChange={(e) => handleUpdateMedicine(idx, 'duration', e.target.value)}
+                              className="w-full px-2 py-1 border border-outline-variant/50 rounded bg-white text-[11px] focus:outline-none focus:border-secondary"
+                            />
+                          </td>
+                          <td className="p-1.5 text-center">
+                            <button
+                              type="button"
+                              disabled={prescriptionForm.medicines.length === 1}
+                              onClick={() => handleRemoveMedicine(idx)}
+                              className="p-1 hover:bg-error/10 text-outline hover:text-error disabled:opacity-40 rounded transition-colors focus:outline-none"
+                            >
+                              <span className="material-symbols-outlined text-xs">delete</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-[10px] font-bold text-outline uppercase mb-xs">Special Instructions (Optional)</label>
+                <textarea 
+                  placeholder="e.g. Take after meals, drink warm water..."
+                  rows={2}
+                  value={prescriptionForm.instructions}
+                  onChange={(e) => setPrescriptionForm({...prescriptionForm, instructions: e.target.value})}
+                  className="w-full px-3 py-2 border border-outline-variant rounded-lg text-xs bg-surface text-on-surface focus:outline-none focus:border-secondary resize-none"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-sm border-t border-outline-variant/50 pt-3">
+                <button 
+                  type="button"
+                  onClick={() => setShowPrescriptionModal(false)}
+                  className="px-4 py-2 border border-outline text-outline font-bold text-xs rounded-xl hover:bg-surface-container active:scale-95 transition-all focus:outline-none"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  disabled={sending}
+                  className="px-4 py-2 bg-primary hover:bg-primary/95 text-on-primary font-bold text-xs rounded-xl hover:shadow-md active:scale-95 transition-all focus:outline-none flex items-center gap-xs"
+                >
+                  {sending && <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                  <span>Issue & Send</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

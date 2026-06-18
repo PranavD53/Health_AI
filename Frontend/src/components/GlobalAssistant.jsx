@@ -222,6 +222,10 @@ export default function GlobalAssistant() {
   const detectLanguageOfText = (str) => {
     if (/[\u0C00-\u0C7F]/.test(str)) return 'te';
     if (/[\u0900-\u097F]/.test(str)) return 'hi';
+    // If no native script is found, fallback to active settings/state to support Hinglish/Tinglish
+    const activeLang = localStorage.getItem('app_lang') || 'en';
+    if (language.startsWith('te') || activeLang === 'te') return 'te';
+    if (language.startsWith('hi') || activeLang === 'hi') return 'hi';
     return 'en';
   };
 
@@ -395,9 +399,8 @@ export default function GlobalAssistant() {
       console.log("Background heard:", transcript);
 
       const transcriptLower = transcript.toLowerCase();
-      const containsWakeWord = transcriptLower.includes("tars") || 
-                               transcriptLower.includes("tarz") || 
-                               transcriptLower.includes("stars") || 
+      // Expanded wake word triggers (tars, tarz, stars, star, tar, task, torch, tour, cars, bars)
+      const containsWakeWord = /\b(tars|tarz|stars|star|tar|task|torch|tour|cars|bars)\b/i.test(transcriptLower) ||
                                transcriptLower.includes("टार्स") || 
                                transcriptLower.includes("టార్స్");
 
@@ -407,9 +410,7 @@ export default function GlobalAssistant() {
         } catch (e) {}
 
         let processedText = transcript
-          .replace(/tars/gi, '')
-          .replace(/tarz/gi, '')
-          .replace(/stars/gi, '')
+          .replace(/\b(tars|tarz|stars|star|torch|task|tour|tar|cars|bars)\b/gi, '')
           .replace(/टार्स/gi, '')
           .replace(/టార్స్/gi, '')
           .trim();
@@ -716,12 +717,7 @@ export default function GlobalAssistant() {
                   <span className="material-symbols-outlined text-[18px]">settings</span>
                 </button>
 
-                <button 
-                  onClick={() => toggleOpen(false)}
-                  className="p-1 hover:bg-surface-container-high rounded-full transition-colors text-outline focus:outline-none"
-                >
-                  <span className="material-symbols-outlined text-[18px]">close</span>
-                </button>
+                {/* Close button removed as launcher button below toggles open/close */}
               </div>
             </div>
             

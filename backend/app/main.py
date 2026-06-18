@@ -317,6 +317,12 @@ class UserManagementInfo(BaseModel):
     role: str
     is_active: bool
     admin_requested: bool = False
+    doctor_name: Optional[str] = None
+    specialization: Optional[str] = None
+    verification_status: Optional[str] = None
+    verification_id: Optional[int] = None
+    license_document_path: Optional[str] = None
+    license_number: Optional[str] = None
 
 class AdminAppointmentInfo(BaseModel):
     id: int
@@ -531,7 +537,35 @@ def get_admin_dashboard(
 
         # Users list
         users_list = db.query(models.User).all()
-        users = [{"id": u.id, "email": u.email, "role": u.role, "is_active": u.is_active, "admin_requested": u.admin_requested} for u in users_list]
+        users = []
+        for u in users_list:
+            u_info = {
+                "id": u.id,
+                "email": u.email,
+                "role": u.role,
+                "is_active": u.is_active,
+                "admin_requested": u.admin_requested,
+                "doctor_name": None,
+                "specialization": None,
+                "verification_status": None,
+                "verification_id": None,
+                "license_document_path": None,
+                "license_number": None
+            }
+            if u.role == "doctor":
+                doc = db.query(models.Doctor).filter(models.Doctor.user_id == u.id).first()
+                if doc:
+                    u_info["doctor_name"] = doc.name
+                    u_info["specialization"] = doc.specialization
+                    u_info["license_document_path"] = doc.license_document_path
+                    u_info["license_number"] = doc.license_number
+                    verification = db.query(models.DoctorVerification).filter(models.DoctorVerification.doctor_id == doc.id).first()
+                    if verification:
+                        u_info["verification_status"] = verification.status
+                        u_info["verification_id"] = verification.id
+                    else:
+                        u_info["verification_status"] = "pending"
+            users.append(u_info)
 
         # Audit logs mapping to response model
         audit_logs_res = []
@@ -600,7 +634,21 @@ def verify_doctor(
     try:
         verification = db.query(models.DoctorVerification).filter(models.DoctorVerification.id == id).first()
         if not verification:
-            raise HTTPException(status_code=404, detail="Verification request not found")
+            # Fallback: check if id is doctor_id
+            verification = db.query(models.DoctorVerification).filter(models.DoctorVerification.doctor_id == id).first()
+            
+        if not verification:
+            # Create a pending one on the fly if doctor exists
+            doctor = db.query(models.Doctor).filter(models.Doctor.id == id).first()
+            if not doctor:
+                # Or find doctor by user_id
+                doctor = db.query(models.Doctor).filter(models.Doctor.user_id == id).first()
+            if not doctor:
+                raise HTTPException(status_code=404, detail="Verification request or Doctor not found")
+            verification = models.DoctorVerification(doctor_id=doctor.id, status="pending")
+            db.add(verification)
+            db.commit()
+            db.refresh(verification)
 
         verification.status = data.status.lower()
         db.commit()
@@ -612,7 +660,7 @@ def verify_doctor(
             db.commit()
 
         log_action(db, current_user.id, "VERIFY_DOCTOR", f"Doctor ID {verification.doctor_id} set to verification status: {data.status}")
-        return {"status": "success", "message": f"Doctor verification status updated to {data.status}"}
+        return {"status": "success", "message": f"Doctor verification status updated to {data.status}", "verification_id": verification.id}
     except HTTPException:
         raise
     except Exception as e:
@@ -761,7 +809,15 @@ async def send_message(
                     payload_msgs = [
                         {
                             "role": "system",
-                            "content": "You are a helpful medical assistant. Give general health information only. Always recommend consulting a doctor. Never diagnose or prescribe medication."
+                            "content": (
+                                "You are TARS, a helpful clinical AI medical assistant. Enforce these language rules:\n"
+                                "1. If the user writes/speaks in English, respond strictly in English.\n"
+                                "2. If the user writes/speaks in Hindi or Hinglish, respond in Hindi or Hinglish.\n"
+                                "3. If the user writes/speaks in Telugu or Tinglish, respond in Telugu or Tinglish.\n"
+                                "Always respond in the exact same language or language style/mix that the user used. "
+                                "You can draw insights from symptom reports and medical records to suggest safe over-the-counter medications and care plans, accompanied by a safety warning. "
+                                "Keep response text concise, fluid, and natural for Text-to-Speech (TTS) voice engines. Do not use tables, lists of special symbols, or formatting that sounds awkward when spoken."
+                            )
                         }
                     ]
                     # Append last 10 messages for context

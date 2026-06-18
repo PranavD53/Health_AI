@@ -247,9 +247,10 @@ export default function TopNavBar() {
           <div className="relative">
             <button 
               onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className="p-2 text-on-surface-variant hover:text-primary transition-colors focus:outline-none relative"
+              className="p-2 text-on-surface-variant hover:text-primary transition-all duration-300 focus:outline-none rounded-full hover:bg-surface-container-high active:scale-95 flex items-center justify-center relative"
+              title="Notifications"
             >
-              <span className="material-symbols-outlined">notifications</span>
+              <span className="material-symbols-outlined text-[22px]">notifications</span>
               {notifications.length > 0 && (
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full" />
               )}

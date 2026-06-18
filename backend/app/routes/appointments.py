@@ -1,12 +1,13 @@
 import datetime
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from app.database import get_db
 from app import models
 from app.routes.auth import get_current_user, log_action
+from app.routes.doctors import translate_doctor
 
 router = APIRouter(prefix="/appointment", tags=["Appointments"])
 
@@ -102,6 +103,7 @@ def book_appointment(
 
 @router.get("/my-appointments", response_model=List[AppointmentResponse])
 def get_my_appointments(
+    accept_language: Optional[str] = Header(None),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -129,7 +131,23 @@ def get_my_appointments(
                 detail="Access forbidden"
             )
 
-        return appointments
+        # Translate doctor info
+        lang = "en"
+        if accept_language:
+            preferred = accept_language.split(",")[0].strip().lower()
+            if preferred.startswith("hi"):
+                lang = "hi"
+            elif preferred.startswith("te"):
+                lang = "te"
+
+        res = []
+        for appt in appointments:
+            appt_resp = AppointmentResponse.from_orm(appt)
+            if appt_resp.doctor:
+                translate_doctor(appt_resp.doctor, lang)
+            res.append(appt_resp)
+
+        return res
     except HTTPException:
         raise
     except Exception as e:

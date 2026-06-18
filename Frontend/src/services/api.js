@@ -7,6 +7,8 @@ const getHeaders = (isMultipart = false) => {
   if (!isMultipart) {
     headers['Content-Type'] = 'application/json';
   }
+  const appLang = localStorage.getItem('app_lang') || 'en';
+  headers['Accept-Language'] = appLang;
   return headers;
 };
 
@@ -492,6 +494,23 @@ export const api = {
 
   markAllNotificationsRead: async () => {
     const res = await fetch('/chats/notifications/read-all', {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  sendPrescription: async (conversationId, prescriptionData) => {
+    const res = await fetch(`/chats/conversations/${conversationId}/prescription`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(prescriptionData)
+    });
+    return handleResponse(res);
+  },
+
+  analyzeRecord: async (recordId) => {
+    const res = await fetch(`/records/${recordId}/analyze`, {
       method: 'POST',
       headers: getHeaders()
     });
