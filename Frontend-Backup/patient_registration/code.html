@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HealthAI | Patient Registration</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed-variant": "#004f54",
+                        "on-surface-variant": "#42474f",
+                        "inverse-on-surface": "#ebf1ff",
+                        "outline": "#727780",
+                        "tertiary-fixed": "#e0e3e5",
+                        "secondary-fixed-dim": "#70d6df",
+                        "background": "#f9f9ff",
+                        "outline-variant": "#c2c7d1",
+                        "on-tertiary-fixed-variant": "#434749",
+                        "secondary-fixed": "#8df2fc",
+                        "on-tertiary-fixed": "#181c1e",
+                        "on-surface": "#111c2c",
+                        "on-primary-fixed": "#001c37",
+                        "on-secondary-fixed": "#002022",
+                        "on-error-container": "#93000a",
+                        "on-secondary": "#ffffff",
+                        "surface-container-high": "#dee8ff",
+                        "primary-fixed-dim": "#a0c9ff",
+                        "surface-container": "#e7eeff",
+                        "secondary": "#006970",
+                        "on-background": "#111c2c",
+                        "error": "#ba1a1a",
+                        "primary-fixed": "#d2e4ff",
+                        "on-primary-container": "#8ebdf9",
+                        "on-error": "#ffffff",
+                        "primary-container": "#0f4c81",
+                        "primary": "#00355f",
+                        "surface-container-low": "#f0f3ff",
+                        "surface-dim": "#cfdaf1",
+                        "inverse-surface": "#263142",
+                        "on-primary-fixed-variant": "#07497d",
+                        "tertiary": "#303436",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#b7bbbd",
+                        "inverse-primary": "#a0c9ff",
+                        "surface": "#f9f9ff",
+                        "on-tertiary": "#ffffff",
+                        "secondary-container": "#8df2fc",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#d8e3fa",
+                        "surface-bright": "#f9f9ff",
+                        "surface-variant": "#d8e3fa",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#474b4d",
+                        "surface-tint": "#2d6197",
+                        "tertiary-fixed-dim": "#c4c7c9",
+                        "on-secondary-container": "#006f77"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "2xl": "48px",
+                        "xl": "32px",
+                        "gutter": "24px",
+                        "3xl": "64px",
+                        "xs": "4px",
+                        "unit": "4px",
+                        "lg": "24px",
+                        "sm": "8px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "40px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter", "sans-serif"],
+                        "title-md": ["Inter", "sans-serif"],
+                        "label-sm": ["Inter", "sans-serif"],
+                        "body-lg": ["Inter", "sans-serif"],
+                        "label-md": ["Inter", "sans-serif"],
+                        "body-md": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            vertical-align: middle;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .split-shadow {
+            box-shadow: 0px 10px 25px rgba(15, 76, 129, 0.1);
+        }
+
+        /* Input Focus Transitions */
+        .input-transition {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .input-transition:focus {
+            box-shadow: 0 0 0 3px rgba(0, 105, 112, 0.15);
+        }
+
+        /* Subtle Floating Animation */
+        @keyframes floating {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: floating 6s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-x-hidden">
+<main class="min-h-screen flex flex-col md:flex-row">
+<!-- Left Section: Branding & Identity -->
+<section class="hidden md:flex md:w-5/12 lg:w-1/2 bg-primary relative items-center justify-center p-xl overflow-hidden">
+<!-- Background Decoration -->
+<div class="absolute inset-0 opacity-20">
+<div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-secondary-fixed rounded-full blur-[100px]"></div>
+<div class="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-primary-fixed rounded-full blur-[80px]"></div>
+</div>
+<div class="relative z-10 text-center max-w-lg">
+<div class="mb-lg flex justify-center">
+<div class="bg-surface-container-lowest p-md rounded-2xl shadow-lg animate-float">
+<span class="material-symbols-outlined text-[48px] text-primary" style="font-variation-settings: 'FILL' 1;">health_and_safety</span>
+</div>
+</div>
+<h1 class="text-white font-headline-lg text-headline-lg mb-md leading-tight">
+                    Precision Care,<br/>
+<span class="text-secondary-fixed">Powered by Intelligence</span>
+</h1>
+<p class="text-primary-fixed opacity-90 text-body-lg font-body-lg mb-xl">
+                    Join HealthAI to experience a new standard of healthcare. Proactive diagnostics and personalized wellness plans tailored specifically to your unique biological markers.
+                </p>
+<div class="grid grid-cols-2 gap-md text-left">
+<div class="glass-panel p-md rounded-xl border border-white/10">
+<span class="material-symbols-outlined text-secondary-fixed mb-xs" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<h3 class="text-white font-title-md text-label-md">Secure Data</h3>
+<p class="text-white/70 text-label-sm">HIPAA-compliant cloud storage.</p>
+</div>
+<div class="glass-panel p-md rounded-xl border border-white/10">
+<span class="material-symbols-outlined text-secondary-fixed mb-xs" style="font-variation-settings: 'FILL' 1;">insights</span>
+<h3 class="text-white font-title-md text-label-md">AI Insights</h3>
+<p class="text-white/70 text-label-sm">Real-time health monitoring.</p>
+</div>
+</div>
+</div>
+<!-- Foreground Image Decoration -->
+<div class="absolute bottom-0 left-0 w-full opacity-30 pointer-events-none">
+<img alt="Clinical laboratory" class="w-full h-64 object-cover object-top mask-image-gradient" data-alt="A clean, professional laboratory setting with high-end medical equipment and microscopes. The environment is illuminated by soft, cool white and blue lighting, reflecting the corporate modern and clinical aesthetic of the HealthAI brand. The image captures the precision and technological sophistication of modern healthcare research and diagnostics." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyF3Xi88Q48UpVQwk8bJiarMFARCrX-CXhg3YDIeLDHuX7iy1Fspd_FC1-JR3L-G35iPDYZtEvyGtypASpGqVh-P8DX71b8uIhLXz6LXBjXX4B2HGGD5MqY4bSQc8DRoP2yvxzluqZ_FypXkzlbQaVN861rC41X5K0_Zmile1_ZwvFyEr_qCcgJ0sNs8K9ifIRypiu6--wW1DBJpgtQTWbh-3HbZNoA09AjF0qgoQ17py3gIAG8yKbXqFmZmW9sD44Pw1XBjeavfM"/>
+</div>
+</section>
+<!-- Right Section: Registration Form -->
+<section class="flex-1 flex items-center justify-center p-margin-mobile md:p-xl bg-background">
+<div class="w-full max-w-md">
+<!-- Mobile Header (Visible only on small screens) -->
+<div class="md:hidden mb-xl text-center">
+<div class="inline-flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-primary text-[32px]">health_and_safety</span>
+<span class="text-primary font-bold text-title-md">HealthAI</span>
+</div>
+<h2 class="text-on-surface font-headline-lg text-headline-lg">Create Account</h2>
+</div>
+<!-- Desktop Form Header -->
+<div class="hidden md:block mb-xl">
+<h2 class="text-on-surface font-headline-lg text-headline-lg tracking-tight">Register</h2>
+<p class="text-on-surface-variant font-body-md text-body-md mt-sm">Start your journey toward proactive health management today.</p>
+</div>
+<form class="space-y-md" id="registrationForm">
+<!-- Full Name -->
+<div class="space-y-xs">
+<label class="block text-on-surface-variant font-label-md text-label-md" for="fullName">Full Name</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline text-[20px]">person</span>
+<input class="w-full pl-[44px] pr-md py-3 rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-0 input-transition text-on-surface" id="fullName" placeholder="Enter your full name" required="" type="text"/>
+</div>
+</div>
+<!-- Email -->
+<div class="space-y-xs">
+<label class="block text-on-surface-variant font-label-md text-label-md" for="email">Email Address</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline text-[20px]">mail</span>
+<input class="w-full pl-[44px] pr-md py-3 rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-0 input-transition text-on-surface" id="email" placeholder="email@example.com" required="" type="email"/>
+</div>
+<p class="hidden text-error text-label-sm mt-xs" id="emailValidation">Please enter a valid email address.</p>
+</div>
+<!-- Password -->
+<div class="space-y-xs">
+<label class="block text-on-surface-variant font-label-md text-label-md" for="password">Password</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline text-[20px]">lock</span>
+<input class="w-full pl-[44px] pr-md py-3 rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-0 input-transition text-on-surface" id="password" minlength="8" placeholder="At least 8 characters" required="" type="password"/>
+<button class="absolute right-md top-1/2 -translate-y-1/2 text-outline hover:text-on-surface transition-colors" onclick="togglePassword('password')" type="button">
+<span class="material-symbols-outlined text-[20px]" id="password-eye">visibility_off</span>
+</button>
+</div>
+</div>
+<!-- Confirm Password -->
+<div class="space-y-xs">
+<label class="block text-on-surface-variant font-label-md text-label-md" for="confirmPassword">Confirm Password</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline text-[20px]">verified</span>
+<input class="w-full pl-[44px] pr-md py-3 rounded-lg border border-outline-variant bg-surface-container-lowest focus:border-primary focus:ring-0 input-transition text-on-surface" id="confirmPassword" placeholder="Repeat your password" required="" type="password"/>
+</div>
+<p class="hidden text-error text-label-sm mt-xs" id="passwordMismatch">Passwords do not match.</p>
+</div>
+<!-- Terms & Conditions -->
+<div class="flex items-start gap-sm pt-xs">
+<input class="mt-1 w-5 h-5 rounded border-outline-variant text-secondary focus:ring-secondary/20" id="terms" required="" type="checkbox"/>
+<label class="text-on-surface-variant text-label-sm leading-tight" for="terms">
+                            I agree to the <a class="text-secondary font-bold hover:underline" href="#">Terms of Service</a> and <a class="text-secondary font-bold hover:underline" href="#">Privacy Policy</a>.
+                        </label>
+</div>
+<!-- Primary Action -->
+<button class="w-full bg-secondary text-on-secondary py-4 rounded-xl font-bold text-title-md shadow-md hover:shadow-lg hover:bg-on-secondary-container transition-all active:scale-[0.98] mt-lg" type="submit">
+                        Create Account
+                    </button>
+</form>
+<!-- Footer Links -->
+<div class="mt-xl text-center">
+<p class="text-on-surface-variant font-label-md text-label-md">
+                        Already have an account? 
+                        <a class="text-primary font-bold hover:text-on-primary-fixed-variant transition-colors ml-xs" href="#">Sign In</a>
+</p>
+</div>
+<!-- Support link -->
+<div class="mt-3xl flex justify-center items-center gap-md opacity-60">
+<a class="flex items-center gap-xs text-label-sm hover:opacity-100 transition-opacity" href="#">
+<span class="material-symbols-outlined text-[16px]">help</span>
+                        Help Center
+                    </a>
+<span class="w-1 h-1 bg-outline-variant rounded-full"></span>
+<p class="text-label-sm">© 2024 HealthAI</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Success Toast (Hidden by default) -->
+<div class="fixed top-margin-desktop right-margin-desktop bg-surface border-l-4 border-secondary p-md rounded-lg split-shadow transform translate-x-[150%] transition-transform duration-500 z-50 flex items-center gap-md" id="successToast">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<div>
+<p class="font-bold text-on-surface text-label-md">Account Created</p>
+<p class="text-on-surface-variant text-label-sm">Redirecting to your dashboard...</p>
+</div>
+</div>
+<script>
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const eye = document.getElementById(inputId + '-eye');
+            if (input.type === 'password') {
+                input.type = 'text';
+                eye.innerText = 'visibility';
+            } else {
+                input.type = 'password';
+                eye.innerText = 'visibility_off';
+            }
+        }
+
+        const form = document.getElementById('registrationForm');
+        const confirmPass = document.getElementById('confirmPassword');
+        const pass = document.getElementById('password');
+        const mismatchError = document.getElementById('passwordMismatch');
+        const toast = document.getElementById('successToast');
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Basic validation check
+            if (pass.value !== confirmPass.value) {
+                mismatchError.classList.remove('hidden');
+                confirmPass.classList.add('border-error');
+                return;
+            } else {
+                mismatchError.classList.add('hidden');
+                confirmPass.classList.remove('border-error');
+            }
+
+            // Mock success
+            toast.classList.remove('translate-x-[150%]');
+            
+            setTimeout(() => {
+                // In a real app, this would redirect
+                console.log('Registration submitted');
+            }, 3000);
+        });
+
+        // Real-time mismatch check
+        confirmPass.addEventListener('input', () => {
+            if (confirmPass.value && pass.value !== confirmPass.value) {
+                mismatchError.classList.remove('hidden');
+            } else {
+                mismatchError.classList.add('hidden');
+                confirmPass.classList.remove('border-error');
+            }
+        });
+    </script>
+
+<script src='../shared/app.js'></script>
+</body></html>

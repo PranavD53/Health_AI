@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HealthAI Symptom Checker</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .chat-bubble-ai {
+            background-color: rgba(0, 105, 112, 0.08);
+            border-radius: 1.5rem 1.5rem 1.5rem 0.25rem;
+        }
+        .chat-bubble-user {
+            background-color: white;
+            box-shadow: 0px 2px 10px rgba(15, 76, 129, 0.05);
+            border-radius: 1.5rem 1.5rem 0.25rem 1.5rem;
+        }
+        .thinking-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #006970;
+            border-radius: 50%;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+        .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+        .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.4; }
+            50% { transform: scale(1.2); opacity: 1; }
+        }
+        .shimmer {
+            background: linear-gradient(90deg, #f0f3ff 25%, #e7eeff 50%, #f0f3ff 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "outline": "#727780",
+                      "primary-container": "#0f4c81",
+                      "outline-variant": "#c2c7d1",
+                      "surface-dim": "#cfdaf1",
+                      "secondary-container": "#8df2fc",
+                      "surface-container-highest": "#d8e3fa",
+                      "tertiary-fixed": "#e0e3e5",
+                      "surface-container-low": "#f0f3ff",
+                      "surface-container": "#e7eeff",
+                      "on-secondary-fixed-variant": "#004f54",
+                      "on-background": "#111c2c",
+                      "inverse-surface": "#263142",
+                      "primary": "#00355f",
+                      "tertiary-container": "#474b4d",
+                      "surface": "#f9f9ff",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed-variant": "#07497d",
+                      "primary-fixed": "#d2e4ff",
+                      "on-surface": "#111c2c",
+                      "surface-container-lowest": "#ffffff",
+                      "background": "#f9f9ff",
+                      "on-tertiary-fixed-variant": "#434749",
+                      "on-secondary-fixed": "#002022",
+                      "error-container": "#ffdad6",
+                      "surface-tint": "#2d6197",
+                      "on-tertiary": "#ffffff",
+                      "primary-fixed-dim": "#a0c9ff",
+                      "secondary": "#006970",
+                      "on-error": "#ffffff",
+                      "inverse-primary": "#a0c9ff",
+                      "on-tertiary-fixed": "#181c1e",
+                      "inverse-on-surface": "#ebf1ff",
+                      "on-primary-fixed": "#001c37",
+                      "error": "#ba1a1a",
+                      "surface-bright": "#f9f9ff",
+                      "tertiary": "#303436",
+                      "surface-variant": "#d8e3fa",
+                      "secondary-fixed-dim": "#70d6df",
+                      "surface-container-high": "#dee8ff",
+                      "on-error-container": "#93000a",
+                      "on-secondary-container": "#006f77",
+                      "secondary-fixed": "#8df2fc",
+                      "on-primary-container": "#8ebdf9",
+                      "on-primary": "#ffffff",
+                      "tertiary-fixed-dim": "#c4c7c9",
+                      "on-surface-variant": "#42474f",
+                      "on-tertiary-container": "#b7bbbd"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "2xl": "48px",
+                      "xl": "32px",
+                      "margin-mobile": "16px",
+                      "margin-desktop": "40px",
+                      "sm": "8px",
+                      "md": "16px",
+                      "xs": "4px",
+                      "lg": "24px",
+                      "3xl": "64px",
+                      "gutter": "24px",
+                      "unit": "4px"
+              },
+              "fontFamily": {
+                      "body-lg": ["Inter"],
+                      "headline-lg": ["Inter"],
+                      "headline-lg-mobile": ["Inter"],
+                      "body-md": ["Inter"],
+                      "label-md": ["Inter"],
+                      "display-lg": ["Inter"],
+                      "label-sm": ["Inter"],
+                      "title-md": ["Inter"]
+              },
+              "fontSize": {
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                      "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+              }
+            },
+          },
+        }
+      </script>
+</head>
+<body class="bg-background font-body-md text-on-background overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-desktop h-16 bg-surface shadow-sm">
+<div class="flex items-center gap-xs">
+<span class="material-symbols-outlined text-primary text-3xl">health_and_safety</span>
+<span class="text-title-md font-title-md font-bold text-primary">HealthAI</span>
+</div>
+<div class="hidden md:flex items-center gap-lg">
+<nav class="flex items-center gap-lg">
+<a class="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Overview</a>
+<a class="text-label-md font-label-md text-primary border-b-2 border-primary pb-1" href="#">Symptom Checker</a>
+<a class="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors" href="#">Find a Clinic</a>
+</nav>
+</div>
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">help_outline</span>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden">
+<img alt="User avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBZZJ47GjUXE_RcNXxowZWHnJdWetx9T-W3GNkF-c2QewjGSAxREKm-CipyDTaqYG84JDtcdXT9dlPojiA8Xc77x45Smq79FAvYbAk3MkNNh2dC3ppVzSAeNw0Das1raKSrWrhnKiW6YvFFcNFSLNgeSjitI849aFiNQjkRtbb-McY9KNz9I-VGy1XEswMqjmlDfQnKni7punkwu9Jp3ytEWvfGaUWgAZa1BrQUa-OgsA4-4nfUinC5BGnlsmqqAMCjBI9A5IO7d6E"/>
+</div>
+</div>
+</header>
+<!-- Main Container -->
+<div class="flex pt-16 min-h-screen">
+<!-- SideNavBar -->
+<aside class="hidden lg:flex flex-col fixed left-0 top-16 h-[calc(100vh-64px)] p-md w-64 z-40 bg-surface-container-low border-r border-outline-variant">
+<div class="mb-lg px-md">
+<h3 class="text-label-sm font-label-sm text-outline uppercase tracking-widest">Main Menu</h3>
+</div>
+<nav class="flex flex-col gap-xs flex-1">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-label-md font-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm bg-secondary-container text-on-secondary-container rounded-lg font-bold transition-transform active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined">medical_services</span>
+<span class="text-label-md font-label-md">Symptom Checker</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">event</span>
+<span class="text-label-md font-label-md">Appointments</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="text-label-md font-label-md">Medical Records</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-label-md font-label-md">Settings</span>
+</a>
+</nav>
+<div class="mt-auto pt-lg border-t border-outline-variant">
+<button class="w-full bg-error text-white font-bold py-sm rounded-lg mb-lg flex items-center justify-center gap-xs">
+<span class="material-symbols-outlined">warning</span>
+                    Emergency SOS
+                </button>
+<div class="flex flex-col gap-xs">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg" href="#">
+<span class="material-symbols-outlined">contact_support</span>
+<span class="text-label-md font-label-md">Help Center</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="text-label-md font-label-md">Logout</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content (Canvas) -->
+<main class="flex-1 ml-0 lg:ml-64 p-margin-mobile md:p-margin-desktop bg-background">
+<div class="max-w-5xl mx-auto space-y-lg">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
+<div>
+<h1 class="text-headline-lg font-headline-lg text-primary">Symptom Checker</h1>
+<p class="text-body-md text-on-surface-variant">Describe how you're feeling and I'll help you navigate the next steps.</p>
+</div>
+<div class="flex items-center gap-sm bg-surface p-sm rounded-xl border border-outline-variant">
+<span class="text-label-sm font-label-sm text-outline">ASSESSMENT PROGRESS</span>
+<div class="w-32 h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[15%] transition-all duration-700" id="main-progress"></div>
+</div>
+</div>
+</div>
+<!-- Bento Layout for Chat and Analysis -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-lg">
+<!-- Left Column: Conversational AI -->
+<div class="lg:col-span-8 flex flex-col h-[650px] bg-white rounded-2xl shadow-[0px_2px_10px_rgba(15,76,129,0.05)] border border-outline-variant/30">
+<div class="p-md border-b border-outline-variant/30 flex items-center gap-sm bg-surface-container-low rounded-t-2xl">
+<div class="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">smart_toy</span>
+</div>
+<div>
+<h3 class="text-label-md font-label-md text-on-surface font-bold">HealthAI Assistant</h3>
+<div class="flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+<span class="text-[10px] text-outline">ONLINE &amp; SECURE</span>
+</div>
+</div>
+</div>
+<!-- Chat Area -->
+<div class="flex-1 overflow-y-auto p-md space-y-lg scroll-smooth" id="chat-container">
+<!-- AI Message -->
+<div class="flex gap-sm max-w-[85%]">
+<div class="chat-bubble-ai p-md text-on-surface text-body-md">
+                                    Hello! I'm here to help you understand your symptoms. To provide an accurate assessment, I'll need a few details. Please start by telling me your age and gender.
+                                </div>
+</div>
+<!-- User Input State: Demographic Form -->
+<div class="flex flex-col items-end gap-sm" id="step-1">
+<div class="chat-bubble-user p-md border border-outline-variant w-full md:w-2/3">
+<h4 class="text-label-md font-label-md mb-md text-primary">Basic Information</h4>
+<div class="grid grid-cols-2 gap-md">
+<div class="space-y-xs">
+<label class="text-label-sm font-label-sm text-outline">Age</label>
+<input class="w-full p-sm rounded-lg border border-outline-variant focus:border-secondary focus:ring-1 focus:ring-secondary outline-none" placeholder="e.g. 28" type="number"/>
+</div>
+<div class="space-y-xs">
+<label class="text-label-sm font-label-sm text-outline">Gender</label>
+<select class="w-full p-sm rounded-lg border border-outline-variant focus:border-secondary outline-none">
+<option>Select</option>
+<option>Male</option>
+<option>Female</option>
+<option>Non-binary</option>
+</select>
+</div>
+</div>
+<button class="mt-md w-full bg-secondary text-on-secondary font-bold py-sm rounded-lg hover:opacity-90 transition-opacity" onclick="nextStep(2)">Confirm Details</button>
+</div>
+</div>
+<!-- Placeholder for dynamic steps -->
+<div id="dynamic-content"></div>
+<!-- Thinking state (hidden by default) -->
+<div class="hidden flex gap-sm items-center py-sm" id="thinking">
+<div class="flex gap-xs">
+<div class="thinking-dot"></div>
+<div class="thinking-dot"></div>
+<div class="thinking-dot"></div>
+</div>
+<span class="text-label-sm font-label-sm text-outline">Analysing clinical data...</span>
+</div>
+</div>
+<!-- Chat Input (Disabled for multi-step) -->
+<div class="p-md border-t border-outline-variant/30 flex gap-sm">
+<input class="flex-1 p-sm rounded-full bg-surface border border-outline-variant/50 focus:outline-none focus:ring-1 focus:ring-secondary/50" placeholder="Type a symptom (e.g., headache, back pain)..." type="text"/>
+<button class="w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</div>
+<!-- Right Column: Contextual Info & Quick Actions -->
+<div class="lg:col-span-4 space-y-lg">
+<!-- Real-time Analysis Card -->
+<div class="bg-white p-lg rounded-2xl shadow-[0px_2px_10px_rgba(15,76,129,0.05)] border border-outline-variant/30 overflow-hidden relative">
+<div class="relative z-10">
+<h3 class="text-title-md font-title-md text-primary mb-md">Current Focus</h3>
+<div class="space-y-md">
+<div class="flex items-center justify-between p-sm bg-surface-container rounded-lg">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-secondary">vital_signs</span>
+<span class="text-label-md font-label-md">Vital Indicators</span>
+</div>
+<span class="text-label-sm font-label-sm text-secondary font-bold">STABLE</span>
+</div>
+<div class="p-md bg-secondary/5 rounded-lg border border-secondary/20">
+<p class="text-label-sm font-label-sm text-on-surface-variant">The AI is monitoring for red-flag symptoms. Please answer as accurately as possible.</p>
+</div>
+</div>
+</div>
+<!-- Background decoration -->
+<div class="absolute top-0 right-0 p-lg opacity-10">
+<span class="material-symbols-outlined text-8xl text-secondary">monitor_heart</span>
+</div>
+</div>
+<!-- Recommendations Card (Skeleton state) -->
+<div class="bg-white p-lg rounded-2xl shadow-[0px_2px_10px_rgba(15,76,129,0.05)] border border-outline-variant/30">
+<h3 class="text-title-md font-title-md text-primary mb-md">Quick Recommendations</h3>
+<div class="space-y-md" id="recommendation-list">
+<div class="flex gap-md animate-pulse">
+<div class="w-12 h-12 rounded-full shimmer"></div>
+<div class="flex-1 space-y-xs">
+<div class="h-4 w-3/4 shimmer rounded"></div>
+<div class="h-3 w-1/2 shimmer rounded"></div>
+</div>
+</div>
+<div class="flex gap-md animate-pulse">
+<div class="w-12 h-12 rounded-full shimmer"></div>
+<div class="flex-1 space-y-xs">
+<div class="h-4 w-2/3 shimmer rounded"></div>
+<div class="h-3 w-1/3 shimmer rounded"></div>
+</div>
+</div>
+<p class="text-[11px] text-outline italic mt-lg">Recommendations will appear once symptoms are detailed.</p>
+</div>
+</div>
+<!-- Emergency Contact -->
+<div class="bg-error-container p-lg rounded-2xl border border-error/20">
+<div class="flex items-center gap-md text-on-error-container">
+<span class="material-symbols-outlined">emergency_home</span>
+<h4 class="font-bold">Feeling very unwell?</h4>
+</div>
+<p class="text-label-sm font-label-sm text-on-error-container/80 mt-sm">If you're experiencing chest pain or difficulty breathing, call 911 immediately.</p>
+<button class="mt-md w-full bg-white text-error font-bold py-sm rounded-lg border border-error/30 shadow-sm">View ER Locations</button>
+</div>
+</div>
+</div>
+<!-- Hidden Results Section (Populated via JS) -->
+<div class="hidden grid grid-cols-1 md:grid-cols-3 gap-lg pt-lg" id="results-section">
+<div class="md:col-span-2 bg-white p-2xl rounded-3xl shadow-lg border-2 border-secondary/20">
+<div class="flex items-center justify-between mb-xl">
+<div>
+<h2 class="text-headline-lg font-headline-lg text-primary">Assessment Result</h2>
+<p class="text-body-md text-on-surface-variant">Based on the symptoms described.</p>
+</div>
+<div class="bg-secondary-container text-on-secondary-container px-lg py-sm rounded-full font-bold text-label-md">
+                                Medium Probability
+                            </div>
+</div>
+<div class="space-y-lg">
+<div class="p-lg bg-surface rounded-2xl">
+<h4 class="text-title-md font-title-md mb-sm flex items-center gap-sm">
+<span class="material-symbols-outlined text-secondary">info</span>
+                                    Likely Cause: Common Seasonal Allergy
+                                </h4>
+<p class="text-body-md text-on-surface-variant leading-relaxed">
+                                    Your symptoms of persistent sneezing, itchy eyes, and mild congestion during this time of year are highly indicative of allergic rhinitis. While uncomfortable, this is typically not a medical emergency.
+                                </p>
+</div>
+<div class="grid grid-cols-2 gap-lg">
+<div class="border border-outline-variant p-md rounded-xl">
+<span class="text-label-sm font-label-sm text-outline">SEVERITY SCORE</span>
+<div class="text-headline-lg text-primary">3/10</div>
+</div>
+<div class="border border-outline-variant p-md rounded-xl">
+<span class="text-label-sm font-label-sm text-outline">DURATION FACTOR</span>
+<div class="text-headline-lg text-primary">Mild</div>
+</div>
+</div>
+</div>
+<div class="mt-xl p-md bg-surface-container-low rounded-xl border-l-4 border-primary">
+<p class="text-[13px] text-on-surface-variant italic">
+<strong>Disclaimer:</strong> This is for informational purposes only and does not constitute medical advice or a formal diagnosis. Always seek the advice of a qualified healthcare provider.
+                            </p>
+</div>
+</div>
+<div class="space-y-lg">
+<h3 class="text-title-md font-title-md text-primary">Suggested Specialists</h3>
+<!-- Doctor Card 1 -->
+<div class="bg-white p-md rounded-xl shadow-sm border border-outline-variant flex gap-md items-center group cursor-pointer hover:border-secondary transition-colors">
+<img alt="Doctor avatar" class="w-14 h-14 rounded-lg bg-surface-container-high" data-alt="A professional medical headshot of a female doctor with glasses and a white coat, looking friendly and approachable. The background is a clean, minimalist medical office with soft blue and teal accents. High-key lighting emphasizes her professional and empathetic character." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2JnTIU5c8W8RZJ6bs9a81KNHOJCF-D9vQE3QzT4CWPVE7agjqvmtF_C9nBVo7LwFsjT-WOwT12CaY-CmgtpIEYhEaO1K47CIEUSY_6_j-CbsSgkKG8qpJn2tlVM9jDgNPEKmqE9DiSJFjOikt1Z4PXiiOeX37o41NgSq0vdnYWgcIZSvvlf58wGXQjno7Hm6oo9uO193GB-FmQ8jMcNLwQrrYhrHZb9xrEt0o6zm4-ZUJ1LzQmA4NCNODMrfhyk90er9UjAbR61s"/>
+<div>
+<h4 class="font-bold text-on-surface group-hover:text-secondary">Dr. Sarah Mitchell</h4>
+<p class="text-label-sm font-label-sm text-outline">Allergist &amp; Immunologist</p>
+<div class="flex items-center gap-xs mt-xs">
+<span class="material-symbols-outlined text-[14px] text-yellow-500" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[12px] font-bold">4.9</span>
+<span class="text-[12px] text-outline">(120 reviews)</span>
+</div>
+</div>
+</div>
+<!-- Doctor Card 2 -->
+<div class="bg-white p-md rounded-xl shadow-sm border border-outline-variant flex gap-md items-center group cursor-pointer hover:border-secondary transition-colors">
+<img alt="Doctor avatar" class="w-14 h-14 rounded-lg bg-surface-container-high" data-alt="A professional medical headshot of a male doctor in his 40s wearing a blue scrub and a stethoscope. The setting is a bright, modern clinic with glass walls and professional lighting. The overall mood is clinical, reliable, and corporate modern." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5eRXrYLV22hXXDztz4USxPfkULVfCkntTbcp6lNSrx6_47AHLa4VMcFCB6cF4AXWMhjFJf7kqsFc8IAFykwuFf8LU-F3w_9fTP1gTkEMJ-LPxKhNBzFcq8XuueLpNclufc-5eznZOa1t7MomLKxD4QFrMQMenT116zvKKncRWTGUX9C3v3Xkt_dVwJI34Z7XWbQNELn1ZfBxdpNcbMrI4dyH3dD_WUe_BkpPP50jkK8F3WymPgMHTS-QaCQNX5It1PVm33rayJfw"/>
+<div>
+<h4 class="font-bold text-on-surface group-hover:text-secondary">Dr. James Wilson</h4>
+<p class="text-label-sm font-label-sm text-outline">General Practitioner</p>
+<div class="flex items-center gap-xs mt-xs">
+<span class="material-symbols-outlined text-[14px] text-yellow-500" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="text-[12px] font-bold">4.7</span>
+<span class="text-[12px] text-outline">(85 reviews)</span>
+</div>
+</div>
+</div>
+<button class="w-full py-md bg-primary text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined">calendar_month</span>
+                            Book Consultation
+                        </button>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- BottomNavBar (Mobile) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface shadow-lg rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="text-label-sm font-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4 py-1 active:scale-95 transition-all" href="#">
+<span class="material-symbols-outlined">chat_bubble</span>
+<span class="text-label-sm font-label-sm">Chat</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">folder_shared</span>
+<span class="text-label-sm font-label-sm">Records</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="text-label-sm font-label-sm">Profile</span>
+</a>
+</nav>
+<script>
+        function nextStep(step) {
+            const chatContainer = document.getElementById('chat-container');
+            const dynamicContent = document.getElementById('dynamic-content');
+            const thinking = document.getElementById('thinking');
+            const progress = document.getElementById('main-progress');
+
+            // Hide previous step button (simple simulation)
+            if(step > 1) {
+                const prevBtn = event.target;
+                prevBtn.classList.add('hidden');
+                prevBtn.parentElement.classList.add('opacity-70');
+            }
+
+            // Show thinking state
+            thinking.classList.remove('hidden');
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            setTimeout(() => {
+                thinking.classList.add('hidden');
+                
+                if(step === 2) {
+                    progress.style.width = '45%';
+                    dynamicContent.innerHTML += `
+                        <div class="flex gap-sm max-w-[85%] mt-lg animate-fade-in">
+                            <div class="chat-bubble-ai p-md text-on-surface text-body-md">
+                                Thank you. Now, please describe your main symptom and how long you've been experiencing it.
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-sm mt-md">
+                            <div class="chat-bubble-user p-md border border-outline-variant w-full md:w-2/3">
+                                <h4 class="text-label-md font-label-md mb-md text-primary">Symptom Details</h4>
+                                <div class="space-y-md">
+                                    <div class="space-y-xs">
+                                        <label class="text-label-sm font-label-sm text-outline">Main Symptom</label>
+                                        <input type="text" placeholder="e.g. Headache, Nausea" class="w-full p-sm rounded-lg border border-outline-variant outline-none focus:border-secondary">
+                                    </div>
+                                    <div class="space-y-xs">
+                                        <label class="text-label-sm font-label-sm text-outline">Duration</label>
+                                        <select class="w-full p-sm rounded-lg border border-outline-variant outline-none focus:border-secondary">
+                                            <option>Just started</option>
+                                            <option>1-3 days</option>
+                                            <option>About a week</option>
+                                            <option>More than a month</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <button onclick="nextStep(3)" class="mt-md w-full bg-secondary text-on-secondary font-bold py-sm rounded-lg">Continue</button>
+                            </div>
+                        </div>
+                    `;
+                } else if(step === 3) {
+                    progress.style.width = '75%';
+                    dynamicContent.innerHTML += `
+                        <div class="flex gap-sm max-w-[85%] mt-lg">
+                            <div class="chat-bubble-ai p-md text-on-surface text-body-md">
+                                Almost done. On a scale of 1-10, how severe is your discomfort?
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-end gap-sm mt-md">
+                            <div class="chat-bubble-user p-md border border-outline-variant w-full md:w-2/3">
+                                <h4 class="text-label-md font-label-md mb-md text-primary">Severity Scale</h4>
+                                <input type="range" min="1" max="10" value="5" class="w-full h-2 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-secondary">
+                                <div class="flex justify-between text-[10px] text-outline mt-xs px-1">
+                                    <span>MILD (1)</span>
+                                    <span>MODERATE (5)</span>
+                                    <span>SEVERE (10)</span>
+                                </div>
+                                <button onclick="nextStep('complete')" class="mt-md w-full bg-secondary text-on-secondary font-bold py-sm rounded-lg">Run Analysis</button>
+                            </div>
+                        </div>
+                    `;
+                } else if(step === 'complete') {
+                    progress.style.width = '100%';
+                    document.getElementById('results-section').classList.remove('hidden');
+                    document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+                    
+                    // Update the sidebar recommendations
+                    document.getElementById('recommendation-list').innerHTML = `
+                        <div class="p-sm bg-surface rounded-lg flex items-center gap-md">
+                            <span class="material-symbols-outlined text-secondary">pill</span>
+                            <div>
+                                <p class="text-label-md font-bold">OTC Antihistamines</p>
+                                <p class="text-[10px] text-outline">May reduce allergic reaction</p>
+                            </div>
+                        </div>
+                        <div class="p-sm bg-surface rounded-lg flex items-center gap-md">
+                            <span class="material-symbols-outlined text-secondary">water_drop</span>
+                            <div>
+                                <p class="text-label-md font-bold">Saline Rinse</p>
+                                <p class="text-[10px] text-outline">Clear nasal passages</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }, 1200);
+        }
+    </script>
+
+<script src='../shared/app.js'></script>
+</body></html>

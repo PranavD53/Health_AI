@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HealthAI | Secure Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                "on-secondary-fixed-variant": "#004f54",
+                "on-surface-variant": "#42474f",
+                "inverse-on-surface": "#ebf1ff",
+                "outline": "#727780",
+                "tertiary-fixed": "#e0e3e5",
+                "secondary-fixed-dim": "#70d6df",
+                "background": "#f9f9ff",
+                "outline-variant": "#c2c7d1",
+                "on-tertiary-fixed-variant": "#434749",
+                "secondary-fixed": "#8df2fc",
+                "on-tertiary-fixed": "#181c1e",
+                "on-surface": "#111c2c",
+                "on-primary-fixed": "#001c37",
+                "on-secondary-fixed": "#002022",
+                "on-error-container": "#93000a",
+                "on-secondary": "#ffffff",
+                "surface-container-high": "#dee8ff",
+                "primary-fixed-dim": "#a0c9ff",
+                "surface-container": "#e7eeff",
+                "secondary": "#006970",
+                "on-background": "#111c2c",
+                "error": "#ba1a1a",
+                "primary-fixed": "#d2e4ff",
+                "on-primary-container": "#8ebdf9",
+                "on-error": "#ffffff",
+                "primary-container": "#0f4c81",
+                "primary": "#00355f",
+                "surface-container-low": "#f0f3ff",
+                "surface-dim": "#cfdaf1",
+                "inverse-surface": "#263142",
+                "on-primary-fixed-variant": "#07497d",
+                "tertiary": "#303436",
+                "on-primary": "#ffffff",
+                "on-tertiary-container": "#b7bbbd",
+                "inverse-primary": "#a0c9ff",
+                "surface": "#f9f9ff",
+                "on-tertiary": "#ffffff",
+                "secondary-container": "#8df2fc",
+                "error-container": "#ffdad6",
+                "surface-container-highest": "#d8e3fa",
+                "surface-bright": "#f9f9ff",
+                "surface-variant": "#d8e3fa",
+                "surface-container-lowest": "#ffffff",
+                "tertiary-container": "#474b4d",
+                "surface-tint": "#2d6197",
+                "tertiary-fixed-dim": "#c4c7c9",
+                "on-secondary-container": "#006f77"
+              },
+              "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+              },
+              "spacing": {
+                "2xl": "48px",
+                "xl": "32px",
+                "gutter": "24px",
+                "3xl": "64px",
+                "xs": "4px",
+                "unit": "4px",
+                "lg": "24px",
+                "sm": "8px",
+                "margin-mobile": "16px",
+                "margin-desktop": "40px",
+                "md": "16px"
+              },
+              "fontFamily": {
+                "headline-lg": ["Inter", "sans-serif"],
+                "title-md": ["Inter", "sans-serif"],
+                "label-sm": ["Inter", "sans-serif"],
+                "label-md": ["Inter", "sans-serif"],
+                "body-md": ["Inter", "sans-serif"]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* Clinical Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex overflow-hidden">
+<!-- Left Branding Section (Desktop Only) -->
+<section class="hidden lg:flex flex-col justify-between w-[45%] bg-primary-container relative overflow-hidden p-3xl">
+<!-- Background Graphic Element -->
+<div class="absolute inset-0 opacity-20 pointer-events-none">
+
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-sm mb-xl">
+<span class="material-symbols-outlined text-primary-fixed-dim text-4xl" style="font-variation-settings: 'FILL' 1;">health_and_safety</span>
+<h1 class="text-white font-headline-lg text-headline-lg tracking-tight">HealthAI</h1>
+</div>
+<div class="max-w-md">
+<h2 class="text-white font-display-lg text-4xl mb-md leading-tight">Precision Intelligence for Human Wellness.</h2>
+<p class="text-primary-fixed font-body-lg text-body-lg opacity-80">Access your clinical dashboard, patient records, and AI-driven diagnostic tools with enterprise-grade security.</p>
+</div>
+</div>
+<div class="relative z-10">
+<div class="flex gap-lg items-center text-primary-fixed-dim opacity-60">
+<div class="flex flex-col">
+<span class="text-label-sm font-label-sm">ISO 27001</span>
+<span class="text-label-sm font-label-sm">HIPAA COMPLIANT</span>
+</div>
+<div class="h-8 w-px bg-white/20"></div>
+<div class="flex flex-col">
+<span class="text-label-sm font-label-sm">ENCRYPTION</span>
+<span class="text-label-sm font-label-sm">AES-256 BIT</span>
+</div>
+</div>
+</div>
+<!-- Abstract Medical Background Image -->
+<div class="absolute bottom-0 right-0 w-full h-full -z-10 mix-blend-overlay">
+<div class="w-full h-full bg-cover bg-center" data-alt="A sophisticated macro photograph of blue and teal crystalline structures representing molecular data or neural networks. The lighting is ethereal and cool, using a professional light-mode aesthetic that communicates trust and precision. The visual style is minimal and high-end, fitting for a corporate medical intelligence platform." style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuAneSzkINXhT4E7YNKfuaeuVDeXneIxWoDNJIyi1bvDS4EByUp5lDkaZgbYQBeqgfSApPp9bd13IGFMjlE0KPbWUJv8hRna3Nu_O-GwR3c4jQzi9Da9schzqvXixy7-Xcf3Flb7-UMSUsj9xanTMsh3kIULdy3MfnC8-_3Y-A43HAY81zeq64N5tVg7mQFXR9EWNoaE2qEX38_uT9vuhsenTzn-uSO1oGz9xsl5LHaDV2jHTpplKzsQGt2sW_0PICfkhnXJ1oOIUL0')">
+</div>
+</div>
+</section>
+<!-- Right Login Section -->
+<main class="w-full lg:w-[55%] h-screen overflow-y-auto flex items-center justify-center p-margin-mobile md:p-2xl bg-surface-container-lowest">
+<div class="w-full max-w-lg">
+<!-- Mobile Logo -->
+<div class="flex lg:hidden items-center justify-center gap-sm mb-xl">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">health_and_safety</span>
+<span class="text-primary font-headline-lg text-headline-lg tracking-tight">HealthAI</span>
+</div>
+<header class="mb-xl text-center lg:text-left">
+<h3 class="text-on-surface font-headline-lg text-headline-lg mb-xs">Welcome back</h3>
+<p class="text-on-surface-variant font-body-md text-body-md">Please select your role to continue to your workspace.</p>
+</header>
+<!-- Role Tabs -->
+<div class="flex p-unit bg-surface-container-high rounded-xl mb-xl">
+<button class="flex-1 flex items-center justify-center gap-xs py-md rounded-lg transition-all duration-200 text-label-md font-label-md bg-secondary-container text-on-secondary-container shadow-sm" id="tab-patient" onclick="switchTab('patient')">
+<span class="material-symbols-outlined text-[20px]">person</span>
+                    Patient Login
+                </button>
+<button class="flex-1 flex items-center justify-center gap-xs py-md rounded-lg transition-all duration-200 text-label-md font-label-md text-on-surface-variant hover:text-on-surface" id="tab-doctor" onclick="switchTab('doctor')">
+<span class="material-symbols-outlined text-[20px]">medical_services</span>
+                    Doctor Login
+                </button>
+<button class="flex-1 flex items-center justify-center gap-xs py-md rounded-lg transition-all duration-200 text-label-md font-label-md text-on-surface-variant hover:text-on-surface" id="tab-admin" onclick="switchTab('admin')">
+<span class="material-symbols-outlined text-[20px]">admin_panel_settings</span>
+                    Admin Login
+                </button>
+</div>
+<!-- Tab Panels -->
+<div class="space-y-lg">
+<!-- Patient Tab -->
+<div class="tab-content active animate-in fade-in slide-in-from-bottom-2" id="panel-patient">
+<form class="space-y-md">
+<div class="space-y-xs">
+<label class="text-label-md font-label-md text-on-surface ml-unit">Email Address</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">mail</span>
+<input class="w-full pl-[48px] pr-md py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all" placeholder="name@example.com" type="email"/>
+</div>
+</div>
+<div class="space-y-xs">
+<div class="flex justify-between items-center px-unit">
+<label class="text-label-md font-label-md text-on-surface">Password</label>
+<button class="text-label-sm font-label-sm text-secondary hover:underline" type="button">Forgot Password?</button>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">lock</span>
+<input class="w-full pl-[48px] pr-md py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all" placeholder="••••••••" type="password"/>
+</div>
+</div>
+<button class="w-full py-3 bg-secondary text-white rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-[0.98] transition-all shadow-md" type="submit">
+                            Login to Patient Portal
+                        </button>
+<div class="pt-md text-center">
+<span class="text-on-surface-variant text-body-md font-body-md">New to HealthAI?</span>
+<button class="text-secondary font-label-md ml-xs hover:underline" type="button">Register Account</button>
+</div>
+</form>
+</div>
+<!-- Doctor Tab -->
+<div class="tab-content animate-in fade-in slide-in-from-bottom-2" id="panel-doctor">
+<!-- Status Notice -->
+<div class="mb-md p-md bg-error-container/30 border border-error-container rounded-xl flex gap-md items-start">
+<span class="material-symbols-outlined text-error" style="font-variation-settings: 'FILL' 1;">info</span>
+<div>
+<p class="text-label-md font-label-md text-on-error-container">Verification Pending</p>
+<p class="text-body-md font-body-md text-on-error-container opacity-80 text-sm">New registrations may take up to 24 hours for credential verification by the Medical Board.</p>
+</div>
+</div>
+<form class="space-y-md">
+<div class="grid grid-cols-2 gap-md">
+<div class="space-y-xs">
+<label class="text-label-md font-label-md text-on-surface ml-unit">Doctor ID</label>
+<input class="w-full px-md py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none transition-all" placeholder="MD-8829" type="text"/>
+</div>
+<div class="space-y-xs">
+<label class="text-label-md font-label-md text-on-surface ml-unit">Full Name</label>
+<input class="w-full px-md py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none transition-all" placeholder="Dr. Smith" type="text"/>
+</div>
+</div>
+<div class="space-y-xs">
+<label class="text-label-md font-label-md text-on-surface ml-unit">Affiliated Hospital</label>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">apartment</span>
+<select class="w-full pl-[48px] pr-md py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none appearance-none">
+<option>Central General Hospital</option>
+<option>North Wellness Center</option>
+<option>St. Mary's Medical</option>
+</select>
+</div>
+</div>
+<div class="space-y-xs">
+<label class="text-label-md font-label-md text-on-surface ml-unit">Professional Password</label>
+<input class="w-full px-md py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none transition-all" placeholder="••••••••" type="password"/>
+</div>
+<button class="w-full py-3 bg-primary text-white rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-[0.98] transition-all shadow-md" type="submit">
+                            Secure Clinician Access
+                        </button>
+</form>
+</div>
+<!-- Admin Tab -->
+<div class="tab-content animate-in fade-in slide-in-from-bottom-2" id="panel-admin">
+<form class="space-y-md" id="admin-form">
+<div class="space-y-md" id="admin-credentials-stage">
+<div class="space-y-xs">
+<label class="text-label-md font-label-md text-on-surface ml-unit">Admin Username</label>
+<input class="w-full px-md py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none transition-all" placeholder="admin_v1" type="text"/>
+</div>
+<div class="space-y-xs">
+<label class="text-label-md font-label-md text-on-surface ml-unit">Master Password</label>
+<input class="w-full px-md py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none transition-all" placeholder="••••••••" type="password"/>
+</div>
+<button class="w-full py-3 bg-tertiary-container text-on-tertiary-container border border-outline rounded-lg font-label-md text-label-md hover:bg-tertiary transition-all" onclick="showOTP()" type="button">
+                                Continue to MFA
+                            </button>
+</div>
+<!-- OTP Verification State -->
+<div class="hidden space-y-xl animate-in zoom-in-95" id="admin-otp-stage">
+<div class="text-center py-md">
+<span class="material-symbols-outlined text-4xl text-secondary mb-md">shield_person</span>
+<h4 class="text-title-md font-title-md">Multi-Factor Authentication</h4>
+<p class="text-body-md text-on-surface-variant">Enter the 6-digit code sent to your registered device.</p>
+</div>
+<div class="flex justify-between gap-sm">
+<input class="w-12 h-14 text-center text-xl font-bold border border-outline-variant rounded-lg bg-surface focus:border-secondary outline-none" maxlength="1" type="text"/>
+<input class="w-12 h-14 text-center text-xl font-bold border border-outline-variant rounded-lg bg-surface focus:border-secondary outline-none" maxlength="1" type="text"/>
+<input class="w-12 h-14 text-center text-xl font-bold border border-outline-variant rounded-lg bg-surface focus:border-secondary outline-none" maxlength="1" type="text"/>
+<input class="w-12 h-14 text-center text-xl font-bold border border-outline-variant rounded-lg bg-surface focus:border-secondary outline-none" maxlength="1" type="text"/>
+<input class="w-12 h-14 text-center text-xl font-bold border border-outline-variant rounded-lg bg-surface focus:border-secondary outline-none" maxlength="1" type="text"/>
+<input class="w-12 h-14 text-center text-xl font-bold border border-outline-variant rounded-lg bg-surface focus:border-secondary outline-none" maxlength="1" type="text"/>
+</div>
+<div class="space-y-sm">
+<button class="w-full py-3 bg-secondary text-white rounded-lg font-label-md text-label-md shadow-lg" type="submit">
+                                    Verify &amp; Log In
+                                </button>
+<button class="w-full text-center text-label-sm font-label-sm text-outline hover:text-on-surface py-xs transition-colors" onclick="hideOTP()" type="button">
+                                    Return to Credentials
+                                </button>
+</div>
+</div>
+</form>
+</div>
+</div>
+<!-- Global Footer Information -->
+<footer class="mt-2xl flex flex-col items-center gap-md">
+<div class="flex gap-lg">
+<a class="text-label-sm font-label-sm text-on-surface-variant hover:text-secondary transition-colors" href="#">Privacy Policy</a>
+<a class="text-label-sm font-label-sm text-on-surface-variant hover:text-secondary transition-colors" href="#">Terms of Service</a>
+<a class="text-label-sm font-label-sm text-on-surface-variant hover:text-secondary transition-colors" href="#">Help Center</a>
+</div>
+<p class="text-label-sm font-label-sm text-outline">© 2024 HealthAI Systems Inc. All rights reserved.</p>
+</footer>
+</div>
+</main>
+<script>
+        function switchTab(role) {
+            // Update Tab styles
+            const tabs = ['patient', 'doctor', 'admin'];
+            tabs.forEach(t => {
+                const tabEl = document.getElementById(`tab-${t}`);
+                const panelEl = document.getElementById(`panel-${t}`);
+                
+                if (t === role) {
+                    tabEl.classList.add('bg-secondary-container', 'text-on-secondary-container', 'shadow-sm');
+                    tabEl.classList.remove('text-on-surface-variant');
+                    panelEl.classList.add('active');
+                } else {
+                    tabEl.classList.remove('bg-secondary-container', 'text-on-secondary-container', 'shadow-sm');
+                    tabEl.classList.add('text-on-surface-variant');
+                    panelEl.classList.remove('active');
+                }
+            });
+
+            // Reset Admin OTP stage if switching away
+            if (role !== 'admin') {
+                hideOTP();
+            }
+        }
+
+        function showOTP() {
+            document.getElementById('admin-credentials-stage').classList.add('hidden');
+            document.getElementById('admin-otp-stage').classList.remove('hidden');
+        }
+
+        function hideOTP() {
+            document.getElementById('admin-credentials-stage').classList.remove('hidden');
+            document.getElementById('admin-otp-stage').classList.add('hidden');
+        }
+
+        // Auto-focus next OTP input
+        const otpInputs = document.querySelectorAll('#admin-otp-stage input');
+        otpInputs.forEach((input, index) => {
+            input.addEventListener('keyup', (e) => {
+                if (e.key >= 0 && e.key <= 9) {
+                    if (index < otpInputs.length - 1) {
+                        otpInputs[index + 1].focus();
+                    }
+                } else if (e.key === 'Backspace') {
+                    if (index > 0) {
+                        otpInputs[index - 1].focus();
+                    }
+                }
+            });
+        });
+    </script>
+
+<script src='../shared/app.js'></script>
+</body></html>

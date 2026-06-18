@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+.env.local
+.env.production
+.venv/
+
+# Environment variables (contains secrets)
+.env
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+test_healthcare.db
+
+# Uploads directory (user-generated content)
+uploads/
+
+# Byte-compiled
+*.pyc
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Pytest
+.pytest_cache/

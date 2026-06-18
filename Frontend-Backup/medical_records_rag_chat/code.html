@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HealthAI | Medical Records Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #c2c7d1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #727780; }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .shimmer {
+            background: linear-gradient(90deg, #f0f3ff 25%, #e7eeff 50%, #f0f3ff 75%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite linear;
+        }
+
+        .chat-bubble-ai {
+            background: rgba(0, 105, 112, 0.08);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline": "#727780",
+                        "primary-container": "#0f4c81",
+                        "outline-variant": "#c2c7d1",
+                        "surface-dim": "#cfdaf1",
+                        "secondary-container": "#8df2fc",
+                        "surface-container-highest": "#d8e3fa",
+                        "tertiary-fixed": "#e0e3e5",
+                        "surface-container-low": "#f0f3ff",
+                        "surface-container": "#e7eeff",
+                        "on-secondary-fixed-variant": "#004f54",
+                        "on-background": "#111c2c",
+                        "inverse-surface": "#263142",
+                        "primary": "#00355f",
+                        "tertiary-container": "#474b4d",
+                        "surface": "#f9f9ff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#07497d",
+                        "primary-fixed": "#d2e4ff",
+                        "on-surface": "#111c2c",
+                        "surface-container-lowest": "#ffffff",
+                        "background": "#f9f9ff",
+                        "on-tertiary-fixed-variant": "#434749",
+                        "on-secondary-fixed": "#002022",
+                        "error-container": "#ffdad6",
+                        "surface-tint": "#2d6197",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed-dim": "#a0c9ff",
+                        "secondary": "#006970",
+                        "on-error": "#ffffff",
+                        "inverse-primary": "#a0c9ff",
+                        "on-tertiary-fixed": "#181c1e",
+                        "inverse-on-surface": "#ebf1ff",
+                        "on-primary-fixed": "#001c37",
+                        "error": "#ba1a1a",
+                        "surface-bright": "#f9f9ff",
+                        "tertiary": "#303436",
+                        "surface-variant": "#d8e3fa",
+                        "secondary-fixed-dim": "#70d6df",
+                        "surface-container-high": "#dee8ff",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#006f77",
+                        "secondary-fixed": "#8df2fc",
+                        "on-primary-container": "#8ebdf9",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#c4c7c9",
+                        "on-surface-variant": "#42474f",
+                        "on-tertiary-container": "#b7bbbd"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "2xl": "48px",
+                        "xl": "32px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "40px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "lg": "24px",
+                        "3xl": "64px",
+                        "gutter": "24px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "title-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-desktop h-16 bg-surface shadow-[0px_2px_10px_rgba(15,76,129,0.05)]">
+<div class="flex items-center gap-sm">
+<span class="text-title-md font-title-md font-bold text-primary">HealthAI</span>
+</div>
+<div class="hidden md:flex items-center gap-xl">
+<nav class="flex gap-lg">
+<a class="text-on-surface-variant hover:text-primary transition-colors text-label-md font-label-md" href="#">Dashboard</a>
+<a class="text-primary border-b-2 border-primary pb-1 text-label-md font-label-md" href="#">Medical Records</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors text-label-md font-label-md" href="#">Appointments</a>
+</nav>
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">notifications</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer">help_outline</span>
+<img alt="User avatar" class="w-8 h-8 rounded-full border border-outline-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC-WYagfE53eq8xYb9w4sxxxh61jbcCZl2VGide9P07O0MUA6aGE_Hv4eoI4iT3YZTAzBRgFByDYUztOVS37gf4XSuE1nGQr7KdbOVRwuW5hWuatLP2A3WLA8lXZXhH0XO2Et1nMyntc4pcPjTJaE2VQtvkYOYSsfKugMOyrFRIDI_F5zENkYF1lO534piG91RANWzElDMNqMaMqZNINy039HtIraNlV-CdxWBFqJIsFMDmTi0uV4hyqorzls1jFcU3Ia6fqxyfe0A"/>
+</div>
+</div>
+<div class="md:hidden">
+<span class="material-symbols-outlined">menu</span>
+</div>
+</header>
+<!-- SideNavBar (Desktop Only) -->
+<aside class="hidden lg:flex flex-col fixed left-0 top-16 h-[calc(100vh-64px)] p-md w-64 z-40 bg-surface-container-low border-r border-outline-variant">
+<div class="flex items-center gap-sm mb-xl p-xs">
+<img alt="Medical Professional Avatar" class="w-10 h-10 rounded-lg" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC28Cin6oAd6RD5vu1lACqCDvc77nB9ZiP8T3GsHLMxaV08fdLb3ehkuxvPG9zuo-KLi4NGtHIMPYMxHdmZTaAgmIuhb4Z0e9i_E68eLlGLuG9t4l7lx_KGK12Uq8jn44lDPeuuxR0crJ2ndD5oOlxa87Z0xsz9fastmvTCRQC9tOc5XaRRyd_OpAV3rjnFji87iiF4fmBaZn4EH7lP_ZI8hwQBLIG6wQwHhAOzftEPcLSZPwNmC8_L_sm4CBgADIbpFns2NMf_WIQ"/>
+<div>
+<p class="text-label-md font-bold text-primary">HealthAI Assistant</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Role: Patient</p>
+</div>
+</div>
+<nav class="flex flex-col gap-xs flex-grow">
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">medical_services</span>
+<span class="text-label-md">Symptom Checker</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">event</span>
+<span class="text-label-md">Appointments</span>
+</a>
+<a class="flex items-center gap-sm p-sm bg-secondary-container text-on-secondary-container rounded-lg font-bold scale-[0.98]" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="text-label-md">Medical Records</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-label-md">Settings</span>
+</a>
+</nav>
+<button class="mb-lg w-full py-md bg-error text-white rounded-xl flex items-center justify-center gap-sm font-bold shadow-md hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">emergency</span>
+            Emergency SOS
+        </button>
+<div class="border-t border-outline-variant pt-md flex flex-col gap-xs">
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg" href="#">
+<span class="material-symbols-outlined">contact_support</span>
+<span class="text-label-md">Help Center</span>
+</a>
+<a class="flex items-center gap-sm p-sm text-on-surface-variant hover:bg-surface-container-high rounded-lg" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="text-label-md">Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="lg:ml-64 pt-20 pb-20 lg:pb-8 px-margin-mobile md:px-margin-desktop min-h-screen">
+<div class="max-w-[1440px] mx-auto grid grid-cols-1 xl:grid-cols-12 gap-lg">
+<!-- Left Column: Upload & Records -->
+<div class="xl:col-span-8 space-y-lg">
+<header class="flex flex-col md:flex-row md:items-end justify-between gap-md">
+<div>
+<h1 class="text-headline-lg font-headline-lg text-primary">Medical Records</h1>
+<p class="text-on-surface-variant max-w-lg">Manage your health history. Our AI securely indexes your documents to provide personalized health insights.</p>
+</div>
+</header>
+<!-- Upload Section -->
+<div class="bg-surface-container-lowest border-2 border-dashed border-outline-variant rounded-xl p-xl flex flex-col items-center justify-center text-center hover:border-secondary transition-colors group cursor-pointer">
+<div class="w-16 h-16 bg-surface-container-low rounded-full flex items-center justify-center mb-md group-hover:bg-secondary-container transition-colors">
+<span class="material-symbols-outlined text-secondary text-3xl">cloud_upload</span>
+</div>
+<h3 class="text-title-md font-title-md text-on-surface">Upload New Documents</h3>
+<p class="text-on-surface-variant text-label-md mt-xs">PDF, JPG, or PNG up to 20MB. Reports are encrypted and private.</p>
+<div class="mt-lg flex gap-md">
+<button class="px-lg py-sm bg-secondary text-on-secondary rounded-lg font-bold flex items-center gap-xs">
+<span class="material-symbols-outlined text-sm">add</span>
+                            Select Files
+                        </button>
+</div>
+</div>
+<!-- Records List: Bento Grid style -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<!-- Processing Item -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0px_2px_10px_rgba(15,76,129,0.05)] border border-outline-variant relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-secondary"></div>
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 bg-secondary-container rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">lab_research</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Blood Panel Results</h4>
+<p class="text-xs text-on-surface-variant">Uploaded 2 mins ago</p>
+</div>
+</div>
+<span class="bg-surface-container-high text-on-surface-variant text-[10px] px-sm py-xs rounded-full font-bold uppercase tracking-wider flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                                Processing
+                            </span>
+</div>
+<div class="space-y-sm">
+<div class="h-2 w-full bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-2/3 rounded-full"></div>
+</div>
+<p class="text-[11px] text-on-surface-variant italic">AI is extracting hematology markers and trends...</p>
+</div>
+</div>
+<!-- Indexed Item 1 -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0px_2px_10px_rgba(15,76,129,0.05)] border border-transparent hover:border-outline-variant transition-all cursor-pointer group">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 bg-surface-container-low rounded-lg flex items-center justify-center group-hover:bg-secondary-container transition-colors">
+<span class="material-symbols-outlined text-primary">description</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Cardiology Report</h4>
+<p class="text-xs text-on-surface-variant">Oct 24, 2023 • Dr. Aris Thorne</p>
+</div>
+</div>
+<span class="bg-primary-fixed text-on-primary-fixed-variant text-[10px] px-sm py-xs rounded-full font-bold uppercase tracking-wider">Indexed</span>
+</div>
+<div class="flex gap-sm mt-md">
+<button class="text-xs text-secondary font-bold flex items-center gap-xs hover:underline"><span class="material-symbols-outlined text-sm">visibility</span> View</button>
+<button class="text-xs text-on-surface-variant font-bold flex items-center gap-xs hover:underline"><span class="material-symbols-outlined text-sm">download</span> PDF</button>
+</div>
+</div>
+<!-- Indexed Item 2 -->
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0px_2px_10px_rgba(15,76,129,0.05)] border border-transparent hover:border-outline-variant transition-all cursor-pointer group">
+<div class="flex justify-between items-start mb-md">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 bg-surface-container-low rounded-lg flex items-center justify-center group-hover:bg-secondary-container transition-colors">
+<span class="material-symbols-outlined text-primary">pill</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Annual Prescription</h4>
+<p class="text-xs text-on-surface-variant">Sep 12, 2023 • City Health</p>
+</div>
+</div>
+<span class="bg-primary-fixed text-on-primary-fixed-variant text-[10px] px-sm py-xs rounded-full font-bold uppercase tracking-wider">Indexed</span>
+</div>
+<div class="flex gap-sm mt-md">
+<button class="text-xs text-secondary font-bold flex items-center gap-xs hover:underline"><span class="material-symbols-outlined text-sm">visibility</span> View</button>
+<button class="text-xs text-on-surface-variant font-bold flex items-center gap-xs hover:underline"><span class="material-symbols-outlined text-sm">download</span> PDF</button>
+</div>
+</div>
+<!-- Add New Placeholder -->
+<div class="bg-surface-container p-md rounded-xl border border-dashed border-outline-variant flex items-center justify-center gap-sm text-on-surface-variant hover:text-secondary hover:bg-surface-container-high transition-all cursor-pointer">
+<span class="material-symbols-outlined">add_circle</span>
+<span class="font-bold">Add Another Provider</span>
+</div>
+</div>
+<!-- Recent Activity/Insights -->
+<section class="mt-2xl">
+<h2 class="text-title-md font-title-md text-primary mb-md">Key Trends from Records</h2>
+<div class="bg-surface-container-low rounded-2xl p-lg grid grid-cols-1 md:grid-cols-3 gap-lg overflow-hidden relative">
+<div class="flex flex-col">
+<span class="text-label-sm text-on-surface-variant uppercase tracking-widest">Cholesterol</span>
+<div class="flex items-end gap-xs mt-xs">
+<span class="text-headline-lg font-headline-lg text-primary">185</span>
+<span class="text-body-md text-on-surface mb-xs">mg/dL</span>
+</div>
+<span class="text-xs text-secondary flex items-center gap-xs mt-xs">
+<span class="material-symbols-outlined text-xs">trending_down</span>
+                                5% lower than last year
+                            </span>
+</div>
+<div class="flex flex-col border-l border-outline-variant md:pl-lg">
+<span class="text-label-sm text-on-surface-variant uppercase tracking-widest">Blood Pressure</span>
+<div class="flex items-end gap-xs mt-xs">
+<span class="text-headline-lg font-headline-lg text-primary">118/75</span>
+<span class="text-body-md text-on-surface mb-xs">mmHg</span>
+</div>
+<span class="text-xs text-on-surface-variant flex items-center gap-xs mt-xs">
+<span class="material-symbols-outlined text-xs">check_circle</span>
+                                Stable &amp; Optimal
+                            </span>
+</div>
+<div class="flex flex-col border-l border-outline-variant md:pl-lg">
+<span class="text-label-sm text-on-surface-variant uppercase tracking-widest">Vitamin D3</span>
+<div class="flex items-end gap-xs mt-xs">
+<span class="text-headline-lg font-headline-lg text-error">24</span>
+<span class="text-body-md text-on-surface mb-xs">ng/mL</span>
+</div>
+<span class="text-xs text-error flex items-center gap-xs mt-xs">
+<span class="material-symbols-outlined text-xs">warning</span>
+                                Below normal range
+                            </span>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: AI RAG Sidebar -->
+<aside class="xl:col-span-4 h-full">
+<div class="sticky top-24 bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-lg flex flex-col h-[calc(100vh-120px)]">
+<!-- AI Header -->
+<div class="p-lg border-b border-outline-variant bg-surface-container-low rounded-t-2xl">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 bg-secondary rounded-full flex items-center justify-center text-on-secondary shadow-md">
+<span class="material-symbols-outlined">auto_awesome</span>
+</div>
+<div>
+<h2 class="text-title-md font-title-md text-primary">Ask Your Records</h2>
+<p class="text-xs text-on-surface-variant">AI-powered medical history search</p>
+</div>
+</div>
+</div>
+<!-- Chat History (Scrollable) -->
+<div class="flex-grow overflow-y-auto p-lg space-y-lg custom-scrollbar">
+<!-- Bot Message -->
+<div class="flex flex-col items-start gap-sm">
+<div class="chat-bubble-ai p-md rounded-2xl rounded-tl-none max-w-[90%] text-sm text-on-surface">
+                                Hello! I've indexed your Cardiology Report and last Blood Panel. How can I help you understand your records today?
+                            </div>
+</div>
+<!-- User Message -->
+<div class="flex flex-col items-end gap-sm">
+<div class="bg-surface-container-high p-md rounded-2xl rounded-tr-none max-w-[90%] text-sm text-on-surface shadow-sm border border-outline-variant">
+                                What did my cardiologist say about my heart rate during the last exam?
+                            </div>
+</div>
+<!-- Bot Message with Citations -->
+<div class="flex flex-col items-start gap-sm">
+<div class="chat-bubble-ai p-md rounded-2xl rounded-tl-none max-w-[95%] text-sm text-on-surface">
+                                Your cardiologist, Dr. Aris Thorne, noted that your resting heart rate was 72 bpm, which is within the normal range. However, they recommended monitoring during high-intensity exercise due to a slightly elevated recovery peak.
+                                
+                                <div class="mt-md p-sm bg-surface-container-lowest border border-secondary/20 rounded-lg text-xs italic">
+<div class="flex items-center gap-xs text-secondary font-bold mb-xs">
+<span class="material-symbols-outlined text-[14px]">format_quote</span>
+                                        Excerpt from Cardiology_Report_Oct23.pdf
+                                    </div>
+                                    "...Resting sinus rhythm at 72 bpm. Patient noted mild dyspnea upon peak exertion. Recommend follow-up stress test if symptoms persist..."
+                                </div>
+<div class="mt-sm flex gap-xs">
+<span class="px-sm py-[2px] bg-secondary-container text-on-secondary-container text-[10px] rounded font-bold cursor-pointer hover:opacity-80">Ref: Page 2</span>
+<span class="px-sm py-[2px] bg-secondary-container text-on-secondary-container text-[10px] rounded font-bold cursor-pointer hover:opacity-80">Ref: Clinical Notes</span>
+</div>
+</div>
+</div>
+<!-- Thinking state (hidden by default, used for interaction) -->
+<div class="hidden flex items-center gap-xs p-md chat-bubble-ai rounded-2xl rounded-tl-none w-fit" id="ai-thinking">
+<div class="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style="animation-delay: 0s"></div>
+<div class="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+<div class="w-1.5 h-1.5 bg-secondary rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+</div>
+</div>
+<!-- Input Area -->
+<div class="p-lg border-t border-outline-variant">
+<div class="relative">
+<textarea class="w-full bg-surface-container border border-outline-variant rounded-xl p-md pr-12 text-sm focus:ring-2 focus:ring-secondary focus:border-transparent outline-none resize-none h-20 transition-all" placeholder="Ask about medications, lab values..."></textarea>
+<button class="absolute bottom-3 right-3 w-8 h-8 bg-secondary text-on-secondary rounded-lg flex items-center justify-center shadow hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined">send</span>
+</button>
+</div>
+<div class="mt-md flex flex-wrap gap-xs">
+<button class="px-sm py-1 bg-surface-container-high border border-outline-variant rounded-full text-[10px] font-bold text-on-surface-variant hover:bg-secondary-container hover:text-secondary transition-colors">Compare blood panels</button>
+<button class="px-sm py-1 bg-surface-container-high border border-outline-variant rounded-full text-[10px] font-bold text-on-surface-variant hover:bg-secondary-container hover:text-secondary transition-colors">List current prescriptions</button>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface shadow-[0px_-2px_10px_rgba(15,76,129,0.05)] rounded-t-xl">
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">home</span>
+<span class="text-label-sm font-label-sm">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">chat_bubble</span>
+<span class="text-label-sm font-label-sm">Chat</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-full px-4 py-1">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">folder_shared</span>
+<span class="text-label-sm font-label-sm">Records</span>
+</div>
+<div class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="text-label-sm font-label-sm">Profile</span>
+</div>
+</nav>
+<script>
+        // Simple Micro-interaction for the Chat Input
+        const textarea = document.querySelector('textarea');
+        const thinking = document.getElementById('ai-thinking');
+        const chatHistory = thinking.parentElement;
+        const sendBtn = Array.from(document.querySelectorAll('button')).find((button) => button.textContent.trim() === 'send');
+
+        if (textarea) {
+            textarea.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    thinking.classList.remove('hidden');
+                    textarea.value = '';
+                    chatHistory.scrollTop = chatHistory.scrollHeight;
+                    
+                    // Mock response delay
+                    setTimeout(() => {
+                        thinking.classList.add('hidden');
+                    }, 2500);
+                }
+            });
+        }
+    </script>
+
+<script src='../shared/app.js'></script>
+</body></html>

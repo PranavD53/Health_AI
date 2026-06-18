@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>HealthAI - Secure Access</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .animate-shimmer {
+            background: linear-gradient(90deg, transparent, rgba(141, 242, 252, 0.2), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2.5s infinite;
+        }
+        .step-transition {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline": "#727780",
+                        "primary-container": "#0f4c81",
+                        "outline-variant": "#c2c7d1",
+                        "surface-dim": "#cfdaf1",
+                        "secondary-container": "#8df2fc",
+                        "surface-container-highest": "#d8e3fa",
+                        "tertiary-fixed": "#e0e3e5",
+                        "surface-container-low": "#f0f3ff",
+                        "surface-container": "#e7eeff",
+                        "on-secondary-fixed-variant": "#004f54",
+                        "on-background": "#111c2c",
+                        "inverse-surface": "#263142",
+                        "primary": "#00355f",
+                        "tertiary-container": "#474b4d",
+                        "surface": "#f9f9ff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed-variant": "#07497d",
+                        "primary-fixed": "#d2e4ff",
+                        "on-surface": "#111c2c",
+                        "surface-container-lowest": "#ffffff",
+                        "background": "#f9f9ff",
+                        "on-tertiary-fixed-variant": "#434749",
+                        "on-secondary-fixed": "#002022",
+                        "error-container": "#ffdad6",
+                        "surface-tint": "#2d6197",
+                        "on-tertiary": "#ffffff",
+                        "primary-fixed-dim": "#a0c9ff",
+                        "secondary": "#006970",
+                        "on-error": "#ffffff",
+                        "inverse-primary": "#a0c9ff",
+                        "on-tertiary-fixed": "#181c1e",
+                        "inverse-on-surface": "#ebf1ff",
+                        "on-primary-fixed": "#001c37",
+                        "error": "#ba1a1a",
+                        "surface-bright": "#f9f9ff",
+                        "tertiary": "#303436",
+                        "surface-variant": "#d8e3fa",
+                        "secondary-fixed-dim": "#70d6df",
+                        "surface-container-high": "#dee8ff",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#006f77",
+                        "secondary-fixed": "#8df2fc",
+                        "on-primary-container": "#8ebdf9",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#c4c7c9",
+                        "on-surface-variant": "#42474f",
+                        "on-tertiary-container": "#b7bbbd"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "2xl": "48px",
+                        "xl": "32px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "40px",
+                        "sm": "8px",
+                        "md": "16px",
+                        "xs": "4px",
+                        "lg": "24px",
+                        "3xl": "64px",
+                        "gutter": "24px",
+                        "unit": "4px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "title-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "500"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-x-hidden">
+<!-- Auth Flow Shell -->
+<main class="min-h-screen flex flex-col lg:flex-row relative">
+<!-- Left Branding Panel (Hidden on Mobile) -->
+<section class="hidden lg:flex w-5/12 bg-primary relative overflow-hidden flex-col justify-between p-margin-desktop text-on-primary">
+<div class="z-10">
+<div class="flex items-center gap-sm mb-3xl">
+<span class="material-symbols-outlined text-secondary-fixed text-4xl" style="font-variation-settings: 'FILL' 1;">health_and_safety</span>
+<h1 class="text-headline-lg font-headline-lg tracking-tight">HealthAI</h1>
+</div>
+<div class="max-w-md">
+<h2 class="text-display-lg font-display-lg mb-lg">Precision Care, Powered by Intelligence.</h2>
+<p class="text-body-lg font-body-lg text-primary-fixed/80">Experience a healthcare platform that learns from your needs to provide personalized medical insights and streamlined clinical workflows.</p>
+</div>
+</div>
+<!-- Abstract Background Visual -->
+<div class="absolute inset-0 opacity-20 pointer-events-none">
+<div class="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] rounded-full bg-secondary-container blur-[100px] animate-pulse"></div>
+<div class="absolute bottom-[-20%] left-[-20%] w-[600px] h-[600px] rounded-full bg-surface-dim blur-[120px]"></div>
+</div>
+<div class="z-10 flex gap-xl text-label-md font-label-md">
+<span>© 2024 HealthAI Systems</span>
+<a class="hover:text-secondary-fixed transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-secondary-fixed transition-colors" href="#">Terms of Service</a>
+</div>
+</section>
+<!-- Right Content Canvas (Onboarding Steps) -->
+<section class="flex-1 flex items-center justify-center p-margin-mobile lg:p-margin-desktop bg-surface relative">
+<div class="w-full max-w-lg">
+<!-- Progress Indicator (Role -> Login -> MFA) -->
+<div class="flex justify-between mb-xl px-2" id="step-nav">
+<div class="h-1 flex-1 bg-secondary rounded-full mr-2 transition-all duration-500" id="progress-bar-1"></div>
+<div class="h-1 flex-1 bg-surface-variant rounded-full mr-2 transition-all duration-500" id="progress-bar-2"></div>
+<div class="h-1 flex-1 bg-surface-variant rounded-full transition-all duration-500" id="progress-bar-3"></div>
+</div>
+<!-- Step 1: Role Selection -->
+<div class="step-transition" id="step-role">
+<div class="mb-xl">
+<h3 class="text-headline-lg font-headline-lg text-on-surface mb-xs">Welcome to HealthAI</h3>
+<p class="text-body-md font-body-md text-on-surface-variant">Please select your primary profile to continue.</p>
+</div>
+<div class="space-y-md">
+<!-- Role Card: Patient -->
+<button class="w-full flex items-center p-lg border border-outline-variant hover:border-secondary hover:bg-surface-container-low transition-all rounded-xl text-left group" onclick="nextStep(2)">
+<div class="w-12 h-12 rounded-lg bg-primary-fixed flex items-center justify-center mr-lg text-primary">
+<span class="material-symbols-outlined text-3xl">person</span>
+</div>
+<div class="flex-1">
+<div class="text-title-md font-title-md text-on-surface group-hover:text-secondary">Patient</div>
+<div class="text-label-md font-label-md text-on-surface-variant">Manage your health, records, and appointments.</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-secondary transition-colors">chevron_right</span>
+</button>
+<!-- Role Card: Doctor -->
+<button class="w-full flex items-center p-lg border border-outline-variant hover:border-secondary hover:bg-surface-container-low transition-all rounded-xl text-left group" onclick="nextStep(2)">
+<div class="w-12 h-12 rounded-lg bg-secondary-container flex items-center justify-center mr-lg text-on-secondary-fixed-variant">
+<span class="material-symbols-outlined text-3xl">medical_services</span>
+</div>
+<div class="flex-1">
+<div class="text-title-md font-title-md text-on-surface group-hover:text-secondary">Clinician / Doctor</div>
+<div class="text-label-md font-label-md text-on-surface-variant">Access patient data, analytics, and diagnostics.</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-secondary transition-colors">chevron_right</span>
+</button>
+<!-- Role Card: Admin -->
+<button class="w-full flex items-center p-lg border border-outline-variant hover:border-secondary hover:bg-surface-container-low transition-all rounded-xl text-left group" onclick="nextStep(2)">
+<div class="w-12 h-12 rounded-lg bg-surface-container-highest flex items-center justify-center mr-lg text-on-surface-variant">
+<span class="material-symbols-outlined text-3xl">admin_panel_settings</span>
+</div>
+<div class="flex-1">
+<div class="text-title-md font-title-md text-on-surface group-hover:text-secondary">Administrator</div>
+<div class="text-label-md font-label-md text-on-surface-variant">Manage organization settings and user controls.</div>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-secondary transition-colors">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Step 2: Login / Register Split View -->
+<div class="hidden step-transition" id="step-login">
+<div class="mb-xl">
+<button class="flex items-center text-secondary font-label-md mb-md hover:translate-x-[-4px] transition-transform" onclick="prevStep(1)">
+<span class="material-symbols-outlined text-lg mr-1">arrow_back</span> Back
+                        </button>
+<h3 class="text-headline-lg font-headline-lg text-on-surface mb-xs">Sign In</h3>
+<p class="text-body-md font-body-md text-on-surface-variant">Access your healthcare portal securely.</p>
+</div>
+<form class="space-y-lg" onsubmit="event.preventDefault(); nextStep(3);">
+<div class="space-y-xs">
+<label class="text-label-md font-label-md text-on-surface-variant px-1">Email Address</label>
+<input class="w-full px-lg py-md border border-outline-variant rounded-xl focus:ring-2 focus:ring-secondary focus:border-secondary outline-none transition-all" placeholder="e.g. name@hospital.com" required="" type="email"/>
+</div>
+<div class="space-y-xs">
+<div class="flex justify-between items-center px-1">
+<label class="text-label-md font-label-md text-on-surface-variant">Password</label>
+<a class="text-label-md font-label-md text-secondary hover:underline" href="#">Forgot?</a>
+</div>
+<input class="w-full px-lg py-md border border-outline-variant rounded-xl focus:ring-2 focus:ring-secondary focus:border-secondary outline-none transition-all" placeholder="••••••••" required="" type="password"/>
+</div>
+<div class="flex items-center space-x-sm px-1">
+<input class="w-4 h-4 text-secondary border-outline-variant rounded focus:ring-secondary" id="remember" type="checkbox"/>
+<label class="text-label-md font-label-md text-on-surface-variant" for="remember">Remember this device for 30 days</label>
+</div>
+<button class="w-full py-md bg-secondary text-on-secondary font-title-md rounded-xl shadow-lg hover:shadow-xl hover:bg-secondary/90 transition-all active:scale-[0.98]" type="submit">
+                            Continue
+                        </button>
+</form>
+<div class="relative my-2xl">
+<div class="absolute inset-0 flex items-center"><div class="w-full border-t border-outline-variant/30"></div></div>
+<div class="relative flex justify-center text-label-md font-label-md uppercase tracking-wider text-outline bg-surface px-4">Or continue with</div>
+</div>
+<div class="grid grid-cols-2 gap-md">
+<button class="flex items-center justify-center gap-sm py-md border border-outline-variant rounded-xl hover:bg-surface-container-low transition-colors font-label-md">
+<img alt="Google Logo" class="w-5 h-5" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_GLPKXYtMTAmyYf8Db0R86NtXhAXxu-3shONoiT3HToog6iVjbkJV7ivcJuCXIZtumVNSaYXzStnMnv4GbnSxoo_nDZH2vgUswek73D8am2urEE05RSHMfIFWhoRrEquJyIBPGwBaZl_qQGEEHMN--fh5tb2WIgaPv6AMskzird-tYWX7ofLpKbzbKTu2U7rLNXsKeR-SNz5Y9GnOFeDc8pvc1CaaeS4J8nkcGGwQniDQFrtvdN31h2xg8DZRY7RoJJi-vJT5kFo"/>
+                            Google
+                        </button>
+<button class="flex items-center justify-center gap-sm py-md border border-outline-variant rounded-xl hover:bg-surface-container-low transition-colors font-label-md">
+<span class="material-symbols-outlined text-primary">apps</span>
+                            Apple
+                        </button>
+</div>
+<div class="mt-2xl text-center text-body-md font-body-md">
+                        Don't have an account? <a class="text-secondary font-bold hover:underline" href="#">Register your clinic</a>
+</div>
+</div>
+<!-- Step 3: MFA / OTP Verification -->
+<div class="hidden step-transition" id="step-otp">
+<div class="mb-xl text-center">
+<div class="w-20 h-20 bg-secondary-container text-on-secondary-container rounded-full flex items-center justify-center mx-auto mb-lg">
+<span class="material-symbols-outlined text-4xl" style="font-variation-settings: 'FILL' 1;">vibration</span>
+</div>
+<h3 class="text-headline-lg font-headline-lg text-on-surface mb-xs">Check your phone</h3>
+<p class="text-body-md font-body-md text-on-surface-variant max-w-xs mx-auto">We've sent a 6-digit verification code to <span class="font-bold text-on-surface">+1 (555) •••-4920</span></p>
+</div>
+<div class="flex justify-between gap-sm mb-xl" id="otp-inputs">
+<input class="w-14 h-16 text-center text-headline-lg font-headline-lg border border-outline-variant rounded-xl focus:ring-2 focus:ring-secondary outline-none transition-all" maxlength="1" type="text"/>
+<input class="w-14 h-16 text-center text-headline-lg font-headline-lg border border-outline-variant rounded-xl focus:ring-2 focus:ring-secondary outline-none transition-all" maxlength="1" type="text"/>
+<input class="w-14 h-16 text-center text-headline-lg font-headline-lg border border-outline-variant rounded-xl focus:ring-2 focus:ring-secondary outline-none transition-all" maxlength="1" type="text"/>
+<input class="w-14 h-16 text-center text-headline-lg font-headline-lg border border-outline-variant rounded-xl focus:ring-2 focus:ring-secondary outline-none transition-all" maxlength="1" type="text"/>
+<input class="w-14 h-16 text-center text-headline-lg font-headline-lg border border-outline-variant rounded-xl focus:ring-2 focus:ring-secondary outline-none transition-all" maxlength="1" type="text"/>
+<input class="w-14 h-16 text-center text-headline-lg font-headline-lg border border-outline-variant rounded-xl focus:ring-2 focus:ring-secondary outline-none transition-all" maxlength="1" type="text"/>
+</div>
+<button class="w-full py-md bg-secondary text-on-secondary font-title-md rounded-xl shadow-lg hover:shadow-xl transition-all mb-lg" onclick="completeOnboarding()">
+                        Verify & Sign In
+                    </button>
+<div class="text-center">
+<p class="text-label-md font-label-md text-on-surface-variant">Didn't receive a code? 
+                            <button class="text-secondary font-bold hover:underline ml-1">Resend in 45s</button>
+</p>
+</div>
+<div class="mt-3xl p-lg bg-surface-container-low rounded-xl border border-secondary-container/30 flex items-start gap-md">
+<span class="material-symbols-outlined text-secondary">info</span>
+<div class="text-label-sm font-label-sm text-on-surface-variant">
+                            MFA is required for HIPAA compliance. Ensure your device is secure.
+                        </div>
+</div>
+</div>
+<!-- Step 4: Success / Redirection (Loading) -->
+<div class="hidden flex flex-col items-center justify-center py-2xl" id="step-success">
+<div class="relative w-32 h-32 mb-xl">
+<div class="absolute inset-0 rounded-full border-4 border-secondary/20"></div>
+<div class="absolute inset-0 rounded-full border-4 border-t-secondary animate-spin"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary text-5xl">check_circle</span>
+</div>
+</div>
+<h3 class="text-headline-lg font-headline-lg text-on-surface text-center">Identity Verified</h3>
+<p class="text-body-md font-body-md text-on-surface-variant text-center mt-xs">Loading your secure dashboard...</p>
+</div>
+</div>
+<!-- Footer Help (Mobile) -->
+<div class="lg:hidden absolute bottom-margin-mobile left-0 w-full px-margin-mobile flex justify-center">
+<p class="text-label-sm font-label-sm text-on-surface-variant/60">© 2024 HealthAI Systems. Secure Login.</p>
+</div>
+</section>
+</main>
+<script>
+        let currentStep = 1;
+
+        function updateProgress(step) {
+            const bar1 = document.getElementById('progress-bar-1');
+            const bar2 = document.getElementById('progress-bar-2');
+            const bar3 = document.getElementById('progress-bar-3');
+
+            bar1.classList.remove('bg-secondary', 'bg-surface-variant');
+            bar2.classList.remove('bg-secondary', 'bg-surface-variant');
+            bar3.classList.remove('bg-secondary', 'bg-surface-variant');
+
+            if (step >= 1) bar1.classList.add('bg-secondary'); else bar1.classList.add('bg-surface-variant');
+            if (step >= 2) bar2.classList.add('bg-secondary'); else bar2.classList.add('bg-surface-variant');
+            if (step >= 3) bar3.classList.add('bg-secondary'); else bar3.classList.add('bg-surface-variant');
+        }
+
+        function nextStep(step) {
+            document.querySelectorAll('.step-transition').forEach(el => {
+                el.classList.add('opacity-0', 'translate-y-4');
+                setTimeout(() => el.classList.add('hidden'), 400);
+            });
+
+            setTimeout(() => {
+                const target = document.getElementById(
+                    step === 2 ? 'step-login' : 
+                    step === 3 ? 'step-otp' : 
+                    'step-role'
+                );
+                target.classList.remove('hidden');
+                setTimeout(() => target.classList.remove('opacity-0', 'translate-y-4'), 50);
+                updateProgress(step);
+                currentStep = step;
+
+                // Focus OTP first input if step 3
+                if (step === 3) {
+                    const firstInput = document.querySelector('#otp-inputs input');
+                    if (firstInput) firstInput.focus();
+                }
+            }, 400);
+        }
+
+        function prevStep(step) {
+            nextStep(step);
+        }
+
+        function completeOnboarding() {
+            const otpStep = document.getElementById('step-otp');
+            const successStep = document.getElementById('step-success');
+            const stepNav = document.getElementById('step-nav');
+
+            otpStep.classList.add('opacity-0', 'translate-y-4');
+            setTimeout(() => {
+                otpStep.classList.add('hidden');
+                stepNav.classList.add('opacity-0');
+                successStep.classList.remove('hidden');
+                // Simulate redirect
+                setTimeout(() => {
+                    alert('Authenticated successfully! Redirecting to Dashboard...');
+                }, 1500);
+            }, 400);
+        }
+
+        // OTP Input Auto-Tab Logic
+        const otpInputs = document.querySelectorAll('#otp-inputs input');
+        otpInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value.length === 1 && index < otpInputs.length - 1) {
+                    otpInputs[index + 1].focus();
+                }
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    otpInputs[index - 1].focus();
+                }
+            });
+        });
+    </script>
+
+<script src='../shared/app.js'></script>
+</body></html>
