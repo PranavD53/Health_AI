@@ -17,24 +17,32 @@ export default function TopNavBar() {
     return localStorage.getItem('theme') || 'light';
   });
 
-  const [tarsVoiceEnabled, setTarsVoiceEnabled] = useState(() => {
-    return localStorage.getItem('tars_voice_enabled') !== 'false';
+  const [tarsState, setTarsState] = useState({
+    isListening: false,
+    isSpeaking: false,
+    loading: false,
+    tarsVoiceEnabled: localStorage.getItem('tars_voice_enabled') !== 'false'
   });
 
-  const toggleTarsVoice = () => {
-    const newVal = !tarsVoiceEnabled;
-    setTarsVoiceEnabled(newVal);
-    localStorage.setItem('tars_voice_enabled', newVal ? 'true' : 'false');
-    window.dispatchEvent(new Event('tars_voice_toggle'));
+  const handleGlobalMicClick = () => {
+    window.dispatchEvent(new Event('tars_global_mic_click'));
   };
 
   useEffect(() => {
+    const handleTarsStateChange = (e) => {
+      setTarsState(e.detail);
+    };
+    window.addEventListener('tars_state_change', handleTarsStateChange);
+    
     const handleStorageChange = () => {
-      setTarsVoiceEnabled(localStorage.getItem('tars_voice_enabled') !== 'false');
+      const isEnabled = localStorage.getItem('tars_voice_enabled') !== 'false';
+      setTarsState(prev => ({ ...prev, tarsVoiceEnabled: isEnabled }));
     };
     window.addEventListener('tars_voice_toggle', handleStorageChange);
     window.addEventListener('storage', handleStorageChange);
+
     return () => {
+      window.removeEventListener('tars_state_change', handleTarsStateChange);
       window.removeEventListener('tars_voice_toggle', handleStorageChange);
       window.removeEventListener('storage', handleStorageChange);
     };
@@ -184,17 +192,43 @@ export default function TopNavBar() {
 
           {/* TARS Global Toggle Switch */}
           <button
-            onClick={toggleTarsVoice}
+            onClick={handleGlobalMicClick}
             className={`p-2 rounded-full transition-all duration-300 focus:outline-none flex items-center justify-center relative hover:bg-surface-container-high active:scale-95 ${
-              tarsVoiceEnabled ? 'text-emerald-500 hover:text-emerald-600' : 'text-outline hover:text-primary'
+              tarsState.isListening
+                ? 'bg-emerald-500 text-white animate-pulse'
+                : tarsState.isSpeaking
+                ? 'bg-cyan-500 text-white animate-pulse'
+                : tarsState.loading
+                ? 'bg-indigo-600 text-white'
+                : tarsState.tarsVoiceEnabled
+                ? 'text-emerald-500 hover:text-emerald-600'
+                : 'text-outline hover:text-primary'
             }`}
-            title={tarsVoiceEnabled ? "Disable TARS Global Voice Wake-up" : "Enable TARS Global Voice Wake-up"}
+            title={
+              tarsState.isListening
+                ? "TARS is listening..."
+                : tarsState.isSpeaking
+                ? "TARS is speaking..."
+                : tarsState.loading
+                ? "TARS is thinking..."
+                : "Talk to TARS Voice Assistant"
+            }
           >
-            {tarsVoiceEnabled && (
-              <span className="absolute -inset-0.5 rounded-full border border-emerald-500 animate-ping opacity-40 pointer-events-none"></span>
+            {(tarsState.isListening || tarsState.isSpeaking) && (
+              <span className={`absolute -inset-1 rounded-full border-2 ${
+                tarsState.isListening ? 'border-emerald-500 animate-ping' : 'border-cyan-500 animate-pulse'
+              } pointer-events-none`}></span>
             )}
-            <span className="material-symbols-outlined text-[22px]">
-              {tarsVoiceEnabled ? 'mic' : 'mic_off'}
+            <span className={`material-symbols-outlined text-[22px] ${tarsState.loading ? 'animate-spin' : ''}`}>
+              {tarsState.isListening
+                ? 'graphic_eq'
+                : tarsState.isSpeaking
+                ? 'volume_up'
+                : tarsState.loading
+                ? 'progress_activity'
+                : tarsState.tarsVoiceEnabled
+                ? 'mic'
+                : 'mic_off'}
             </span>
           </button>
 

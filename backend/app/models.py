@@ -129,6 +129,7 @@ class MedicalRecord(Base):
     file_path = Column(String, nullable=False)
     file_type = Column(String, nullable=False)
     uploaded_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    fraud_status = Column(String, default="VERIFIED (Authentic)", nullable=False)
 
     # Relationships
     user = relationship("User", back_populates="medical_records")

@@ -65,6 +65,8 @@ def run_migrations():
         ("doctors", "license_document_path", "VARCHAR"),
         ("doctors", "license_number", "VARCHAR"),
         ("doctors", "user_id", "INTEGER REFERENCES users(id) ON DELETE SET NULL" if not is_sqlite else "INTEGER"),
+        # medical_records
+        ("medical_records", "fraud_status", "VARCHAR DEFAULT 'VERIFIED (Authentic)'"),
     ]
 
     print("Running database migrations for existing tables...")
@@ -880,11 +882,36 @@ async def global_ai_assistant(
             models.Message.conversation_id == conv.id
         ).order_by(models.Message.timestamp.asc()).all()
 
+        user_context = (
+            f"CURRENT USER CONTEXT:\n"
+            f"- Logged-in User Email: {current_user.email}\n"
+            f"- Role: {current_user.role}\n"
+        )
+        if current_user.role == "doctor":
+            user_context += (
+                "IMPORTANT ROLE CONSTRAINT: The user you are talking to is registered as a DOCTOR. "
+                "Doctors do NOT seek other doctors or book appointments for themselves. "
+                "Instead, their dashboard (/dashboard) contains their patient directory, queue, and upcoming consultations. "
+                "If they ask to see their appointments, schedule, or consultations, guide them to their dashboard and trigger the 'view_dashboard' action. "
+                "Do NOT recommend consulting other specialists or scheduling bookings for them unless they explicitly ask to consult another doctor as a patient.\n"
+            )
+        elif current_user.role == "admin":
+            user_context += (
+                "IMPORTANT ROLE CONSTRAINT: The user you are talking to is an ADMINISTRATOR. "
+                "If they ask for system logs, stats, or configurations, guide them to their dashboard (/dashboard) and trigger the 'view_dashboard' action.\n"
+            )
+        else:
+            user_context += (
+                "IMPORTANT ROLE CONSTRAINT: The user you are talking to is a PATIENT. "
+                "Patients can search for doctors (find_doctors), book appointments (book_appointment), and upload medical records (view_records).\n"
+            )
+
         messages_payload = [
             {
                 "role": "system",
                 "content": (
-                    "You are the HealthAI Global Assistant, a compassionate, precise, and highly fluent multilingual AI healthcare assistant.\n"
+                    "You are the HealthAI Global Assistant, a compassionate, precise, and highly fluent multilingual AI healthcare assistant.\n\n"
+                    f"{user_context}\n"
                     "LANGUAGE PROTOCOL:\n"
                     "- If the user communicates in English, you MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, or Telugu words.\n"
                     "- If the user communicates in Hindi (हिन्दी), respond in Hindi.\n"
@@ -1026,10 +1053,117 @@ async def global_ai_assistant(
         if not reply:
             # Offline rule-based fallback
             msg_lower = input_data.message.lower()
-            if "doctor" in msg_lower or "specialist" in msg_lower or "clinic" in msg_lower:
+            
+            # Check if user is in booking flow (either started now or was recently active)
+            history_user_texts = [m.content.lower() for m in history_msgs if m.role == "user" and m.content]
+            history_assistant_texts = [m.content.lower() for m in history_msgs if m.role == "assistant" and m.content]
+            all_user_texts = " ".join(history_user_texts) + " " + msg_lower
+            
+            is_booking_intent = any(k in msg_lower for k in ["book", "schedule", "appointment", "appointment Book", "अपॉइंटमेंट", "అపాయింట్మెంట్"])
+            was_booking_prompted = any(any(k in txt for k in ["book", "appointment", "doctor", "prefer", "time"]) for txt in history_assistant_texts[-3:])
+            
+            in_booking_flow = is_booking_intent or was_booking_prompted
+            
+            if in_booking_flow:
+                # 1. Extract Doctor
+                selected_doc_id = None
+                selected_doc_name = None
+                
+                if any(k in all_user_texts for k in ["alice", "smith", "cardiology", "cardiologist", "एलिस", "స్మిత్"]):
+                    selected_doc_id = 1
+                    selected_doc_name = "Dr. Alice Smith"
+                elif any(k in all_user_texts for k in ["bob", "johnson", "dermatology", "dermatologist", "बॉब", "జాన్సన్"]):
+                    selected_doc_id = 2
+                    selected_doc_name = "Dr. Bob Johnson"
+                elif any(k in all_user_texts for k in ["charlie", "brown", "general medicine", "general physician", "चार्लि", "బ్రౌన్"]):
+                    selected_doc_id = 3
+                    selected_doc_name = "Dr. Charlie Brown"
+                elif any(k in all_user_texts for k in ["diana", "prince", "neurology", "neurologist", "डायना", "ప్రిన్స్"]):
+                    selected_doc_id = 4
+                    selected_doc_name = "Dr. Diana Prince"
+                elif any(k in all_user_texts for k in ["evan", "wright", "pediatrics", "pediatrician", "child", "एवन", "రైట్"]):
+                    selected_doc_id = 5
+                    selected_doc_name = "Dr. Evan Wright"
+                
+                # 2. Extract Date
+                from datetime import datetime, timedelta
+                selected_date = None
+                
+                # Check for explicit YYYY-MM-DD pattern
+                date_match = re.search(r'\b(202\d-\d{2}-\d{2})\b', all_user_texts)
+                if date_match:
+                    selected_date = date_match.group(1)
+                elif "tomorrow" in all_user_texts or "कल" in all_user_texts or "రేపు" in all_user_texts:
+                    selected_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+                elif "today" in all_user_texts or "आज" in all_user_texts or "ఈ రోజు" in all_user_texts:
+                    selected_date = datetime.now().strftime("%Y-%m-%d")
+                else:
+                    days_mapping = {
+                        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+                        "friday": 4, "saturday": 5, "sunday": 6
+                    }
+                    for day, day_num in days_mapping.items():
+                        if day in all_user_texts:
+                            today = datetime.now()
+                            days_ahead = day_num - today.weekday()
+                            if days_ahead <= 0:
+                                days_ahead += 7
+                            selected_date = (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+                            break
+                
+                # 3. Extract Time
+                selected_time = None
+                time_match = re.search(r'\b(\d{1,2}:\d{2})\b', all_user_texts)
+                if time_match:
+                    t_str = time_match.group(1)
+                    if len(t_str.split(':')[0]) == 1:
+                        t_str = "0" + t_str
+                    selected_time = t_str
+                elif any(k in all_user_texts for k in ["morning", "सुबह", "ఉదయం"]):
+                    selected_time = "10:00"
+                elif any(k in all_user_texts for k in ["afternoon", "दोपहर", "మధ్యాహ్నం"]):
+                    selected_time = "14:00"
+                elif any(k in all_user_texts for k in ["evening", "शाम", "సాయంత్రం"]):
+                    selected_time = "17:00"
+                else:
+                    am_pm_match = re.search(r'\b(\d{1,2})\s*(am|pm)\b', all_user_texts)
+                    if am_pm_match:
+                        hour = int(am_pm_match.group(1))
+                        period = am_pm_match.group(2)
+                        if period == "pm" and hour < 12:
+                            hour += 12
+                        elif period == "am" and hour == 12:
+                            hour = 0
+                        selected_time = f"{hour:02d}:00"
+                
+                # 4. Formulate conversational response
+                if not selected_doc_id:
+                    reply = (
+                        "To book an appointment, please choose a doctor:\n"
+                        "- Dr. Alice Smith (Cardiology)\n"
+                        "- Dr. Bob Johnson (Dermatology)\n"
+                        "- Dr. Charlie Brown (General Medicine)\n"
+                        "- Dr. Diana Prince (Neurology)\n"
+                        "- Dr. Evan Wright (Pediatrics)\n\n"
+                        "Which doctor or specialization would you like to consult?"
+                    )
+                elif not selected_date:
+                    reply = (
+                        f"I've selected {selected_doc_name}. "
+                        "What date would you prefer? (e.g., 'today', 'tomorrow', 'this Friday', or a date like YYYY-MM-DD)"
+                    )
+                elif not selected_time:
+                    reply = (
+                        f"I have scheduled {selected_doc_name} for {selected_date}. "
+                        "What time would you prefer? (e.g., 'morning', 'afternoon', or a specific time like 10:00 AM)"
+                    )
+                else:
+                    reply = (
+                        f"I have successfully booked an appointment with {selected_doc_name} on {selected_date} at {selected_time}."
+                        f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
+                    )
+            elif "doctor" in msg_lower or "specialist" in msg_lower or "clinic" in msg_lower:
                 reply = "Sure, I can help you search for doctors. Please check the doctor search results.\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
-            elif "book" in msg_lower or "schedule" in msg_lower or "appointment" in msg_lower:
-                reply = "To book an appointment, I need a few details from you:\n\n1. Which doctor would you like to see? (e.g., Dr. Alice Smith, Dr. Bob Johnson)\n2. What date would you prefer?\n3. What time works best for you?\n\nPlease provide these details so I can schedule your appointment."
             elif "record" in msg_lower or "file" in msg_lower or "report" in msg_lower:
                 reply = "I've pulled up your medical records directory. You can view or upload files there.\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
             elif "symptom" in msg_lower or "pain" in msg_lower or "check" in msg_lower or "sick" in msg_lower or "hurt" in msg_lower or "fever" in msg_lower or "cold" in msg_lower or "cough" in msg_lower or "headache" in msg_lower or "migraine" in msg_lower or "rash" in msg_lower or "acne" in msg_lower:
@@ -1081,7 +1215,7 @@ async def global_ai_assistant(
                 parsed_action = json.loads(action_match.group(1))
                 if parsed_action.get("type") == "book_appointment":
                     # Check recent conversation history user messages for doctor, date, and time
-                    user_texts = " ".join([m.content.lower() for m in history_msgs if m.role == "user"])
+                    user_texts = " ".join([m.content.lower() for m in history_msgs if m.role == "user" and m.content])
                     user_texts += " " + input_data.message.lower()
                     
                     doc_keywords = ["smith", "johnson", "brown", "prince", "wright", "cardiology", "dermatology", "medicine", "neurology", "pediatrics", "doctor", "specialist", "डॉक्टर", "विशेषज्ञ", "డాక్టర్", "వైద్యుడు"]

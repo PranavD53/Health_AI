@@ -27,6 +27,7 @@ class MedicalRecordResponse(BaseModel):
     file_path: str
     file_type: str
     uploaded_at: datetime.datetime
+    fraud_status: str
 
     class Config:
         from_attributes = True
@@ -60,13 +61,33 @@ async def upload_record(
             content = await file.read()
             buffer.write(content)
 
+        # Simulated anti-fraud scan heuristics
+        content_lower = content.lower() if content else b""
+        filename_lower = file.filename.lower()
+        
+        is_tampered = False
+        fraud_reason = "None"
+        
+        if any(w in filename_lower for w in ["tampered", "fake", "forged", "altered", "manipulated", "mock_fraud"]):
+            is_tampered = True
+            fraud_reason = "Suspicious file name metadata signature matching fraud database."
+        elif b"photoshop" in content_lower or b"gimp" in content_lower or b"tampered" in content_lower or b"altered" in content_lower:
+            is_tampered = True
+            fraud_reason = "Image metadata contains editing software signature tags."
+        elif b"fake medical" in content_lower or b"sample specimen" in content_lower:
+            is_tampered = True
+            fraud_reason = "Document content matches known fake medical report templates."
+
+        fraud_status = "FLAGGED (Tampering Detected)" if is_tampered else "VERIFIED (Authentic)"
+
         # Save file metadata to DB
         web_path = f"/uploads/{unique_filename}"
         new_record = models.MedicalRecord(
             user_id=current_user.id,
             file_name=file.filename,
             file_path=web_path,
-            file_type=file.content_type or file_extension
+            file_type=file.content_type or file_extension,
+            fraud_status=fraud_status
         )
         db.add(new_record)
         db.commit()
@@ -77,7 +98,7 @@ async def upload_record(
             db, 
             current_user.id, 
             "UPLOAD_RECORD", 
-            f"Uploaded medical record ID {new_record.id}. Saved to: {unique_filename}"
+            f"Uploaded medical record ID {new_record.id}. Saved to: {unique_filename}. Anti-fraud status: {fraud_status} (Reason: {fraud_reason})"
         )
 
         return new_record

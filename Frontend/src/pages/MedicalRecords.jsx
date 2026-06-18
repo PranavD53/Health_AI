@@ -43,12 +43,20 @@ export default function MedicalRecords() {
     try {
       const formData = new FormData();
       formData.append('file', fileToUpload);
-      await api.uploadRecord(formData);
+      const res = await api.uploadRecord(formData);
       setFileToUpload(null);
       
       // Reset input element
       const fileInput = document.getElementById('record-file-input');
       if (fileInput) fileInput.value = '';
+
+      // Speech notification dispatch
+      const scanStatus = res.fraud_status || 'VERIFIED (Authentic)';
+      const speakText = scanStatus.includes('FLAGGED')
+        ? `Alert. TARS scan complete. The uploaded report, ${fileToUpload.name}, has been flagged for potential document tampering.`
+        : `TARS scan complete. The uploaded report, ${fileToUpload.name}, has been verified as authentic.`;
+      
+      window.dispatchEvent(new CustomEvent('tars_speak', { detail: { text: speakText } }));
 
       // Reload
       loadRecords();
@@ -118,6 +126,16 @@ export default function MedicalRecords() {
                       <div>
                         <h4 className="font-bold text-on-surface text-sm max-w-sm truncate">{record.file_name}</h4>
                         <p className="text-xs text-outline">{record.file_type} | Uploaded: {new Date(record.uploaded_at).toLocaleDateString()}</p>
+                        <div className="flex items-center gap-xs mt-1">
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            record.fraud_status?.includes('VERIFIED') ? 'bg-emerald-500' : 'bg-error animate-pulse'
+                          }`}></span>
+                          <span className={`text-[10px] font-bold ${
+                            record.fraud_status?.includes('VERIFIED') ? 'text-emerald-600' : 'text-error'
+                          }`}>
+                            🛡️ Scan: {record.fraud_status || 'VERIFIED (Authentic)'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     

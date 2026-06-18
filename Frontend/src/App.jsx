@@ -36,7 +36,7 @@ function DashboardSwitch() {
 function AppointmentsRoute() {
   const { user } = useAuth();
   if (!user) return null;
-  if (user.role === 'admin') return <Navigate to="/dashboard" replace />;
+  if (user.role === 'admin' || user.role === 'doctor') return <Navigate to="/dashboard" replace />;
   return <DoctorSearch />;
 }
 

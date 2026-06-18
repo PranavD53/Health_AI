@@ -103,10 +103,24 @@ export default function GlobalAssistant() {
       window.removeEventListener('keydown', initVoiceOnInteraction);
     };
   }, [user, tarsVoiceEnabled]);
+
+  // Voice broadcast listener for actions from other pages (e.g. anti-fraud scans)
+  useEffect(() => {
+    const handleTarsSpeak = (e) => {
+      if (tarsVoiceEnabled) {
+        speakMessage(e.detail.text);
+      }
+    };
+    window.addEventListener('tars_speak', handleTarsSpeak);
+    return () => {
+      window.removeEventListener('tars_speak', handleTarsSpeak);
+    };
+  }, [tarsVoiceEnabled]);
   
   const messagesEndRef = useRef(null);
   const bgRecognitionRef = useRef(null);
   const activeRecognitionRef = useRef(null);
+  const utteranceRef = useRef(null);
 
   const handleSendRef = useRef(null);
   const startListeningRef = useRef(null);
@@ -217,6 +231,7 @@ export default function GlobalAssistant() {
       window.speechSynthesis.cancel();
       setIsSpeaking(true);
       const utterance = new SpeechSynthesisUtterance(text);
+      utteranceRef.current = utterance; // Keep a reference to prevent garbage collection
       const voices = window.speechSynthesis.getVoices();
       
       const detectedLang = detectLanguageOfText(text);
@@ -258,6 +273,7 @@ export default function GlobalAssistant() {
       utterance.rate = 0.82; 
       
       const handleEnd = () => {
+        utteranceRef.current = null;
         setIsSpeaking(false);
         if (callback) callback();
       };
@@ -276,6 +292,7 @@ export default function GlobalAssistant() {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
     }
+    utteranceRef.current = null;
     setIsSpeaking(false);
   };
 
@@ -288,6 +305,41 @@ export default function GlobalAssistant() {
         try { activeRecognitionRef.current.stop(); } catch(e){}
       }
     }
+  }, [tarsVoiceEnabled]);
+
+  // Dispatch state changes for other components (like TopNavBar) to stay in sync
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('tars_state_change', {
+      detail: { isListening, isSpeaking, loading, tarsVoiceEnabled }
+    }));
+  }, [isListening, isSpeaking, loading, tarsVoiceEnabled]);
+
+  // Listen to global mic clicks from other components (like TopNavBar)
+  useEffect(() => {
+    const handleGlobalMicClick = () => {
+      // Ensure TARS voice is enabled
+      if (!tarsVoiceEnabled) {
+        setTarsVoiceEnabled(true);
+        localStorage.setItem('tars_voice_enabled', 'true');
+        window.dispatchEvent(new Event('tars_voice_toggle'));
+      }
+      
+      setIsOpen(true);
+      cancelSpeech();
+      setVoiceSessionActive(true);
+      
+      // Delay slightly to allow panel opening transition
+      setTimeout(() => {
+        if (startListeningRef.current) {
+          startListeningRef.current();
+        }
+      }, 300);
+    };
+
+    window.addEventListener('tars_global_mic_click', handleGlobalMicClick);
+    return () => {
+      window.removeEventListener('tars_global_mic_click', handleGlobalMicClick);
+    };
   }, [tarsVoiceEnabled]);
 
   // Background Standby listener logic (runs globally, halts when speaking, active listening, or in session)
@@ -530,8 +582,12 @@ export default function GlobalAssistant() {
 
     try {
       if (type === 'find_doctors') {
-        const spec = parameters.specialization || '';
-        navigate(`/appointments?search=${spec}`);
+        if (user.role === 'doctor') {
+          navigate('/dashboard');
+        } else {
+          const spec = parameters.specialization || '';
+          navigate(`/appointments?search=${spec}`);
+        }
       } else if (type === 'view_records') {
         navigate('/records');
       } else if (type === 'view_dashboard') {
@@ -541,6 +597,12 @@ export default function GlobalAssistant() {
       } else if (type === 'view_chat') {
         navigate('/chat');
       } else if (type === 'book_appointment') {
+        if (user.role === 'doctor') {
+          const errorMsg = "As a registered doctor, you manage appointments from your dashboard workspace.";
+          setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
+          speakMessage(errorMsg, resumeVoice);
+          return;
+        }
         const today = new Date();
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -812,15 +874,17 @@ export default function GlobalAssistant() {
               <div className="p-3 border-t border-outline-variant bg-white flex gap-sm items-center">
                 <button 
                   onClick={() => {
-                    if (isListening || isSpeaking) {
+                    if (isListening) {
                       setVoiceSessionActive(false);
-                      cancelSpeech();
                       if (activeRecognitionRef.current) {
                         try {
                           activeRecognitionRef.current.stop();
                         } catch (e) {}
                       }
                     } else {
+                      if (isSpeaking) {
+                        cancelSpeech();
+                      }
                       setVoiceSessionActive(true);
                       startListening();
                     }
