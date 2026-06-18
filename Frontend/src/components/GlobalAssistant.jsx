@@ -6,7 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 
 export default function GlobalAssistant() {
   const { user } = useAuth();
-  const { t, currentLanguage } = useLanguage();
+  const { t, currentLanguage, setCurrentLanguage } = useLanguage();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -28,6 +28,7 @@ export default function GlobalAssistant() {
   }, []);
   // Track if we are currently in an active voice dialog session (hands-free back-and-forth)
   const [voiceSessionActive, setVoiceSessionActive] = useState(false);
+  const hasGreetedRef = useRef(false);
   
   // TARS Custom API Keys State
   const [groqKey, setGroqKey] = useState(() => localStorage.getItem('tars_groq_key') || '');
@@ -72,9 +73,8 @@ export default function GlobalAssistant() {
     if (!user || !tarsVoiceEnabled) return;
 
     const initVoiceOnInteraction = () => {
-      const alreadyGreeted = sessionStorage.getItem('tars_greeted');
-      if (!alreadyGreeted) {
-        sessionStorage.setItem('tars_greeted', 'true');
+      if (!hasGreetedRef.current) {
+        hasGreetedRef.current = true;
         
         try {
           const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -85,13 +85,17 @@ export default function GlobalAssistant() {
 
         playActivationSound();
         const uiLang = localStorage.getItem('app_lang') || 'en';
-        let greeting = "TARS is active and ready. Say my name to wake me up.";
+        let greeting = "TARS is active and ready. How can I help you today?";
         if (uiLang === 'hi') {
-          greeting = "टार्स सक्रिय और तैयार है। मुझे जगाने के लिए मेरा नाम बोलें।";
+          greeting = "नमस्कार, मैं टार्स हूँ। मैं आज आपकी क्या सहायता कर सकती हूँ?";
         } else if (uiLang === 'te') {
-          greeting = "టార్స్ యాక్టివ్ గా మరియు సిద్ధంగా ఉంది. నన్ను మేల్కొల్పడానికి నా పేరు చెప్పండి.";
+          greeting = "నమస్కారం, నేను టార్స్. ఈ రోజు నేను మీకు ఎలా సహాయపడగలను?";
         }
-        speakMessage(greeting);
+        
+        setVoiceSessionActive(true);
+        speakMessage(greeting, () => {
+          startListening();
+        });
       }
     };
 
@@ -367,7 +371,7 @@ export default function GlobalAssistant() {
 
     const bgRec = new SpeechRecognition();
     bgRec.continuous = true;
-    bgRec.interimResults = false;
+    bgRec.interimResults = true;
     bgRec.lang = language;
 
     bgRec.onstart = () => {
@@ -440,13 +444,18 @@ export default function GlobalAssistant() {
     };
 
     bgRecognitionRef.current = bgRec;
-    try {
-      bgRec.start();
-    } catch (e) {
-      console.warn("Failed to start background SpeechRecognition:", e);
-    }
+    const startTimeout = setTimeout(() => {
+      if (bgRecognitionRef.current === bgRec) {
+        try {
+          bgRec.start();
+        } catch (e) {
+          console.warn("Failed to start background SpeechRecognition:", e);
+        }
+      }
+    }, 300);
 
     return () => {
+      clearTimeout(startTimeout);
       bgRecognitionRef.current = null;
       try {
         bgRec.stop();
@@ -471,10 +480,13 @@ export default function GlobalAssistant() {
 
     const recognition = new SpeechRecognition();
     recognition.lang = language;
-    recognition.interimResults = false;
+    recognition.interimResults = true;
+    recognition.continuous = true;
     recognition.maxAlternatives = 1;
 
     let resultReceived = false;
+    let silenceTimer = null;
+    let finalTranscript = "";
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -482,39 +494,82 @@ export default function GlobalAssistant() {
     
     recognition.onend = () => {
       setIsListening(false);
-      if (!resultReceived && voiceSessionActive) {
-        playDeactivationSound();
-        setVoiceSessionActive(false);
+      if (silenceTimer) clearTimeout(silenceTimer);
+      
+      const textToSend = finalTranscript.trim();
+      if (textToSend.length > 0) {
+        // Check for voice deactivation command
+        if (isDeactivationCommand(textToSend)) {
+          playDeactivationSound();
+          const uiLang = localStorage.getItem('app_lang') || 'en';
+          let goodbye = "Goodbye.";
+          if (uiLang === 'hi') goodbye = "अलविदा।";
+          else if (uiLang === 'te') goodbye = "సెలవు.";
+          speakMessage(goodbye);
+          setVoiceSessionActive(false);
+          setInputValue('');
+          return;
+        }
+        handleSend(textToSend);
+      } else {
+        if (voiceSessionActive) {
+          // Continuous listening: restart recognition if no speech was transcribed
+          try {
+            recognition.start();
+          } catch (err) {
+            console.error("Failed to auto-restart recognition on end:", err);
+            setVoiceSessionActive(false);
+            playDeactivationSound();
+          }
+        }
       }
     };
 
     recognition.onerror = (e) => {
       console.error("Active recognition error:", e);
+      if (e.error === 'no-speech') {
+        // Don't stop the session for no-speech, let onend handle restarting
+        return;
+      }
       setIsListening(false);
-      if (e.error !== 'aborted' && voiceSessionActive) {
-        playDeactivationSound();
-        setVoiceSessionActive(false);
+      if (silenceTimer) clearTimeout(silenceTimer);
+      
+      const textToSend = finalTranscript.trim();
+      if (textToSend.length > 0) {
+        handleSend(textToSend);
+      } else {
+        if (e.error !== 'aborted' && voiceSessionActive) {
+          playDeactivationSound();
+          setVoiceSessionActive(false);
+        }
       }
     };
 
     recognition.onresult = (event) => {
-      resultReceived = true;
-      const transcript = event.results[0][0].transcript.trim();
-      setInputValue(transcript);
-
-      // Check for voice deactivation command
-      if (isDeactivationCommand(transcript)) {
-        playDeactivationSound();
-        const uiLang = localStorage.getItem('app_lang') || 'en';
-        let goodbye = "Goodbye.";
-        if (uiLang === 'hi') goodbye = "अलविदा।";
-        else if (uiLang === 'te') goodbye = "సెలవు.";
-        speakMessage(goodbye);
-        setVoiceSessionActive(false);
-        return;
+      let localFinal = "";
+      let localInterim = "";
+      for (let i = 0; i < event.results.length; ++i) {
+        const segment = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          localFinal += segment;
+        } else {
+          localInterim += segment;
+        }
+      }
+      finalTranscript = localFinal;
+      const currentText = (localFinal + localInterim).trim();
+      if (currentText) {
+        setInputValue(currentText);
+        resultReceived = true;
       }
 
-      handleSend(transcript);
+      // Reset silence timer: stop listening after 3.0 seconds of silence
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        try {
+          recognition.stop();
+        } catch (err) {}
+      }, 3000);
     };
 
     activeRecognitionRef.current = recognition;
@@ -530,13 +585,13 @@ export default function GlobalAssistant() {
     setLoading(true);
 
     try {
-      const data = await api.sendAssistantMessage(text, groqKey, hfKey);
+      const data = await api.sendAssistantMessage(text, groqKey, hfKey, language);
       setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
       
       // Speak back response
       speakMessage(data.reply, () => {
-        // Automatically restart listening if we are in an active voice session
-        if (voiceSessionActive) {
+        // Automatically restart listening if we are in an active voice session AND no action is executing next
+        if (!data.action && voiceSessionActive) {
           setTimeout(() => {
             startListening();
           }, 300);
@@ -589,14 +644,19 @@ export default function GlobalAssistant() {
           const spec = parameters.specialization || '';
           navigate(`/appointments?search=${spec}`);
         }
+        resumeVoice();
       } else if (type === 'view_records') {
         navigate('/records');
+        resumeVoice();
       } else if (type === 'view_dashboard') {
         navigate('/dashboard');
+        resumeVoice();
       } else if (type === 'view_settings') {
         navigate('/settings');
+        resumeVoice();
       } else if (type === 'view_chat') {
         navigate('/chat');
+        resumeVoice();
       } else if (type === 'book_appointment') {
         if (user.role === 'doctor') {
           const errorMsg = "As a registered doctor, you manage appointments from your dashboard workspace.";
@@ -700,7 +760,17 @@ export default function GlobalAssistant() {
                 {/* Language Selection */}
                 <select 
                   value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
+                  onChange={(e) => {
+                    const newLang = e.target.value;
+                    setLanguage(newLang);
+                    if (newLang === 'hi-IN') {
+                      setCurrentLanguage('hi');
+                    } else if (newLang === 'te-IN') {
+                      setCurrentLanguage('te');
+                    } else {
+                      setCurrentLanguage('en');
+                    }
+                  }}
                   className="text-[10px] border border-outline-variant rounded-xl p-1 bg-white focus:outline-none font-semibold text-primary"
                 >
                   <option value="en-US">English</option>

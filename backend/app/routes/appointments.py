@@ -1,5 +1,5 @@
 import datetime
-from typing import List, Optional
+from typing import List, Optional, Union, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/appointment", tags=["Appointments"])
 
 # --- Pydantic Schemas ---
 class AppointmentBook(BaseModel):
-    doctor_id: int
+    doctor_id: Union[int, str]
     date: str # YYYY-MM-DD
     time: str # HH:MM
 
@@ -48,8 +48,32 @@ def book_appointment(
     db: Session = Depends(get_db)
 ):
     try:
+        # Resolve doctor_id if it is a string name or a dynamic value
+        doctor_id_val = booking.doctor_id
+        if isinstance(doctor_id_val, str):
+            try:
+                doctor_id_val = int(doctor_id_val)
+            except ValueError:
+                clean_name = doctor_id_val.lower().replace("dr.", "").replace("dr", "").strip()
+                doc = db.query(models.Doctor).filter(
+                    models.Doctor.name.ilike(f"%{clean_name}%")
+                ).first()
+                if doc:
+                    doctor_id_val = doc.id
+                else:
+                    doc_by_spec = db.query(models.Doctor).filter(
+                        models.Doctor.specialization.ilike(f"%{clean_name}%")
+                    ).first()
+                    if doc_by_spec:
+                        doctor_id_val = doc_by_spec.id
+                    else:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Doctor '{doctor_id_val}' not found by name or specialization"
+                        )
+
         # Check if doctor exists
-        doctor = db.query(models.Doctor).filter(models.Doctor.id == booking.doctor_id).first()
+        doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id_val).first()
         if not doctor:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -65,7 +89,7 @@ def book_appointment(
 
         # Check for scheduling conflicts (same doctor, same date, same time)
         existing_booking = db.query(models.Appointment).filter(
-            models.Appointment.doctor_id == booking.doctor_id,
+            models.Appointment.doctor_id == doctor_id_val,
             models.Appointment.date == booking.date,
             models.Appointment.time == booking.time,
             models.Appointment.status == "booked"
@@ -79,7 +103,7 @@ def book_appointment(
         # Create booking
         new_appointment = models.Appointment(
             patient_id=current_user.id,
-            doctor_id=booking.doctor_id,
+            doctor_id=doctor_id_val,
             date=booking.date,
             time=booking.time,
             status="booked"
@@ -89,7 +113,7 @@ def book_appointment(
         db.refresh(new_appointment)
 
         # Audit logging
-        log_action(db, current_user.id, "BOOK_APPOINTMENT", f"Booked appointment ID {new_appointment.id} with Doctor ID {booking.doctor_id} for {booking.date} at {booking.time}")
+        log_action(db, current_user.id, "BOOK_APPOINTMENT", f"Booked appointment ID {new_appointment.id} with Doctor ID {doctor_id_val} for {booking.date} at {booking.time}")
 
         return new_appointment
     except HTTPException:

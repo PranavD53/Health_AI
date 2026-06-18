@@ -326,10 +326,11 @@ export const api = {
   },
 
   // AI Assistant endpoint (Global Chatbot)
-  sendAssistantMessage: async (message, groqKey = '', hfKey = '') => {
+  sendAssistantMessage: async (message, groqKey = '', hfKey = '', language = '') => {
     const payload = { message };
     if (groqKey) payload.groq_key = groqKey;
     if (hfKey) payload.hf_key = hfKey;
+    if (language) payload.language = language;
     
     const res = await fetch('/ai/assistant', {
       method: 'POST',

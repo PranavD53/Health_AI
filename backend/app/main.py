@@ -1,7 +1,7 @@
 import os
 import datetime
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -893,6 +893,7 @@ class AIAssistantInput(BaseModel):
     message: str
     groq_key: Optional[str] = None
     hf_key: Optional[str] = None
+    language: Optional[str] = None
 
 class AIAssistantResponse(BaseModel):
     reply: str
@@ -902,11 +903,52 @@ class AIAssistantResponse(BaseModel):
 @app.post("/ai/assistant", response_model=AIAssistantResponse)
 async def global_ai_assistant(
     input_data: AIAssistantInput,
+    accept_language: Optional[str] = Header(None),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     import re
     import json
+    
+    # Determine language preference from input payload first, then Accept-Language header (default: en)
+    pref_lang = "en"
+    if input_data.language:
+        lang_code = input_data.language.split("-")[0].strip().lower()
+        if lang_code in ["en", "hi", "te"]:
+            pref_lang = lang_code
+    elif accept_language:
+        lang_code = accept_language.split(",")[0].split("-")[0].strip().lower()
+        if lang_code in ["en", "hi", "te"]:
+            pref_lang = lang_code
+            
+    # Check current message language and determine language rule
+    current_msg = input_data.message.strip()
+    has_hindi = any(ord(c) >= 0x0900 and ord(c) <= 0x097F for c in current_msg)
+    has_telugu = any(ord(c) >= 0x0C00 and ord(c) <= 0x0C7F for c in current_msg)
+    
+    msg_words = set(current_msg.lower().split())
+    hinglish_words = {"hai", "ko", "ki", "naam", "aaj", "kya", "karne", "mere", "se", "kar", "ho", "gaya", "koshish", "chahiye", "diya", "aapka", "kuch", "apne"}
+    tinglish_words = {"na", "andi", "ga", "ayyindi", "cheyyandi", "kavali", "kuda", "undi", "vundi", "naku"}
+    
+    is_user_speaking_hinglish = any(w in msg_words for w in hinglish_words)
+    is_user_speaking_tinglish = any(w in msg_words for w in tinglish_words)
+    
+    if has_telugu:
+        forced_rule = "The user is speaking in Telugu. You MUST respond strictly in Telugu (తెలుగు)."
+    elif has_hindi:
+        forced_rule = "The user is speaking in Hindi. You MUST respond strictly in Hindi (हिन्दी)."
+    elif is_user_speaking_tinglish:
+        forced_rule = "The user is speaking in Tinglish (Telugu-transliterated). You MUST respond in Tinglish."
+    elif is_user_speaking_hinglish:
+        forced_rule = "The user is speaking in Hinglish (Hindi-transliterated). You MUST respond in Hinglish."
+    else:
+        if pref_lang == "te":
+            forced_rule = "The user preferred language is Telugu. You MUST respond in Telugu (తెలుగు)."
+        elif pref_lang == "hi":
+            forced_rule = "The user preferred language is Hindi. You MUST respond in Hindi (हिन्दी)."
+        else:
+            forced_rule = "The user is speaking in English. You MUST respond strictly in standard English. Do NOT use any Hindi, Hinglish, or Telugu words."
+            
     try:
         is_emergency = scan_for_emergency(input_data.message)
         disclaimer = "This is AI-generated information. Please consult a real doctor."
@@ -981,7 +1023,9 @@ async def global_ai_assistant(
                 "content": (
                     "You are the HealthAI Global Assistant, a compassionate, precise, and highly fluent multilingual AI healthcare assistant.\n\n"
                     f"{user_context}\n"
+                    f"USER PREFERRED LANGUAGE: {pref_lang.upper()}\n"
                     "LANGUAGE PROTOCOL:\n"
+                    f"- {forced_rule}\n"
                     "- If the user communicates in English, you MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, or Telugu words.\n"
                     "- If the user communicates in Hindi (हिन्दी), respond in Hindi.\n"
                     "- If the user communicates in Telugu (తెలుగు), respond in Telugu.\n"
@@ -1053,6 +1097,22 @@ async def global_ai_assistant(
 
         for h_msg in history_msgs[-8:]:
             messages_payload.append({"role": h_msg.role, "content": h_msg.content})
+
+        # Reinforce language rules directly on the last user message to override history bias
+        if messages_payload and messages_payload[-1]["role"] == "user":
+            prompt_instruction = ""
+            if has_telugu or (not has_hindi and not is_user_speaking_hinglish and not is_user_speaking_tinglish and pref_lang == "te"):
+                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Telugu. You MUST respond strictly in Telugu (తెలుగు script). Do NOT use Hindi, Hinglish, or English. Keep your response brief - maximum 2-3 sentences.]"
+            elif has_hindi or (not has_telugu and not is_user_speaking_hinglish and not is_user_speaking_tinglish and pref_lang == "hi"):
+                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hindi. You MUST respond strictly in Hindi (हिन्दी script). Do NOT use English, Hinglish, or Telugu. Keep your response brief - maximum 2-3 sentences.]"
+            elif is_user_speaking_tinglish:
+                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Tinglish. You MUST respond in Tinglish (Telugu words written in English/Latin letters). Keep your response brief - maximum 2-3 sentences.]"
+            elif is_user_speaking_hinglish:
+                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hinglish. You MUST respond in Hinglish (Hindi words written in English/Latin letters). Keep your response brief - maximum 2-3 sentences.]"
+            else:
+                prompt_instruction = "\n\n[SYSTEM RULE: The user is speaking in English. You MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, Telugu, or Tinglish. Keep your response brief - maximum 2-3 sentences.]"
+            
+            messages_payload[-1]["content"] += prompt_instruction
 
         # Use provided keys from request or fall back to environment variables
         groq_key = input_data.groq_key or os.getenv("GROQ_API_KEY", "")
@@ -1207,74 +1267,206 @@ async def global_ai_assistant(
                 
                 # 4. Formulate conversational response
                 if not selected_doc_id:
-                    reply = (
-                        "To book an appointment, please choose a doctor:\n"
-                        "- Dr. Alice Smith (Cardiology)\n"
-                        "- Dr. Bob Johnson (Dermatology)\n"
-                        "- Dr. Charlie Brown (General Medicine)\n"
-                        "- Dr. Diana Prince (Neurology)\n"
-                        "- Dr. Evan Wright (Pediatrics)\n\n"
-                        "Which doctor or specialization would you like to consult?"
-                    )
+                    if pref_lang == "te":
+                        reply = (
+                            "అపాయింట్‌మెంట్ బుక్ చేయడానికి, దయచేసి ఒక వైద్యుడిని ఎంచుకోండి:\n"
+                            "- Dr. Alice Smith (కార్డియాలజీ)\n"
+                            "- Dr. Bob Johnson (డెర్మటాలజీ)\n"
+                            "- Dr. Charlie Brown (జనరల్ మెడిసిన్)\n"
+                            "- Dr. Diana Prince (న్యూరాలజీ)\n"
+                            "- Dr. Evan Wright (పీడియాట్రిక్స్)\n\n"
+                            "మీరు ఏ వైద్యుడిని లేదా ఏ విభాగాన్ని సంప్రదించాలనుకుంటున్నారు?"
+                        )
+                    elif pref_lang == "hi":
+                        reply = (
+                            "अपॉइंटमेंट बुक करने के लिए, कृपया एक डॉक्टर चुनें:\n"
+                            "- Dr. Alice Smith (हृदय रोग विशेषज्ञ)\n"
+                            "- Dr. Bob Johnson (त्वचा विशेषज्ञ)\n"
+                            "- Dr. Charlie Brown (सामान्य चिकित्सा)\n"
+                            "- Dr. Diana Prince (न्यूरोलॉजिस्ट)\n"
+                            "- Dr. Evan Wright (बाल रोग विशेषज्ञ)\n\n"
+                            "आप किस डॉक्टर या विशेषज्ञ से परामर्श करना चाहते हैं?"
+                        )
+                    else:
+                        reply = (
+                            "To book an appointment, please choose a doctor:\n"
+                            "- Dr. Alice Smith (Cardiology)\n"
+                            "- Dr. Bob Johnson (Dermatology)\n"
+                            "- Dr. Charlie Brown (General Medicine)\n"
+                            "- Dr. Diana Prince (Neurology)\n"
+                            "- Dr. Evan Wright (Pediatrics)\n\n"
+                            "Which doctor or specialization would you like to consult?"
+                        )
                 elif not selected_date:
-                    reply = (
-                        f"I've selected {selected_doc_name}. "
-                        "What date would you prefer? (e.g., 'today', 'tomorrow', 'this Friday', or a date like YYYY-MM-DD)"
-                    )
+                    if pref_lang == "te":
+                        reply = (
+                            f"నేను {selected_doc_name} ని ఎంచుకున్నాను. "
+                            "మీరు ఏ తేదీని కోరుకుంటున్నారు? (ఉదాహరణకు, 'ఈ రోజు', 'రేపు', లేదా YYYY-MM-DD ఫార్మాట్‌లో తేదీ)"
+                        )
+                    elif pref_lang == "hi":
+                        reply = (
+                            f"मैंने {selected_doc_name} को चुना है। "
+                            "आप किस तारीख को प्राथमिकता देंगे? (जैसे, 'आज', 'कल', या YYYY-MM-DD जैसी तारीख)"
+                        )
+                    else:
+                        reply = (
+                            f"I've selected {selected_doc_name}. "
+                            "What date would you prefer? (e.g., 'today', 'tomorrow', 'this Friday', or a date like YYYY-MM-DD)"
+                        )
                 elif not selected_time:
-                    reply = (
-                        f"I have scheduled {selected_doc_name} for {selected_date}. "
-                        "What time would you prefer? (e.g., 'morning', 'afternoon', or a specific time like 10:00 AM)"
-                    )
+                    if pref_lang == "te":
+                        reply = (
+                            f"నేను {selected_doc_name} ని {selected_date} కోసం షెడ్యూల్ చేసాను. "
+                            "మీరు ఏ సమయాన్ని కోరుకుంటున్నారు? (ఉదాహరణకు, 'ఉదయం', 'మధ్యాహ్నం', లేదా 10:00 AM వంటి సమయం)"
+                        )
+                    elif pref_lang == "hi":
+                        reply = (
+                            f"मैंने {selected_date} को {selected_doc_name} के लिए निर्धारित किया है। "
+                            "आप किस समय को प्राथमिकता देंगे? (जैसे, 'सुबह', 'दोपहर', या 10:00 AM जैसा विशिष्ट समय)"
+                        )
+                    else:
+                        reply = (
+                            f"I have scheduled {selected_doc_name} for {selected_date}. "
+                            "What time would you prefer? (e.g., 'morning', 'afternoon', or a specific time like 10:00 AM)"
+                        )
                 else:
-                    reply = (
-                        f"I have successfully booked an appointment with {selected_doc_name} on {selected_date} at {selected_time}."
-                        f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
-                    )
+                    if pref_lang == "te":
+                        reply = (
+                            f"నేను {selected_doc_name} తో {selected_date} నాడు {selected_time} గంటలకు విజయవంతంగా అపాయింట్‌మెంట్ బుక్ చేసాను."
+                            f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
+                        )
+                    elif pref_lang == "hi":
+                        reply = (
+                            f"मैंने {selected_date} को {selected_time} बजे {selected_doc_name} के साथ सफलतापूर्वक अपॉइंटमेंट बुक कर लिया है।"
+                            f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
+                        )
+                    else:
+                        reply = (
+                            f"I have successfully booked an appointment with {selected_doc_name} on {selected_date} at {selected_time}."
+                            f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
+                        )
             elif "doctor" in msg_lower or "specialist" in msg_lower or "clinic" in msg_lower:
-                reply = "Sure, I can help you search for doctors. Please check the doctor search results.\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
+                if pref_lang == "te":
+                    reply = "ఖచ్చితంగా, నేను మీకు వైద్యులను వెతకడంలో సహాయపడగలను. దయచేసి ఫలితాలను చూడండి.\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
+                elif pref_lang == "hi":
+                    reply = "ज़रूर, मैं डॉक्टरों को खोजने में आपकी मदद कर सकता हूँ। कृपया खोज परिणाम देखें।\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
+                else:
+                    reply = "Sure, I can help you search for doctors. Please check the doctor search results.\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
             elif "record" in msg_lower or "file" in msg_lower or "report" in msg_lower:
-                reply = "I've pulled up your medical records directory. You can view or upload files there.\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
+                if pref_lang == "te":
+                    reply = "నేను మీ వైద్య రికార్డుల డైరెక్టరీని తెరిచాను. మీరు అక్కడ ఫైళ్లను చూడవచ్చు లేదా అప్‌లోడ్ చేయవచ్చు.\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
+                elif pref_lang == "hi":
+                    reply = "मैंने आपकी मेडिकल रिकॉर्ड डायरेक्टरी खोल दी है। आप वहां फाइलें देख या अपलोड कर सकते हैं।\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
+                else:
+                    reply = "I've pulled up your medical records directory. You can view or upload files there.\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
             elif "symptom" in msg_lower or "pain" in msg_lower or "check" in msg_lower or "sick" in msg_lower or "hurt" in msg_lower or "fever" in msg_lower or "cold" in msg_lower or "cough" in msg_lower or "headache" in msg_lower or "migraine" in msg_lower or "rash" in msg_lower or "acne" in msg_lower:
                 doc_recommendation = ""
                 otc_recommendation = ""
                 spec = "general"
                 
                 if any(k in msg_lower for k in ["chest", "heart", "bp", "cardio", "breath"]):
-                    doc_recommendation = "Dr. Alice Smith (Cardiology, ID 1)"
-                    otc_recommendation = "Please avoid self-medication for cardiovascular issues. Rest and consult a doctor immediately."
+                    if pref_lang == "te":
+                        doc_recommendation = "Dr. Alice Smith (కార్డియాలజీ, ID 1)"
+                        otc_recommendation = "హృదయ సంబంధిత సమస్యలకు దయచేసి స్వయం-మందులు తీసుకోకండి. విశ్రాంతి తీసుకోండి మరియు వెంటనే వైద్యుడిని సంప్రదించండి."
+                    elif pref_lang == "hi":
+                        doc_recommendation = "Dr. Alice Smith (हृदय रोग विशेषज्ञ, ID 1)"
+                        otc_recommendation = "कृपया हृदय संबंधी समस्याओं के लिए स्व-दवा से बचें। आराम करें और तुरंत डॉक्टर से परामर्श लें।"
+                    else:
+                        doc_recommendation = "Dr. Alice Smith (Cardiology, ID 1)"
+                        otc_recommendation = "Please avoid self-medication for cardiovascular issues. Rest and consult a doctor immediately."
                     spec = "cardiology"
                 elif any(k in msg_lower for k in ["skin", "rash", "acne", "itch", "eczema", "hair"]):
-                    doc_recommendation = "Dr. Bob Johnson (Dermatology, ID 2)"
-                    otc_recommendation = "For mild skin itching, apply Calamine lotion or take Cetirizine (10mg) daily."
+                    if pref_lang == "te":
+                        doc_recommendation = "Dr. Bob Johnson (డెర్మటాలజీ, ID 2)"
+                        otc_recommendation = "తేలికపాటి చర్మ దురద కోసం, కాలమైన్ లోషన్ రాయండి లేదా ప్రతిరోజూ సెటిరిజైన్ (10mg) తీసుకోండి."
+                    elif pref_lang == "hi":
+                        doc_recommendation = "Dr. Bob Johnson (त्वचा विशेषज्ञ, ID 2)"
+                        otc_recommendation = "त्वचा की हल्की खुजली के लिए, कैलामाइन लोशन लगाएं या रोजाना Cetirizine (10mg) लें।"
+                    else:
+                        doc_recommendation = "Dr. Bob Johnson (Dermatology, ID 2)"
+                        otc_recommendation = "For mild skin itching, apply Calamine lotion or take Cetirizine (10mg) daily."
                     spec = "dermatology"
                 elif any(k in msg_lower for k in ["child", "kid", "baby", "pediatric", "vaccine"]):
-                    doc_recommendation = "Dr. Evan Wright (Pediatrics, ID 5)"
-                    otc_recommendation = "Pediatric dosages depend strictly on age and weight. Please consult a doctor."
+                    if pref_lang == "te":
+                        doc_recommendation = "Dr. Evan Wright (పీడియాట్రిక్స్, ID 5)"
+                        otc_recommendation = "పిల్లల మందుల మోతాదులు వారి వయస్సు మరియు బరువుపై ఆధారపడి ఉంటాయి. దయచేసి వైద్యుడిని సంప్రదించండి."
+                    elif pref_lang == "hi":
+                        doc_recommendation = "Dr. Evan Wright (बाल रोग विशेषज्ञ, ID 5)"
+                        otc_recommendation = "बच्चों की दवा की खुराक पूरी तरह से उम्र और वजन पर निर्भर करती है। कृपया डॉक्टर से सलाह लें।"
+                    else:
+                        doc_recommendation = "Dr. Evan Wright (Pediatrics, ID 5)"
+                        otc_recommendation = "Pediatric dosages depend strictly on age and weight. Please consult a doctor."
                     spec = "pediatrics"
                 elif any(k in msg_lower for k in ["headache", "migraine", "dizzy", "brain", "nerve", "head"]):
-                    doc_recommendation = "Dr. Diana Prince (Neurology, ID 4)"
-                    otc_recommendation = "For mild headaches, you can take a standard Paracetamol (500mg) tablet after meals."
+                    if pref_lang == "te":
+                        doc_recommendation = "Dr. Diana Prince (న్యూరాలజీ, ID 4)"
+                        otc_recommendation = "తేలికపాటి తలనొప్పి కోసం, భోజనం తర్వాత ఒక సాధారణ పారాసిటమాల్ (500mg) టాబ్లెట్ తీసుకోవచ్చు."
+                    elif pref_lang == "hi":
+                        doc_recommendation = "Dr. Diana Prince (न्यूरोलॉजिस्ट, ID 4)"
+                        otc_recommendation = "हल्के सिरदर्द के लिए, आप भोजन के बाद एक मानक पैरासिटामोल (500mg) टैबलेट ले सकते हैं।"
+                    else:
+                        doc_recommendation = "Dr. Diana Prince (Neurology, ID 4)"
+                        otc_recommendation = "For mild headaches, you can take a standard Paracetamol (500mg) tablet after meals."
                     spec = "neurology"
                 else:
-                    doc_recommendation = "Dr. Charlie Brown (General Medicine, ID 3)"
-                    otc_recommendation = "For mild cold, cough or fever, a Paracetamol (500mg) or Cetirizine (10mg) after meals is suitable."
+                    if pref_lang == "te":
+                        doc_recommendation = "Dr. Charlie Brown (జనరల్ మెడిసిన్, ID 3)"
+                        otc_recommendation = "తేలికపాటి జలుబు, దగ్గు లేదా జ్వరం కోసం, భోజనం తర్వాత పారాసిటమాల్ (500mg) లేదా సెటిరిజైన్ (10mg) సరిపోతుంది."
+                    elif pref_lang == "hi":
+                        doc_recommendation = "Dr. Charlie Brown (सामान्य चिकित्सा, ID 3)"
+                        otc_recommendation = "हल्की सर्दी, खांसी या बुखार के लिए, भोजन के बाद पैरासिटामोल (500mg) या Cetirizine (10mg) उपयुक्त है।"
+                    else:
+                        doc_recommendation = "Dr. Charlie Brown (General Medicine, ID 3)"
+                        otc_recommendation = "For mild cold, cough or fever, a Paracetamol (500mg) or Cetirizine (10mg) after meals is suitable."
                     spec = "general"
                 
-                reply = (
-                    f"I recommend consulting our specialist, {doc_recommendation}. "
-                    f"{otc_recommendation} (Disclaimer: This is general advice. Please consult a doctor if symptoms persist.)\n\n"
-                    f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
-                )
+                if pref_lang == "te":
+                    reply = (
+                        f"నేను మా నిపుణుడు {doc_recommendation} ని సంప్రదించాలని సిఫార్సు చేస్తున్నాను. "
+                        f"{otc_recommendation} (డిస్క్లైమర్: ఇది సాధారణ సలహా. లక్షణాలు తగ్గకపోతే దయచేసి వైద్యుడిని సంప్రదించండి.)\n\n"
+                        f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
+                    )
+                elif pref_lang == "hi":
+                    reply = (
+                        f"मैं हमारे विशेषज्ञ {doc_recommendation} से परामर्श करने की सलाह देता हूँ। "
+                        f"{otc_recommendation} (अस्वीकरण: यह सामान्य सलाह है। यदि लक्षण बने रहते हैं तो कृपया डॉक्टर से परामर्श लें।)\n\n"
+                        f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
+                    )
+                else:
+                    reply = (
+                        f"I recommend consulting our specialist, {doc_recommendation}. "
+                        f"{otc_recommendation} (Disclaimer: This is general advice. Please consult a doctor if symptoms persist.)\n\n"
+                        f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
+                    )
             elif "setting" in msg_lower or "profile" in msg_lower or "address" in msg_lower or "username" in msg_lower:
-                reply = "Opening your settings page where you can update your profile details and settings.\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
+                if pref_lang == "te":
+                    reply = "మీ ప్రొఫైల్ వివరాలు మరియు సెట్టింగులను నవీకరించడానికి మీ సెట్టింగుల పేజీని తెరుస్తున్నాను.\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
+                elif pref_lang == "hi":
+                    reply = "आपका सेटिंग्स पेज खोल रहा हूँ जहाँ आप अपनी प्रोफ़ाइल विवरण और सेटिंग्स अपडेट कर सकते हैं।\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
+                else:
+                    reply = "Opening your settings page where you can update your profile details and settings.\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
             elif "chat" in msg_lower or "message" in msg_lower or "conversation" in msg_lower or "inbox" in msg_lower:
-                reply = "Opening your Chat Workspace so you can message and share files.\n\n[ACTION: {\"type\": \"view_chat\", \"parameters\": {}}]"
+                if pref_lang == "te":
+                    reply = "సন্দేశాలు పంపడానికి మరియు ఫైళ్లను పంచుకోవడానికి మీ చాట్ వర్క్‌స్పేస్‌ను తెరుస్తున్నాను.\n\n[ACTION: {\"type\": \"view_chat\", \"parameters\": {}}]"
+                elif pref_lang == "hi":
+                    reply = "आपका चैट वर्कस्पेस खोल रहा हूँ ताकि आप संदेश भेज सकें और फाइलें साझा कर सकें।\n\n[ACTION: {\"type\": \"view_chat\", \"parameters\": {}}]"
+                else:
+                    reply = "Opening your Chat Workspace so you can message and share files.\n\n[ACTION: {\"type\": \"view_chat\", \"parameters\": {}}]"
             elif "complaint" in msg_lower or "complain" in msg_lower or "feedback" in msg_lower:
                 escaped_msg = input_data.message.replace('"', '\\"')
-                reply = f"I've noted your complaint and forwarded it to our admin team. We will look into this immediately.\n\n[ACTION: {{\"type\": \"lodge_complaint\", \"parameters\": {{\"message\": \"{escaped_msg}\"}}}}]"
+                if pref_lang == "te":
+                    reply = f"నేను మీ ఫిర్యాదును నమోదు చేసుకున్నాను మరియు మా అడ్మిన్ బృందానికి పంపించాను. మేము దీనిని వెంటనే పరిశీలిస్తాము.\n\n[ACTION: {{\"type\": \"lodge_complaint\", \"parameters\": {{\"message\": \"{escaped_msg}\"}}}}]"
+                elif pref_lang == "hi":
+                    reply = f"मैंने आपकी शिकायत दर्ज कर ली है और इसे हमारी एडमिन टीम को भेज दिया है। हम इसे तुरंत देखेंगे।\n\n[ACTION: {{\"type\": \"lodge_complaint\", \"parameters\": {{\"message\": \"{escaped_msg}\"}}}}]"
+                else:
+                    reply = f"I've noted your complaint and forwarded it to our admin team. We will look into this immediately.\n\n[ACTION: {{\"type\": \"lodge_complaint\", \"parameters\": {{\"message\": \"{escaped_msg}\"}}}}]"
             else:
-                reply = "I am the HealthAI Global Assistant. I can help you find doctors, book appointments, view your medical records, or analyze symptoms. How can I help you today?"
+                if pref_lang == "te":
+                    reply = "నేను హెల్త్AI గ్లోబల్ అసిస్టెంట్. నేను వైద్యులను కనుగొనడంలో, అపాయింట్‌మెంట్‌లను బుక్ చేయడంలో, వైద్య రికార్డులను చూపడంలో లేదా లక్షణాలను విశ్లేషించడంలో సహాయపడగలను. ఈ రోజు నేను మీకు ఎలా సహాయపడగలను?"
+                elif pref_lang == "hi":
+                    reply = "मैं हेल्थएआई ग्लोबल असिस्टेंट हूँ। मैं आपको डॉक्टर ढूंढने, अपॉइंटमेंट बुक करने, मेडिकल रिकॉर्ड देखने या लक्षणों का विश्लेषण करने में मदद कर सकता हूँ। आज मैं आपकी क्या मदद कर सकता हूँ?"
+                else:
+                    reply = "I am the HealthAI Global Assistant. I can help you find doctors, book appointments, view your medical records, or analyze symptoms. How can I help you today?"
 
         # Parse action if present
         action = None
@@ -1297,19 +1489,30 @@ async def global_ai_assistant(
                     
                     if not (has_doctor and has_date and has_time):
                         action = None
-                        user_query = input_data.message
-                        detected_lang = "en"
-                        if any(ord(c) >= 0x0900 and ord(c) <= 0x097F for c in user_query):
-                            detected_lang = "hi"
-                        elif any(ord(c) >= 0x0C00 and ord(c) <= 0x0C7F for c in user_query):
-                            detected_lang = "te"
-                            
-                        if detected_lang == "hi":
-                            reply = "अपॉइंटमेंट बुक करने के लिए, मुझे कुछ और विवरण चाहिए। आप किस डॉक्टर से मिलना चाहते हैं, और किस तारीख और समय पर?"
-                        elif detected_lang == "te":
+                        user_query = input_data.message.lower()
+                        user_query_words = set(user_query.split())
+                        
+                        has_hi_char = any(ord(c) >= 0x0900 and ord(c) <= 0x097F for c in user_query)
+                        has_te_char = any(ord(c) >= 0x0C00 and ord(c) <= 0x0C7F for c in user_query)
+                        
+                        is_hinglish = any(w in user_query_words for w in hinglish_words)
+                        is_tinglish = any(w in user_query_words for w in tinglish_words)
+                        
+                        if has_te_char:
                             reply = "అపాయింట్‌మెంట్ బుక్ చేయడానికి, నాకు మరికొన్ని వివరాలు కావాలి. మీరు ఏ వైద్యుడిని సంప్రదించాలనుకుంటున్నారు, మరియు ఏ తేదీ మరియు సమయంలో?"
+                        elif has_hi_char:
+                            reply = "अपॉइंटमेंट बुक करने के लिए, मुझे कुछ और विवरण चाहिए। आप किस डॉक्टर से मिलना चाहते हैं, और किस तारीख और समय पर?"
+                        elif is_tinglish:
+                            reply = "Appointment book cheyyడానికి naku konchem details kavali. Meeku ey doctor kavali, ey date and time lo consult chestharu?"
+                        elif is_hinglish:
+                            reply = "Appointment book karne ke liye mujhe thode aur details chahiye. Aap kis doctor se milna chahte hain, aur kis date aur time par?"
                         else:
-                            reply = "To book your appointment, I need a few more details. Which doctor or specialization would you like to consult, and on what date and time?"
+                            if pref_lang == "te":
+                                reply = "అపాయింట్‌మెంట్ బుక్ చేయడానికి, నాకు మరికొన్ని వివరాలు కావాలి. మీరు ఏ వైద్యుడిని సంప్రదించాలనుకుంటున్నారు, మరియు ఏ తేదీ మరియు సమయంలో?"
+                            elif pref_lang == "hi":
+                                reply = "अपॉइंटमेंट बुक करने के लिए, मुझे कुछ और विवरण चाहिए। आप किस डॉक्टर से मिलना चाहते हैं, और किस तारीख और समय पर?"
+                            else:
+                                reply = "To book your appointment, I need a few more details. Which doctor or specialization would you like to consult, and on what date and time?"
                     else:
                         action = parsed_action
                         reply = reply.replace(action_match.group(0), "").strip()
