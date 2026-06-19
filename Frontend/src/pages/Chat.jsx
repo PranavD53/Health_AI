@@ -4,6 +4,7 @@ import { resolveMediaUrl } from '../utils/apiConfig';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useWebSocket } from '../context/WebSocketContext';
+import { useCall } from '../context/CallContext';
 
 export default function Chat() {
   const { t } = useLanguage();
@@ -18,180 +19,7 @@ export default function Chat() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileInputKey, setFileInputKey] = useState(Date.now());
 
-  // Video calling states
-  const [activeCall, setActiveCall] = useState(null); // { call_id, room_id, token, sfu_url, role, otherPartyName }
-  const [incomingCall, setIncomingCall] = useState(null); // { call_id, room_id, doctor_name }
-  const [callStatus, setCallStatus] = useState('idle'); // 'idle', 'ringing', 'connected', 'declined', 'ended'
-  const [localStream, setLocalStream] = useState(null);
-  const [callDuration, setCallDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
-  
-  const localVideoRef = useRef(null);
-  const streamRef = useRef(null);
-
-  const startLocalCamera = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      setLocalStream(stream);
-      streamRef.current = stream;
-    } catch (err) {
-      console.error("Failed to access camera/microphone:", err);
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setLocalStream(stream);
-        streamRef.current = stream;
-      } catch (e) {
-        console.error("Failed to access camera even without audio:", e);
-      }
-    }
-  };
-
-  const stopLocalCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
-      setLocalStream(null);
-    }
-  };
-
-  const toggleMute = () => {
-    if (streamRef.current) {
-      const audioTrack = streamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setIsMuted(!audioTrack.enabled);
-      }
-    }
-  };
-
-  const toggleVideo = () => {
-    if (streamRef.current) {
-      const videoTrack = streamRef.current.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setIsVideoOff(!videoTrack.enabled);
-      }
-    }
-  };
-
-  const handleStartCall = async () => {
-    if (!activeConv) return;
-    try {
-      setCallStatus('ringing');
-      setActiveCall({
-        role: 'doctor',
-        otherPartyName: activeConv.other_user.name
-      });
-      
-      const res = await api.initiateCall(null, activeConv.id);
-      setActiveCall(prev => ({
-        ...prev,
-        call_id: res.call_id,
-        room_id: res.room_id,
-        token: res.token,
-        sfu_url: res.sfu_url
-      }));
-      
-      startLocalCamera();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to start video call: " + err.message);
-      setCallStatus('idle');
-      setActiveCall(null);
-    }
-  };
-
-  const handleAcceptCall = async () => {
-    if (!incomingCall) return;
-    try {
-      const res = await api.acceptCall(incomingCall.call_id);
-      setActiveCall({
-        call_id: incomingCall.call_id,
-        room_id: incomingCall.room_id,
-        token: res.token,
-        sfu_url: res.sfu_url,
-        role: 'patient',
-        otherPartyName: incomingCall.doctor_name
-      });
-      setIncomingCall(null);
-      setCallStatus('connected');
-      
-      startLocalCamera();
-    } catch (err) {
-      console.error(err);
-      alert("Failed to accept call: " + err.message);
-      setIncomingCall(null);
-      setCallStatus('idle');
-    }
-  };
-
-  const handleRejectCall = async () => {
-    if (!incomingCall) return;
-    try {
-      await api.rejectCall(incomingCall.call_id);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIncomingCall(null);
-      setCallStatus('idle');
-    }
-  };
-
-  const handleEndCall = async () => {
-    const callId = activeCall?.call_id || incomingCall?.call_id;
-    if (!callId) {
-      stopLocalCamera();
-      setActiveCall(null);
-      setIncomingCall(null);
-      setCallStatus('idle');
-      return;
-    }
-    
-    try {
-      await api.endCall(callId);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      stopLocalCamera();
-      setActiveCall(null);
-      setIncomingCall(null);
-      setCallStatus('idle');
-    }
-  };
-
-  useEffect(() => {
-    if (localStream && localVideoRef.current) {
-      localVideoRef.current.srcObject = localStream;
-    }
-  }, [localStream, callStatus, activeCall]);
-
-  useEffect(() => {
-    let interval = null;
-    if (callStatus === 'connected') {
-      interval = setInterval(() => {
-        setCallDuration(prev => prev + 1);
-      }, 1000);
-    } else {
-      setCallDuration(0);
-    }
-    return () => clearInterval(interval);
-  }, [callStatus]);
-
-  useEffect(() => {
-    return () => {
-      stopLocalCamera();
-    };
-  }, []);
-
-  const formatTime = (secs) => {
-    const mins = Math.floor(secs / 60);
-    const remaining = secs % 60;
-    return `${mins.toString().padStart(2, '0')}:${remaining.toString().padStart(2, '0')}`;
-  };
+  const { handleStartCall } = useCall();
   
   const [loadingContacts, setLoadingContacts] = useState(false);
   const [loadingConvs, setLoadingConvs] = useState(false);
@@ -285,7 +113,7 @@ export default function Chat() {
     fetchConversations();
   }, []);
 
-  // Use WebSocket for real-time messages & call signaling
+  // Use WebSocket for real-time messages
   useEffect(() => {
     if (!subscribe) return;
     
@@ -298,35 +126,6 @@ export default function Chat() {
           // Otherwise just update the conversations list so the preview updates
           fetchConversations();
         }
-      } else if (data.event === 'call_initiated') {
-        // Show incoming call overlay for patient
-        setIncomingCall({
-          call_id: data.data.call_id,
-          room_id: data.data.room_id,
-          doctor_name: data.data.doctor_name
-        });
-        setCallStatus('ringing');
-      } else if (data.event === 'accepted') {
-        // Connected on doctor side
-        setCallStatus('connected');
-        startLocalCamera();
-      } else if (data.event === 'rejected') {
-        // Declined
-        setCallStatus('declined');
-        stopLocalCamera();
-        setTimeout(() => {
-          setActiveCall(null);
-          setCallStatus('idle');
-        }, 2500);
-      } else if (data.event === 'left') {
-        // Ended
-        setCallStatus('ended');
-        stopLocalCamera();
-        setTimeout(() => {
-          setActiveCall(null);
-          setIncomingCall(null);
-          setCallStatus('idle');
-        }, 2000);
       }
     });
     
@@ -692,7 +491,7 @@ export default function Chat() {
               <div className="flex items-center gap-xs">
                 {user.role === 'doctor' && (
                   <button
-                    onClick={handleStartCall}
+                    onClick={() => handleStartCall(activeConv.id, activeConv.other_user.name)}
                     className="p-2 text-success hover:bg-success/10 rounded-xl transition-all focus:outline-none flex items-center justify-center"
                     title={t('startVideoCall') || 'Start Video Consultation'}
                   >
@@ -996,200 +795,6 @@ export default function Chat() {
             </form>
           </div>
         </div>
-        )}
-
-        {/* 1. Incoming Call Ringing Overlay for Patient */}
-        {incomingCall && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[9999] animate-in fade-in duration-300">
-            <div className="bg-surface-container-highest border border-outline-variant/30 rounded-3xl p-8 w-full max-w-sm text-center shadow-2xl flex flex-col items-center gap-md scale-in">
-              <div className="relative flex items-center justify-center my-4">
-                <div className="absolute w-24 h-24 bg-success/20 rounded-full animate-ping duration-1000"></div>
-                <div className="absolute w-20 h-20 bg-success/30 rounded-full animate-pulse duration-1000"></div>
-                <div className="w-16 h-16 bg-success text-white rounded-full flex items-center justify-center text-xl font-bold z-10 shadow-lg">
-                  {getInitials(incomingCall.doctor_name)}
-                </div>
-              </div>
-
-              <div>
-                <span className="text-[10px] bg-success-container text-on-success-container px-3 py-1 rounded-full font-bold uppercase tracking-wider animate-pulse">
-                  Incoming Video Call
-                </span>
-                <h3 className="text-lg font-black text-on-surface mt-3">{incomingCall.doctor_name}</h3>
-                <p className="text-xs text-outline mt-1">is inviting you to a secure video consultation...</p>
-              </div>
-
-              <div className="flex items-center gap-xl mt-4 w-full justify-center">
-                <button
-                  type="button"
-                  onClick={handleRejectCall}
-                  className="w-14 h-14 rounded-full bg-error hover:bg-error-container text-white flex items-center justify-center shadow-lg hover:shadow-error/30 active:scale-90 transition-all focus:outline-none"
-                  title="Decline Call"
-                >
-                  <span className="material-symbols-outlined text-lg">call_end</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAcceptCall}
-                  className="w-14 h-14 rounded-full bg-success hover:bg-success-container text-white flex items-center justify-center shadow-lg hover:shadow-success/30 active:scale-90 transition-all focus:outline-none"
-                  title="Accept Call"
-                >
-                  <span className="material-symbols-outlined text-lg">videocam</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 2. Active Video Call Window (Ongoing/Ringing Outbound) */}
-        {activeCall && (
-          <div className="fixed inset-0 bg-slate-950/95 flex flex-col justify-between z-[9999] animate-in fade-in duration-300 text-white">
-            <div className="px-6 py-4 flex items-center justify-between border-b border-white/10 bg-slate-900/60 backdrop-blur-md">
-              <div className="flex items-center gap-md">
-                <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse"></span>
-                <h3 className="font-bold text-sm tracking-wide">Telehealth Video Call</h3>
-              </div>
-              
-              <div className="flex items-center gap-md">
-                {callStatus === 'connected' && (
-                  <span className="text-xs font-mono bg-white/10 px-3 py-1 rounded-full text-slate-300">
-                    {formatTime(callDuration)}
-                  </span>
-                )}
-                <span className="text-xs text-slate-400 capitalize font-semibold bg-white/5 px-3 py-1 rounded-full">
-                  {activeCall.role} Mode
-                </span>
-              </div>
-            </div>
-
-            <div className="flex-1 relative flex items-center justify-center p-6 bg-slate-900">
-              <div className="w-full h-full max-w-5xl rounded-2xl overflow-hidden bg-slate-800 border border-white/5 flex flex-col items-center justify-center relative shadow-inner">
-                {callStatus === 'ringing' ? (
-                  <div className="text-center flex flex-col items-center gap-md animate-pulse">
-                    <div className="w-20 h-20 bg-primary/20 text-primary border border-primary/30 rounded-full flex items-center justify-center text-2xl font-bold animate-bounce mb-2">
-                      {getInitials(activeCall.otherPartyName)}
-                    </div>
-                    <h4 className="text-lg font-bold text-white">Calling {activeCall.otherPartyName}...</h4>
-                    <p className="text-xs text-slate-400">Waiting for patient to accept the invitation</p>
-                  </div>
-                ) : callStatus === 'declined' ? (
-                  <div className="text-center flex flex-col items-center gap-md text-error">
-                    <span className="material-symbols-outlined text-4xl animate-bounce">call_end</span>
-                    <h4 className="text-lg font-bold text-error">Call Declined</h4>
-                    <p className="text-xs text-slate-400">The patient declined your video consultation invitation.</p>
-                  </div>
-                ) : callStatus === 'ended' ? (
-                  <div className="text-center flex flex-col items-center gap-md text-slate-300">
-                    <span className="material-symbols-outlined text-4xl">do_not_disturb_on</span>
-                    <h4 className="text-lg font-bold">Call Ended</h4>
-                    <p className="text-xs text-slate-400">The video consultation has been completed.</p>
-                  </div>
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 relative">
-                    <div className="relative flex items-center justify-center mb-6">
-                      <div className="absolute w-32 h-32 bg-primary/10 rounded-full animate-ping duration-[3000ms]"></div>
-                      <div className="absolute w-28 h-28 bg-primary/20 rounded-full animate-pulse duration-[2000ms]"></div>
-                      <div className="w-24 h-24 rounded-full bg-slate-800 border-2 border-primary/30 flex items-center justify-center text-2xl font-bold text-primary z-10 shadow-lg">
-                        {getInitials(activeCall.otherPartyName)}
-                      </div>
-                    </div>
-                    
-                    <div className="z-10 text-center">
-                      <h4 className="text-lg font-black text-white">{activeCall.otherPartyName}</h4>
-                      <p className="text-xs text-slate-400 mt-1 flex items-center justify-center gap-sm">
-                        <span className="w-1.5 h-1.5 rounded-full bg-success animate-ping"></span>
-                        <span>Connected & Streaming Securely</span>
-                      </p>
-                    </div>
-
-                    <div className="absolute bottom-6 flex items-end gap-[4px] h-8 justify-center w-full opacity-60">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(i => {
-                        const randHeight = [12, 28, 16, 24, 8, 32, 20, 14, 26, 18, 10, 22, 15, 27, 9][i % 15];
-                        const randDur = [1.2, 0.8, 1.5, 0.9, 1.1, 1.4, 0.7, 1.3, 1.0, 1.2, 0.9, 1.4, 0.8, 1.1, 1.3][i % 15];
-                        return (
-                          <div 
-                            key={i} 
-                            className="w-[3px] bg-primary rounded-full animate-pulse" 
-                            style={{
-                              height: `${randHeight}px`,
-                              animationDuration: `${randDur}s`,
-                              animationIterationCount: 'infinite'
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {localStream && (
-                  <div className="absolute bottom-4 right-4 w-40 h-52 md:w-48 md:h-64 rounded-xl border border-white/20 overflow-hidden shadow-2xl bg-black z-20 transition-all transform hover:scale-[1.02]">
-                    {isVideoOff ? (
-                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400 text-center p-2">
-                        <span className="material-symbols-outlined text-lg mb-1">videocam_off</span>
-                        <span className="text-[10px] font-bold uppercase tracking-wider">Camera Off</span>
-                      </div>
-                    ) : (
-                      <video
-                        ref={localVideoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover scale-x-[-1]"
-                      />
-                    )}
-                    <div className="absolute bottom-2 left-2 bg-slate-950/70 backdrop-blur-md px-2 py-0.5 rounded text-[9px] font-bold text-white uppercase tracking-wide">
-                      You
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="py-6 flex flex-col md:flex-row items-center justify-center gap-md border-t border-white/10 bg-slate-900/60 backdrop-blur-md w-full">
-              <div className="flex items-center gap-lg">
-                <button
-                  type="button"
-                  onClick={toggleMute}
-                  disabled={callStatus !== 'connected'}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
-                    isMuted 
-                      ? 'bg-error hover:bg-error-container text-white' 
-                      : 'bg-white/10 hover:bg-white/20 text-white active:scale-95'
-                  } disabled:opacity-50`}
-                  title={isMuted ? "Unmute Mic" : "Mute Mic"}
-                >
-                  <span className="material-symbols-outlined text-lg">
-                    {isMuted ? 'mic_off' : 'mic'}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={toggleVideo}
-                  disabled={callStatus !== 'connected'}
-                  className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
-                    isVideoOff 
-                      ? 'bg-error hover:bg-error-container text-white' 
-                      : 'bg-white/10 hover:bg-white/20 text-white active:scale-95'
-                  } disabled:opacity-50`}
-                  title={isVideoOff ? "Turn Video On" : "Turn Video Off"}
-                >
-                  <span className="material-symbols-outlined text-lg">
-                    {isVideoOff ? 'videocam_off' : 'videocam'}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleEndCall}
-                  className="w-16 h-12 px-6 rounded-full bg-error hover:bg-error-container text-white flex items-center justify-center shadow-lg hover:shadow-error/30 active:scale-95 transition-all"
-                  title="End Consultation"
-                >
-                  <span className="material-symbols-outlined text-lg">call_end</span>
-                </button>
-              </div>
-            </div>
-          </div>
         )}
       </div>
     );

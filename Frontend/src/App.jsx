@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'rea
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { WebSocketProvider } from './context/WebSocketContext';
+import { CallProvider } from './context/CallContext';
 import Layout from './components/Layout';
 
 // Pages
@@ -103,7 +104,8 @@ function App() {
       <Router>
         <AuthProvider>
           <WebSocketProvider>
-            <Routes>
+            <CallProvider>
+              <Routes>
             {/* Public routes */}
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
@@ -181,6 +183,7 @@ function App() {
             {/* Catch all - redirect to landing for unauthenticated, dashboard for authenticated */}
             <Route path="*" element={<PublicOrPrivateRedirect />} />
             </Routes>
+            </CallProvider>
           </WebSocketProvider>
         </AuthProvider>
       </Router>
