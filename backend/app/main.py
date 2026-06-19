@@ -302,6 +302,9 @@ class DoctorDashboardResponse(BaseModel):
     verification_status: str
     upcoming_appointments: List[DoctorAppointmentInfo]
     patient_summaries: List[PatientSummaryInfo]
+    total_patients: int
+    today_appointments: List[DoctorAppointmentInfo]
+    pending_appointments: int
 
 class VerificationQueueItem(BaseModel):
     id: int
@@ -492,6 +495,10 @@ def get_doctor_dashboard(
         # Total consultations count
         consultations_count = db.query(models.Appointment).filter(models.Appointment.doctor_id == doctor.id).count()
 
+        today_str = datetime.date.today().isoformat()
+        today_appointments = [appt for appt in upcoming if appt["date"] == today_str]
+        pending_appointments = len(upcoming)
+
         return {
             "name": doctor.name,
             "specialization": doctor.specialization,
@@ -501,7 +508,10 @@ def get_doctor_dashboard(
             "profile_completion": 92,
             "verification_status": verification_status,
             "upcoming_appointments": upcoming,
-            "patient_summaries": patient_summaries
+            "patient_summaries": patient_summaries,
+            "total_patients": len(patient_summaries),
+            "today_appointments": today_appointments,
+            "pending_appointments": pending_appointments
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
