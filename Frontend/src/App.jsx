@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
+import { WebSocketProvider } from './context/WebSocketContext';
 import Layout from './components/Layout';
 
 // Pages
@@ -52,59 +53,61 @@ function App() {
     <LanguageProvider>
       <Router>
         <AuthProvider>
-          <Routes>
-          {/* Public routes */}
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/otp-verify" element={<OtpVerify />} />
+          <WebSocketProvider>
+            <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/otp-verify" element={<OtpVerify />} />
 
-          {/* Protected routes wrapped in Layout */}
-          <Route 
-            path="/dashboard" 
-            element={
-              <Layout>
-                <DashboardSwitch />
-              </Layout>
-            } 
-          />
-          <Route 
-            path="/appointments" 
-            element={
-              <Layout>
-                <AppointmentsRoute />
-              </Layout>
-            } 
-          />
-          <Route 
-            path="/records" 
-            element={
-              <Layout>
-                <RecordsRoute />
-              </Layout>
-            } 
-          />
-          <Route 
-            path="/chat" 
-            element={
-              <Layout>
-                <Chat />
-              </Layout>
-            } 
-          />
-          <Route 
-            path="/settings" 
-            element={
-              <Layout>
-                <Settings />
-              </Layout>
-            } 
-          />
+            {/* Protected routes wrapped in Layout */}
+            <Route 
+              path="/dashboard" 
+              element={
+                <Layout>
+                  <DashboardSwitch />
+                </Layout>
+              } 
+            />
+            <Route 
+              path="/appointments" 
+              element={
+                <Layout>
+                  <AppointmentsRoute />
+                </Layout>
+              } 
+            />
+            <Route 
+              path="/records" 
+              element={
+                <Layout>
+                  <RecordsRoute />
+                </Layout>
+              } 
+            />
+            <Route 
+              path="/chat" 
+              element={
+                <Layout>
+                  <Chat />
+                </Layout>
+              } 
+            />
+            <Route 
+              path="/settings" 
+              element={
+                <Layout>
+                  <Settings />
+                </Layout>
+              } 
+            />
 
-          {/* Catch all - redirect to landing for unauthenticated, dashboard for authenticated */}
-          <Route path="*" element={<PublicOrPrivateRedirect />} />
-        </Routes>
-      </AuthProvider>
+            {/* Catch all - redirect to landing for unauthenticated, dashboard for authenticated */}
+            <Route path="*" element={<PublicOrPrivateRedirect />} />
+            </Routes>
+          </WebSocketProvider>
+        </AuthProvider>
     </Router>
   </LanguageProvider>
   );

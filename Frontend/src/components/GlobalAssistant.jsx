@@ -580,13 +580,24 @@ export default function GlobalAssistant() {
     const text = (textToSend || inputValue).trim();
     if (!text) return;
 
-    setMessages(prev => [...prev, { role: 'user', content: text }]);
+    setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }]);
     setInputValue('');
     setLoading(true);
 
     try {
-      const data = await api.sendAssistantMessage(text, groqKey, hfKey, language);
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
+      const data = await api.sendAssistantMessage(text, groqKey, hfKey, language, (chunkText) => {
+        setMessages(prev => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1].content = chunkText;
+          return newMessages;
+        });
+      });
+      
+      setMessages(prev => {
+        const newMessages = [...prev];
+        newMessages[newMessages.length - 1].content = data.reply;
+        return newMessages;
+      });
       
       // Speak back response
       speakMessage(data.reply, () => {
@@ -890,7 +901,7 @@ export default function GlobalAssistant() {
                           : 'bg-surface-container-high text-on-surface rounded-tl-none'
                       }`}
                     >
-                      {msg.content}
+                      {msg.content.replace(/\[ACTION:[\s\S]*?\]/g, '')}
                     </div>
                   </div>
                 ))}

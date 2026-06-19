@@ -326,7 +326,7 @@ export const api = {
   },
 
   // AI Assistant endpoint (Global Chatbot)
-  sendAssistantMessage: async (message, groqKey = '', hfKey = '', language = '') => {
+  sendAssistantMessage: async (message, groqKey = '', hfKey = '', language = '', onChunk = null) => {
     const payload = { message };
     if (groqKey) payload.groq_key = groqKey;
     if (hfKey) payload.hf_key = hfKey;
@@ -337,7 +337,43 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify(payload)
     });
-    return handleResponse(res);
+
+    if (!res.ok) {
+      let errTxt = await res.text();
+      throw new Error(errTxt || 'AI request failed');
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let result = { reply: '', action: null, disclaimer: '' };
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let newlineIdx;
+      while ((newlineIdx = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, newlineIdx).trim();
+        buffer = buffer.slice(newlineIdx + 1);
+        if (line.startsWith('data: ')) {
+          if (line === 'data: [DONE]') continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.type === 'chunk') {
+              result.reply += data.content || '';
+              if (onChunk) onChunk(result.reply);
+            } else if (data.type === 'action') {
+              result.action = data.action;
+              result.disclaimer = data.disclaimer;
+              if (data.reply) result.reply = data.reply;
+            }
+          } catch (e) {}
+        }
+      }
+    }
+    return result;
   },
 
   // AI Symptom analysis

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useWebSocket } from '../context/WebSocketContext';
 
 export default function Chat() {
   const { t } = useLanguage();
@@ -99,41 +100,41 @@ export default function Chat() {
   }, [activeConv]);
 
   const messagesEndRef = useRef(null);
-  const pollIntervalRef = useRef(null);
+  const { subscribe } = useWebSocket() || {};
 
   // Load contacts and active conversations on mount
   useEffect(() => {
     fetchContacts();
     fetchConversations();
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-    };
   }, []);
 
-  // Poll messages every 1 second for the active conversation
+  // Use WebSocket for real-time messages
   useEffect(() => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-    }
+    if (!subscribe) return;
+    
+    const unsubscribe = subscribe((data) => {
+      if (data.event === 'new_message') {
+        // If it's for the currently active conversation, fetch new messages
+        if (activeConv && data.conversation_id === activeConv.id) {
+          fetchMessages(activeConv.id, true);
+        } else {
+          // Otherwise just update the conversations list so the preview updates
+          fetchConversations();
+        }
+      }
+    });
+    
+    return unsubscribe;
+  }, [subscribe, activeConv]);
 
+  useEffect(() => {
     setPreviousMessageCount(0); // Reset message count when switching conversations
 
     if (activeConv) {
       fetchMessages(activeConv.id, false);
-      pollIntervalRef.current = setInterval(() => {
-        fetchMessages(activeConv.id, true);
-      }, 1000);
     } else {
       setMessages([]);
     }
-
-    return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-      }
-    };
   }, [activeConv]);
 
   // Scroll to bottom when messages list updates

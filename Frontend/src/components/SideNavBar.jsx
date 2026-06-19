@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useWebSocket } from '../context/WebSocketContext';
 import { api } from '../services/api';
 
 export default function SideNavBar() {
@@ -12,6 +13,8 @@ export default function SideNavBar() {
   const [sosSuccess, setSosSuccess] = useState(false);
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
   const [switching, setSwitching] = useState(false);
+
+  const { subscribe } = useWebSocket() || {};
 
   // For doctors: poll or check active emergency alerts
   useEffect(() => {
@@ -25,10 +28,18 @@ export default function SideNavBar() {
         }
       };
       fetchAlerts();
-      const interval = setInterval(fetchAlerts, 15000); // refresh every 15s
-      return () => clearInterval(interval);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!subscribe || !user || (user.role !== 'doctor' && user.role !== 'admin')) return;
+    const unsubscribe = subscribe((data) => {
+      if (data.event === 'new_alert') {
+        api.getEmergencyAlerts().then(alerts => setActiveAlertsCount(alerts.length)).catch(console.error);
+      }
+    });
+    return unsubscribe;
+  }, [subscribe, user]);
 
   const handleSos = async () => {
     setSosLoading(true);

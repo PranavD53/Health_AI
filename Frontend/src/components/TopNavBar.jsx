@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useWebSocket } from '../context/WebSocketContext';
 import { api } from '../services/api';
 
 export default function TopNavBar() {
@@ -159,15 +160,25 @@ export default function TopNavBar() {
     }
   };
 
+  const { subscribe } = useWebSocket() || {};
+
   useEffect(() => {
     loadProfile();
   }, [user]);
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 10000);
-    return () => clearInterval(interval);
   }, [user]);
+
+  useEffect(() => {
+    if (!subscribe) return;
+    const unsubscribe = subscribe((data) => {
+      if (data.event === 'new_notification' || data.event === 'new_message') {
+        fetchNotifications();
+      }
+    });
+    return unsubscribe;
+  }, [subscribe]);
 
   return (
     <>

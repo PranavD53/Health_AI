@@ -900,416 +900,781 @@ class AIAssistantResponse(BaseModel):
     action: Optional[dict] = None
     disclaimer: str
 
-@app.post("/ai/assistant", response_model=AIAssistantResponse)
+@app.post("/ai/assistant")
 async def global_ai_assistant(
     input_data: AIAssistantInput,
     accept_language: Optional[str] = Header(None),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    import re
-    import json
+    async def generate():
+        import re
+        import json
     
-    # Determine language preference from input payload first, then Accept-Language header (default: en)
-    pref_lang = "en"
-    if input_data.language:
-        lang_code = input_data.language.split("-")[0].strip().lower()
-        if lang_code in ["en", "hi", "te"]:
-            pref_lang = lang_code
-    elif accept_language:
-        lang_code = accept_language.split(",")[0].split("-")[0].strip().lower()
-        if lang_code in ["en", "hi", "te"]:
-            pref_lang = lang_code
+        # Determine language preference from input payload first, then Accept-Language header (default: en)
+        pref_lang = "en"
+        if input_data.language:
+            lang_code = input_data.language.split("-")[0].strip().lower()
+            if lang_code in ["en", "hi", "te"]:
+                pref_lang = lang_code
+        elif accept_language:
+            lang_code = accept_language.split(",")[0].split("-")[0].strip().lower()
+            if lang_code in ["en", "hi", "te"]:
+                pref_lang = lang_code
             
-    # Check current message language and determine language rule
-    current_msg = input_data.message.strip()
-    has_hindi = any(ord(c) >= 0x0900 and ord(c) <= 0x097F for c in current_msg)
-    has_telugu = any(ord(c) >= 0x0C00 and ord(c) <= 0x0C7F for c in current_msg)
+        # Check current message language and determine language rule
+        current_msg = input_data.message.strip()
+        has_hindi = any(ord(c) >= 0x0900 and ord(c) <= 0x097F for c in current_msg)
+        has_telugu = any(ord(c) >= 0x0C00 and ord(c) <= 0x0C7F for c in current_msg)
     
-    msg_words = set(current_msg.lower().split())
-    hinglish_words = {"hai", "ko", "ki", "naam", "aaj", "kya", "karne", "mere", "se", "kar", "ho", "gaya", "koshish", "chahiye", "diya", "aapka", "kuch", "apne"}
-    tinglish_words = {"na", "andi", "ga", "ayyindi", "cheyyandi", "kavali", "kuda", "undi", "vundi", "naku"}
+        msg_words = set(current_msg.lower().split())
+        hinglish_words = {"hai", "ko", "ki", "naam", "aaj", "kya", "karne", "mere", "se", "kar", "ho", "gaya", "koshish", "chahiye", "diya", "aapka", "kuch", "apne"}
+        tinglish_words = {"na", "andi", "ga", "ayyindi", "cheyyandi", "kavali", "kuda", "undi", "vundi", "naku"}
     
-    is_user_speaking_hinglish = any(w in msg_words for w in hinglish_words)
-    is_user_speaking_tinglish = any(w in msg_words for w in tinglish_words)
+        is_user_speaking_hinglish = any(w in msg_words for w in hinglish_words)
+        is_user_speaking_tinglish = any(w in msg_words for w in tinglish_words)
     
-    if has_telugu:
-        forced_rule = "The user is speaking in Telugu. You MUST respond strictly in Telugu (తెలుగు)."
-    elif has_hindi:
-        forced_rule = "The user is speaking in Hindi. You MUST respond strictly in Hindi (हिन्दी)."
-    elif is_user_speaking_tinglish:
-        forced_rule = "The user is speaking in Tinglish (Telugu-transliterated). You MUST respond in Tinglish."
-    elif is_user_speaking_hinglish:
-        forced_rule = "The user is speaking in Hinglish (Hindi-transliterated). You MUST respond in Hinglish."
-    else:
-        if pref_lang == "te":
-            forced_rule = "The user preferred language is Telugu. You MUST respond in Telugu (తెలుగు)."
-        elif pref_lang == "hi":
-            forced_rule = "The user preferred language is Hindi. You MUST respond in Hindi (हिन्दी)."
+        if has_telugu:
+            forced_rule = "The user is speaking in Telugu. You MUST respond strictly in Telugu (తెలుగు)."
+        elif has_hindi:
+            forced_rule = "The user is speaking in Hindi. You MUST respond strictly in Hindi (हिन्दी)."
+        elif is_user_speaking_tinglish:
+            forced_rule = "The user is speaking in Tinglish (Telugu-transliterated). You MUST respond in Tinglish."
+        elif is_user_speaking_hinglish:
+            forced_rule = "The user is speaking in Hinglish (Hindi-transliterated). You MUST respond in Hinglish."
         else:
-            forced_rule = "The user is speaking in English. You MUST respond strictly in standard English. Do NOT use any Hindi, Hinglish, or Telugu words."
-            
-    try:
-        is_emergency = scan_for_emergency(input_data.message)
-        disclaimer = "This is AI-generated information. Please consult a real doctor."
-
-        if is_emergency:
-            reply = (
-                "EMERGENCY WARNING: Severe symptoms detected. Please call 108 or head to "
-                "the nearest emergency department immediately."
-            )
-            return {
-                "reply": reply,
-                "action": None,
-                "disclaimer": disclaimer
-            }
-
-        # Find or create a dedicated global assistant conversation thread
-        conv = db.query(models.Conversation).filter(
-            models.Conversation.user_id == current_user.id,
-            models.Conversation.title == "HealthAI Global Assistant"
-        ).first()
-
-        if not conv:
-            conv = models.Conversation(
-                user_id=current_user.id,
-                title="HealthAI Global Assistant"
-            )
-            db.add(conv)
-            db.commit()
-            db.refresh(conv)
-
-        # Save user message
-        user_msg = models.Message(
-            conversation_id=conv.id,
-            role="user",
-            content=input_data.message
-        )
-        db.add(user_msg)
-        db.commit()
-
-        # Load history (last 8 messages)
-        history_msgs = db.query(models.Message).filter(
-            models.Message.conversation_id == conv.id
-        ).order_by(models.Message.timestamp.asc()).all()
-
-        # Fetch current date and time dynamically
-        import datetime
-        today_date = datetime.date.today()
-        today_str = today_date.strftime("%Y-%m-%d")
-        current_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Load active/verified doctors directory dynamically
-        doctors_query = db.query(models.Doctor).all()
-        # Create doctors directory string for LLM mapping (do NOT output IDs in text responses!)
-        doctors_directory = "\n".join([f"- {doc.name} ({doc.specialization}, ID {doc.id})" for doc in doctors_query])
-
-        user_context = (
-            f"CURRENT DATE AND TIME: {current_time_str}\n"
-            f"CURRENT USER CONTEXT:\n"
-            f"- Logged-in User Email: {current_user.email}\n"
-            f"- Role: {current_user.role}\n"
-        )
-        
-        patient_appts = []
-        doctor_appts = []
-        doctor = None
-        
-        if current_user.role == "patient":
-            # Query patient's upcoming appointments
-            patient_appts = db.query(models.Appointment).filter(
-                models.Appointment.patient_id == current_user.id,
-                models.Appointment.status == "booked",
-                models.Appointment.date >= today_str
-            ).order_by(models.Appointment.date.asc(), models.Appointment.time.asc()).all()
-            
-            appts_list = []
-            for appt in patient_appts:
-                doc_name = appt.doctor.name if appt.doctor else "Unknown Doctor"
-                doc_spec = appt.doctor.specialization if appt.doctor else "Specialist"
-                appts_list.append(f"- Appointment with {doc_name} ({doc_spec}) on {appt.date} at {appt.time}")
-            
-            if appts_list:
-                user_context += "YOUR UPCOMING APPOINTMENTS:\n" + "\n".join(appts_list) + "\n"
+            if pref_lang == "te":
+                forced_rule = "The user preferred language is Telugu. You MUST respond in Telugu (తెలుగు)."
+            elif pref_lang == "hi":
+                forced_rule = "The user preferred language is Hindi. You MUST respond in Hindi (हिन्दी)."
             else:
-                user_context += "YOUR UPCOMING APPOINTMENTS: You have no upcoming appointments scheduled.\n"
-                
-        elif current_user.role == "doctor":
-            # Query doctor's profile and consultations
-            doctor = db.query(models.Doctor).filter(models.Doctor.user_id == current_user.id).first()
-            if not doctor:
-                doctor = db.query(models.Doctor).filter(models.Doctor.contact == current_user.email).first()
+                forced_rule = "The user is speaking in English. You MUST respond strictly in standard English. Do NOT use any Hindi, Hinglish, or Telugu words."
             
-            if doctor:
-                doctor_appts = db.query(models.Appointment).filter(
-                    models.Appointment.doctor_id == doctor.id,
+        try:
+            is_emergency = scan_for_emergency(input_data.message)
+            disclaimer = "This is AI-generated information. Please consult a real doctor."
+
+            if is_emergency:
+                reply = (
+                    "EMERGENCY WARNING: Severe symptoms detected. Please call 108 or head to "
+                    "the nearest emergency department immediately."
+                )
+                import json
+                yield f"data: {json.dumps({'type': 'action', 'action': None, 'disclaimer': disclaimer, 'reply': reply})}\n\n"
+                return
+
+            # Find or create a dedicated global assistant conversation thread
+            conv = db.query(models.Conversation).filter(
+                models.Conversation.user_id == current_user.id,
+                models.Conversation.title == "HealthAI Global Assistant"
+            ).first()
+
+            if not conv:
+                conv = models.Conversation(
+                    user_id=current_user.id,
+                    title="HealthAI Global Assistant"
+                )
+                db.add(conv)
+                db.commit()
+                db.refresh(conv)
+
+            # Save user message
+            user_msg = models.Message(
+                conversation_id=conv.id,
+                role="user",
+                content=input_data.message
+            )
+            db.add(user_msg)
+            db.commit()
+
+            # Load history (last 8 messages)
+            history_msgs = db.query(models.Message).filter(
+                models.Message.conversation_id == conv.id
+            ).order_by(models.Message.timestamp.asc()).all()
+
+            # Fetch current date and time dynamically
+            import datetime
+            today_date = datetime.date.today()
+            today_str = today_date.strftime("%Y-%m-%d")
+            current_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+            # Load active/verified doctors directory dynamically
+            doctors_query = db.query(models.Doctor).all()
+            # Create doctors directory string for LLM mapping (do NOT output IDs in text responses!)
+            doctors_directory = "\n".join([f"- {doc.name} ({doc.specialization}, ID {doc.id})" for doc in doctors_query])
+
+            user_context = (
+                f"CURRENT DATE AND TIME: {current_time_str}\n"
+                f"CURRENT USER CONTEXT:\n"
+                f"- Logged-in User Email: {current_user.email}\n"
+                f"- Role: {current_user.role}\n"
+            )
+        
+            patient_appts = []
+            doctor_appts = []
+            doctor = None
+        
+            if current_user.role == "patient":
+                # Query patient's upcoming appointments
+                patient_appts = db.query(models.Appointment).filter(
+                    models.Appointment.patient_id == current_user.id,
                     models.Appointment.status == "booked",
                     models.Appointment.date >= today_str
                 ).order_by(models.Appointment.date.asc(), models.Appointment.time.asc()).all()
-                
-                consults_list = []
-                for appt in doctor_appts:
-                    p_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == appt.patient_id).first()
-                    p_name = p_profile.name if p_profile else "Unknown Patient"
-                    consults_list.append(f"- Consultation with patient {p_name} on {appt.date} at {appt.time}")
-                
-                if consults_list:
-                    user_context += "YOUR UPCOMING CONSULTATIONS:\n" + "\n".join(consults_list) + "\n"
+            
+                appts_list = []
+                for appt in patient_appts:
+                    doc_name = appt.doctor.name if appt.doctor else "Unknown Doctor"
+                    doc_spec = appt.doctor.specialization if appt.doctor else "Specialist"
+                    appts_list.append(f"- Appointment with {doc_name} ({doc_spec}) on {appt.date} at {appt.time}")
+            
+                if appts_list:
+                    user_context += "YOUR UPCOMING APPOINTMENTS:\n" + "\n".join(appts_list) + "\n"
                 else:
-                    user_context += "YOUR UPCOMING CONSULTATIONS: You have no upcoming consultations scheduled.\n"
-            else:
-                user_context += "YOUR UPCOMING CONSULTATIONS: No doctor profile found.\n"
+                    user_context += "YOUR UPCOMING APPOINTMENTS: You have no upcoming appointments scheduled.\n"
+                
+            elif current_user.role == "doctor":
+                # Query doctor's profile and consultations
+                doctor = db.query(models.Doctor).filter(models.Doctor.user_id == current_user.id).first()
+                if not doctor:
+                    doctor = db.query(models.Doctor).filter(models.Doctor.contact == current_user.email).first()
+            
+                if doctor:
+                    doctor_appts = db.query(models.Appointment).filter(
+                        models.Appointment.doctor_id == doctor.id,
+                        models.Appointment.status == "booked",
+                        models.Appointment.date >= today_str
+                    ).order_by(models.Appointment.date.asc(), models.Appointment.time.asc()).all()
+                
+                    consults_list = []
+                    for appt in doctor_appts:
+                        p_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == appt.patient_id).first()
+                        p_name = p_profile.name if p_profile else "Unknown Patient"
+                        consults_list.append(f"- Consultation with patient {p_name} on {appt.date} at {appt.time}")
+                
+                    if consults_list:
+                        user_context += "YOUR UPCOMING CONSULTATIONS:\n" + "\n".join(consults_list) + "\n"
+                    else:
+                        user_context += "YOUR UPCOMING CONSULTATIONS: You have no upcoming consultations scheduled.\n"
+                else:
+                    user_context += "YOUR UPCOMING CONSULTATIONS: No doctor profile found.\n"
 
-        if current_user.role == "doctor":
-            user_context += (
-                "IMPORTANT ROLE CONSTRAINT: The user you are talking to is registered as a DOCTOR. "
-                "Doctors do NOT seek other doctors or book appointments for themselves. "
-                "If they ask to see their consultations, schedule, or appointments, read their upcoming consultations (patient name, date, time) to them directly. "
-                "Do NOT recommend consulting other specialists or scheduling bookings for them unless they explicitly ask to consult another doctor as a patient.\n"
-            )
-        elif current_user.role == "admin":
-            user_context += (
-                "IMPORTANT ROLE CONSTRAINT: The user you are talking to is an ADMINISTRATOR. "
-                "If they ask for system logs, stats, or configurations, guide them to their dashboard (/dashboard) and trigger the 'view_dashboard' action.\n"
-            )
-        else:
-            user_context += (
-                "IMPORTANT ROLE CONSTRAINT: The user you are talking to is a PATIENT. "
-                "Patients can search for doctors (find_doctors), book appointments (book_appointment), and upload medical records (view_records).\n"
-            )
-
-        messages_payload = [
-            {
-                "role": "system",
-                "content": (
-                    "You are TARS, a multilingual global assistant that offers all types of assistance available on our website (symptom analysis, booking appointments, viewing medical records, settings, and lodging complaints). You are compassionate, precise, and highly fluent.\n\n"
-                    f"{user_context}\n"
-                    f"USER PREFERRED LANGUAGE: {pref_lang.upper()}\n"
-                    "LANGUAGE PROTOCOL:\n"
-                    f"- {forced_rule}\n"
-                    "- If the user communicates in English, you MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, or Telugu words.\n"
-                    "- If the user communicates in Hindi (हिन्दी), respond in Hindi.\n"
-                    "- If the user communicates in Telugu (తెలుగు), respond in Telugu.\n"
-                    "- Only respond in Hinglish (e.g., 'Aapka appointment book ho gaya hai') if the user explicitly typed their message in Hinglish.\n"
-                    "- Only respond in Telugu-transliterated (e.g., 'Me appointment book ayyindi') if the user explicitly typed their message in Telugu-transliterated.\n"
-                    "- Automatically detect and align with the user's input language style. Never default to Hinglish or transliterated styles for plain English queries.\n\n"
-                    "CRITICAL RESPONSE LANGUAGE CONSTRAINT:\n"
-                    "- Do NOT output or mention doctor IDs (e.g. 'ID 1', 'ID 2', etc.) in your conversational responses. "
-                    "When referring to a doctor, always refer to them by their name and department/specialization, e.g. 'Dr. Alice Smith (Cardiology)' or 'Bhargav Nama (Dermatology)'. "
-                    "You MUST use the correct doctor ID in the JSON action block parameter 'doctor_id', but keep the IDs completely hidden from the user-facing text response.\n\n"
-                    "CRITICAL RESPONSE LENGTH CONSTRAINT:\n"
-                    "You MUST provide extremely concise, short, direct, and helpful answers (maximum 2-3 sentences, 40-50 words max). "
-                    "Do NOT write long paragraphs. Get straight to the point and do not drag the conversation.\n\n"
-                    "You can perform actions on behalf of the user by appending a special JSON block to the END of your response.\n"
-                    "For example, if you decide to execute an action, output EXACTLY like this:\n"
-                    "[ACTION: {\"type\": \"ACTION_TYPE\", \"parameters\": { ... }}]\n\n"
-                    "Available actions:\n"
-                    "1. Find Doctors:\n"
-                    "   type: \"find_doctors\"\n"
-                    "   parameters: {\"specialization\": \"cardiology\" | \"dermatology\" | \"general\" | \"neurology\" | \"pediatrics\"}\n"
-                    "   Trigger this when the user asks to search for doctors, find a clinic, or look for a medical specialist.\n\n"
-                    "2. Book Appointment:\n"
-                    "   type: \"book_appointment\"\n"
-                    "   parameters: {\"doctor_id\": int, \"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\"}\n"
-                    "   Trigger this when the user wants to book, schedule, or reserve an appointment.\n"
-                    "   CRITICAL: Before booking, you MUST explicitly ask for and receive the following details from the user:\n"
-                    "   - Doctor's name or specialization\n"
-                    "   - Date for the appointment\n"
-                    "   - Preferred time\n"
-                    "   Only output the booking action block AFTER the user has provided all three details. Do not book with defaults.\n"
-                    "   If any detail is missing, ask for it first before proceeding with the booking.\n"
-                    "   Active Doctor Directory for Booking:\n"
-                    f"{doctors_directory}\n\n"
-                    "3. View Medical Records:\n"
-                    "   type: \"view_records\"\n"
-                    "   parameters: {}\n"
-                    "   Trigger this when the user wants to see their uploaded medical files, reports, or records.\n\n"
-                    "4. Analyze Symptoms:\n"
-                    "   type: \"analyze_symptom\"\n"
-                    "   parameters: {\"symptoms\": \"description of symptoms\", \"severity\": \"mild\" | \"moderate\" | \"severe\", \"duration\": \"duration description\"}\n"
-                    "   Trigger this when the user wants to check symptoms or get a health assessment.\n\n"
-                    "5. View Dashboard:\n"
-                    "   type: \"view_dashboard\"\n"
-                    "   parameters: {}\n"
-                    "   Trigger this when the user asks to go home, view overview, or see their dashboard.\n\n"
-                    "6. Lodge a Complaint:\n"
-                    "   type: \"lodge_complaint\"\n"
-                    "   parameters: {\"message\": \"description of complaint/issue\"}\n"
-                    "   Trigger this when the user complains about the system, service, doctors, or submits negative feedback.\n\n"
-                    "7. View Settings:\n"
-                    "   type: \"view_settings\"\n"
-                    "   parameters: {}\n"
-                    "   Trigger this when the user wants to update their profile, username, address, preferences, or settings.\n\n"
-                    "8. View Chat Workspace:\n"
-                    "   type: \"view_chat\"\n"
-                    "   parameters: {}\n"
-                    "   Trigger this when the user wants to message, chat, send a prescription/file, or chat with a doctor, patient, or admin.\n\n"
-                    "9. Clinical Symptom Analysis & Doctor Mapping:\n"
-                    "   If the user lists their symptoms (even in broken, informal, or transliterated languages, e.g. 'mere chest me pain ho raha hai' or 'talanoppiga vundi'):\n"
-                    "   a) Recommend the correct doctor to consult from our active doctor directory based on their specialization/department matching the symptoms:\n"
-                    f"{doctors_directory}\n"
-                    "   b) Safe OTC Medicine Recommendation:\n"
-                    "      For minor, simple, non-critical symptoms (e.g. mild fever, common cold, minor headache, acid reflux), you may suggest a standard safe over-the-counter medicine (e.g., Paracetamol for mild fever, Cetirizine for cold/allergies, Antacids for indigestion) with clear dosage guidelines. You MUST append a safety disclaimer: 'This is general advice. Please consult a doctor if symptoms persist or worsen.'\n"
-                    "   c) For critical or severe symptoms (e.g. severe chest pressure, unconsciousness, severe bleeding), advise them to seek emergency care immediately (dial 108/100).\n"
-                    "   d) Proactively offer to schedule a consultation with the matched doctor (e.g. 'Would you like to book an appointment with Dr. Alice Smith (Cardiology)?') and collect their preferred date and time step-by-step before triggering the booking action.\n\n"
-                    "Always prioritize safety, give clear advice in their language, and include the action JSON block if the user's intent matches one of the actions."
+            if current_user.role == "doctor":
+                user_context += (
+                    "IMPORTANT ROLE CONSTRAINT: The user you are talking to is registered as a DOCTOR. "
+                    "Doctors do NOT seek other doctors or book appointments for themselves. "
+                    "If they ask to see their consultations, schedule, or appointments, read their upcoming consultations (patient name, date, time) to them directly. "
+                    "Do NOT recommend consulting other specialists or scheduling bookings for them unless they explicitly ask to consult another doctor as a patient.\n"
                 )
-            }
-        ]
-
-        for h_msg in history_msgs[-8:]:
-            messages_payload.append({"role": h_msg.role, "content": h_msg.content})
-
-        # Reinforce language rules directly on the last user message to override history bias
-        if messages_payload and messages_payload[-1]["role"] == "user":
-            prompt_instruction = ""
-            if has_telugu or (not has_hindi and not is_user_speaking_hinglish and not is_user_speaking_tinglish and pref_lang == "te"):
-                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Telugu. You MUST respond strictly in Telugu (తెలుగు script). Do NOT use Hindi, Hinglish, or English. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
-            elif has_hindi or (not has_telugu and not is_user_speaking_hinglish and not is_user_speaking_tinglish and pref_lang == "hi"):
-                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hindi. You MUST respond strictly in Hindi (हिन्दी script). Do NOT use English, Hinglish, or Telugu. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
-            elif is_user_speaking_tinglish:
-                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Tinglish. You MUST respond in Tinglish (Telugu words written in English/Latin letters). Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
-            elif is_user_speaking_hinglish:
-                prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hinglish. You MUST respond in Hinglish (Hindi words written in English/Latin letters). Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
+            elif current_user.role == "admin":
+                user_context += (
+                    "IMPORTANT ROLE CONSTRAINT: The user you are talking to is an ADMINISTRATOR. "
+                    "If they ask for system logs, stats, or configurations, guide them to their dashboard (/dashboard) and trigger the 'view_dashboard' action.\n"
+                )
             else:
-                prompt_instruction = "\n\n[SYSTEM RULE: The user is speaking in English. You MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, Telugu, or Tinglish. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
-            
-            messages_payload[-1]["content"] += prompt_instruction
+                user_context += (
+                    "IMPORTANT ROLE CONSTRAINT: The user you are talking to is a PATIENT. "
+                    "Patients can search for doctors (find_doctors), book appointments (book_appointment), and upload medical records (view_records).\n"
+                )
 
-        # Use provided keys from request or fall back to environment variables
-        groq_key = input_data.groq_key or os.getenv("GROQ_API_KEY", "")
-        hf_key = input_data.hf_key or os.getenv("HUGGINGFACE_API_KEY", os.getenv("HF_API_KEY", ""))
+            messages_payload = [
+                {
+                    "role": "system",
+                    "content": (
+                        "You are TARS, a multilingual global assistant that offers all types of assistance available on our website (symptom analysis, booking appointments, viewing medical records, settings, and lodging complaints). You are compassionate, precise, and highly fluent.\n\n"
+                        f"{user_context}\n"
+                        f"USER PREFERRED LANGUAGE: {pref_lang.upper()}\n"
+                        "LANGUAGE PROTOCOL:\n"
+                        f"- {forced_rule}\n"
+                        "- If the user communicates in English, you MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, or Telugu words.\n"
+                        "- If the user communicates in Hindi (हिन्दी), respond in Hindi.\n"
+                        "- If the user communicates in Telugu (తెలుగు), respond in Telugu.\n"
+                        "- Only respond in Hinglish (e.g., 'Aapka appointment book ho gaya hai') if the user explicitly typed their message in Hinglish.\n"
+                        "- Only respond in Telugu-transliterated (e.g., 'Me appointment book ayyindi') if the user explicitly typed their message in Telugu-transliterated.\n"
+                        "- Automatically detect and align with the user's input language style. Never default to Hinglish or transliterated styles for plain English queries.\n\n"
+                        "CRITICAL RESPONSE LANGUAGE CONSTRAINT:\n"
+                        "- Do NOT output or mention doctor IDs (e.g. 'ID 1', 'ID 2', etc.) in your conversational responses. "
+                        "When referring to a doctor, always refer to them by their name and department/specialization, e.g. 'Dr. Alice Smith (Cardiology)' or 'Bhargav Nama (Dermatology)'. "
+                        "You MUST use the correct doctor ID in the JSON action block parameter 'doctor_id', but keep the IDs completely hidden from the user-facing text response.\n\n"
+                        "CRITICAL RESPONSE LENGTH CONSTRAINT:\n"
+                        "You MUST provide extremely concise, short, direct, and helpful answers (maximum 2-3 sentences, 40-50 words max). "
+                        "Do NOT write long paragraphs. Get straight to the point and do not drag the conversation.\n\n"
+                        "You can perform actions on behalf of the user by appending a special JSON block to the END of your response.\n"
+                        "For example, if you decide to execute an action, output EXACTLY like this:\n"
+                        "[ACTION: {\"type\": \"ACTION_TYPE\", \"parameters\": { ... }}]\n\n"
+                        "Available actions:\n"
+                        "1. Find Doctors:\n"
+                        "   type: \"find_doctors\"\n"
+                        "   parameters: {\"specialization\": \"cardiology\" | \"dermatology\" | \"general\" | \"neurology\" | \"pediatrics\"}\n"
+                        "   Trigger this when the user asks to search for doctors, find a clinic, or look for a medical specialist.\n\n"
+                        "2. Book Appointment:\n"
+                        "   type: \"book_appointment\"\n"
+                        "   parameters: {\"doctor_id\": int, \"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\"}\n"
+                        "   Trigger this when the user wants to book, schedule, or reserve an appointment.\n"
+                        "   CRITICAL: Before booking, you MUST explicitly ask for and receive the following details from the user:\n"
+                        "   - Doctor's name or specialization\n"
+                        "   - Date for the appointment\n"
+                        "   - Preferred time\n"
+                        "   Only output the booking action block AFTER the user has provided all three details. Do not book with defaults.\n"
+                        "   If any detail is missing, ask for it first before proceeding with the booking.\n"
+                        "   Active Doctor Directory for Booking:\n"
+                        f"{doctors_directory}\n\n"
+                        "3. View Medical Records:\n"
+                        "   type: \"view_records\"\n"
+                        "   parameters: {}\n"
+                        "   Trigger this when the user wants to see their uploaded medical files, reports, or records.\n\n"
+                        "4. Analyze Symptoms:\n"
+                        "   type: \"analyze_symptom\"\n"
+                        "   parameters: {\"symptoms\": \"description of symptoms\", \"severity\": \"mild\" | \"moderate\" | \"severe\", \"duration\": \"duration description\"}\n"
+                        "   Trigger this when the user wants to check symptoms or get a health assessment.\n\n"
+                        "5. View Dashboard:\n"
+                        "   type: \"view_dashboard\"\n"
+                        "   parameters: {}\n"
+                        "   Trigger this when the user asks to go home, view overview, or see their dashboard.\n\n"
+                        "6. Lodge a Complaint:\n"
+                        "   type: \"lodge_complaint\"\n"
+                        "   parameters: {\"message\": \"description of complaint/issue\"}\n"
+                        "   Trigger this when the user complains about the system, service, doctors, or submits negative feedback.\n\n"
+                        "7. View Settings:\n"
+                        "   type: \"view_settings\"\n"
+                        "   parameters: {}\n"
+                        "   Trigger this when the user wants to update their profile, username, address, preferences, or settings.\n\n"
+                        "8. View Chat Workspace:\n"
+                        "   type: \"view_chat\"\n"
+                        "   parameters: {}\n"
+                        "   Trigger this when the user wants to message, chat, send a prescription/file, or chat with a doctor, patient, or admin.\n\n"
+                        "9. Clinical Symptom Analysis & Doctor Mapping:\n"
+                        "   If the user lists their symptoms (even in broken, informal, or transliterated languages, e.g. 'mere chest me pain ho raha hai' or 'talanoppiga vundi'):\n"
+                        "   a) Recommend the correct doctor to consult from our active doctor directory based on their specialization/department matching the symptoms:\n"
+                        f"{doctors_directory}\n"
+                        "   b) Safe OTC Medicine Recommendation:\n"
+                        "      For minor, simple, non-critical symptoms (e.g. mild fever, common cold, minor headache, acid reflux), you may suggest a standard safe over-the-counter medicine (e.g., Paracetamol for mild fever, Cetirizine for cold/allergies, Antacids for indigestion) with clear dosage guidelines. You MUST append a safety disclaimer: 'This is general advice. Please consult a doctor if symptoms persist or worsen.'\n"
+                        "   c) For critical or severe symptoms (e.g. severe chest pressure, unconsciousness, severe bleeding), advise them to seek emergency care immediately (dial 108/100).\n"
+                        "   d) Proactively offer to schedule a consultation with the matched doctor (e.g. 'Would you like to book an appointment with Dr. Alice Smith (Cardiology)?') and collect their preferred date and time step-by-step before triggering the booking action.\n\n"
+                        "Always prioritize safety, give clear advice in their language, and include the action JSON block if the user's intent matches one of the actions."
+                    )
+                }
+            ]
+
+            for h_msg in history_msgs[-8:]:
+                messages_payload.append({"role": h_msg.role, "content": h_msg.content})
+
+            # Reinforce language rules directly on the last user message to override history bias
+            if messages_payload and messages_payload[-1]["role"] == "user":
+                prompt_instruction = ""
+                if has_telugu or (not has_hindi and not is_user_speaking_hinglish and not is_user_speaking_tinglish and pref_lang == "te"):
+                    prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Telugu. You MUST respond strictly in Telugu (తెలుగు script). Do NOT use Hindi, Hinglish, or English. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
+                elif has_hindi or (not has_telugu and not is_user_speaking_hinglish and not is_user_speaking_tinglish and pref_lang == "hi"):
+                    prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hindi. You MUST respond strictly in Hindi (हिन्दी script). Do NOT use English, Hinglish, or Telugu. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
+                elif is_user_speaking_tinglish:
+                    prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Tinglish. You MUST respond in Tinglish (Telugu words written in English/Latin letters). Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
+                elif is_user_speaking_hinglish:
+                    prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hinglish. You MUST respond in Hinglish (Hindi words written in English/Latin letters). Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
+                else:
+                    prompt_instruction = "\n\n[SYSTEM RULE: The user is speaking in English. You MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, Telugu, or Tinglish. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
+            
+                messages_payload[-1]["content"] += prompt_instruction
+
+            # Use provided keys from request or fall back to environment variables
+            groq_key = input_data.groq_key or os.getenv("GROQ_API_KEY", "")
+            hf_key = input_data.hf_key or os.getenv("HUGGINGFACE_API_KEY", os.getenv("HF_API_KEY", ""))
         
-        has_groq = groq_key and not groq_key.startswith("your_groq_api_key")
-        has_hf = hf_key and not hf_key.startswith("your_hf_api_key")
+            has_groq = groq_key and not groq_key.startswith("your_groq_api_key")
+            has_hf = hf_key and not hf_key.startswith("your_hf_api_key")
 
-        reply = ""
+            reply = ""
 
-        if has_groq:
-            try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        "https://api.groq.com/openai/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {groq_key}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "model": "llama-3.1-8b-instant",
-                            "messages": messages_payload,
-                            "temperature": 0.3
-                        },
-                        timeout=8.0
-                    )
-                    if response.status_code == 200:
-                        reply = response.json()["choices"][0]["message"]["content"].strip()
-                    else:
-                        raise Exception(f"Groq API status: {response.status_code}")
-            except Exception as e:
-                print(f"Groq error: {e}")
-
-        if not reply and has_hf:
-            try:
-                # Use Llama-3.2-3B-Instruct via Hugging Face Serverless API
-                async with httpx.AsyncClient() as client:
-                    prompt = ""
-                    for msg in messages_payload:
-                        role_tag = "<|system|>" if msg["role"] == "system" else "<|user|>" if msg["role"] == "user" else "<|assistant|>"
-                        prompt += f"{role_tag}\n{msg['content']}\n"
-                    prompt += "<|assistant|>\n"
-
-                    response = await client.post(
-                        "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct",
-                        headers={
-                            "Authorization": f"Bearer {hf_key}",
-                            "Content-Type": "application/json"
-                        },
-                        json={
-                            "inputs": prompt,
-                            "parameters": {"max_new_tokens": 250, "temperature": 0.3}
-                        },
-                        timeout=10.0
-                    )
-                    if response.status_code == 200:
-                        res_json = response.json()
-                        if isinstance(res_json, list) and len(res_json) > 0:
-                            generated = res_json[0].get("generated_text", "")
-                            if "<|assistant|>" in generated:
-                                reply = generated.split("<|assistant|>")[-1].strip()
+            if has_groq:
+                try:
+                    async with httpx.AsyncClient() as client:
+                        async with client.stream(
+                            "POST",
+                            "https://api.groq.com/openai/v1/chat/completions",
+                            headers={
+                                "Authorization": f"Bearer {groq_key}",
+                                "Content-Type": "application/json"
+                            },
+                            json={
+                                "model": "llama-3.1-8b-instant",
+                                "messages": messages_payload,
+                                "temperature": 0.3,
+                                "stream": True
+                            },
+                            timeout=8.0
+                        ) as response:
+                            if response.status_code == 200:
+                                async for chunk in response.aiter_lines():
+                                    if chunk.startswith("data: ") and chunk != "data: [DONE]":
+                                        import json
+                                        try:
+                                            data_obj = json.loads(chunk[6:])
+                                            content_chunk = data_obj["choices"][0]["delta"].get("content", "")
+                                            if content_chunk:
+                                                reply += content_chunk
+                                                yield f"data: {json.dumps({'type': 'chunk', 'content': content_chunk})}\n\n"
+                                        except Exception:
+                                            pass
                             else:
-                                reply = generated.replace(prompt, "").strip()
-            except Exception as e:
-                print(f"Hugging Face error: {e}")
+                                raise Exception(f"Groq API status: {response.status_code}")
+                except Exception as e:
+                    print(f"Groq error: {e}")
 
-        if not reply:
-            # Offline rule-based fallback
-            msg_lower = input_data.message.lower()
+            if not reply and has_hf:
+                try:
+                    # Use Llama-3.2-3B-Instruct via Hugging Face Serverless API
+                    async with httpx.AsyncClient() as client:
+                        prompt = ""
+                        for msg in messages_payload:
+                            role_tag = "<|system|>" if msg["role"] == "system" else "<|user|>" if msg["role"] == "user" else "<|assistant|>"
+                            prompt += f"{role_tag}\n{msg['content']}\n"
+                        prompt += "<|assistant|>\n"
+
+                        response = await client.post(
+                            "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct",
+                            headers={
+                                "Authorization": f"Bearer {hf_key}",
+                                "Content-Type": "application/json"
+                            },
+                            json={
+                                "inputs": prompt,
+                                "parameters": {"max_new_tokens": 250, "temperature": 0.3}
+                            },
+                            timeout=10.0
+                        )
+                        if response.status_code == 200:
+                            res_json = response.json()
+                            if isinstance(res_json, list) and len(res_json) > 0:
+                                generated = res_json[0].get("generated_text", "")
+                                if "<|assistant|>" in generated:
+                                    reply = generated.split("<|assistant|>")[-1].strip()
+                                else:
+                                    reply = generated.replace(prompt, "").strip()
+                            import json
+                            yield f"data: {json.dumps({'type': 'chunk', 'content': reply})}\n\n"
+                except Exception as e:
+                    print(f"Hugging Face error: {e}")
+
+            if not reply:
+                # Offline rule-based fallback
+                msg_lower = input_data.message.lower()
             
-            # Check if user is asking about their own schedule/appointments/consultations
-            is_schedule_query = any(k in msg_lower for k in ["show", "read", "view", "what", "my", "list", "check", "శెడ్యూల్", "అపాయింట్మెంట్", "షెడ్యూల్", "अपॉइंटमेंट", "शेड्यूल", "consultation", "consultations"]) and any(k in msg_lower for k in ["appointment", "appointments", "consultation", "consultations", "schedule", "visit", "visits", "meeting", "meetings", "record", "records"])
+                # Check if user is asking about their own schedule/appointments/consultations
+                is_schedule_query = any(k in msg_lower for k in ["show", "read", "view", "what", "my", "list", "check", "శెడ్యూల్", "అపాయింట్మెంట్", "షెడ్యూల్", "अपॉइंटमेंट", "शेड्यूल", "consultation", "consultations"]) and any(k in msg_lower for k in ["appointment", "appointments", "consultation", "consultations", "schedule", "visit", "visits", "meeting", "meetings", "record", "records"])
             
-            # Check if user is in booking flow (either started now or was recently active)
-            history_user_texts = [m.content.lower() for m in history_msgs if m.role == "user" and m.content]
-            history_assistant_texts = [m.content.lower() for m in history_msgs if m.role == "assistant" and m.content]
-            all_user_texts = " ".join(history_user_texts) + " " + msg_lower
+                # Check if user is in booking flow (either started now or was recently active)
+                history_user_texts = [m.content.lower() for m in history_msgs if m.role == "user" and m.content]
+                history_assistant_texts = [m.content.lower() for m in history_msgs if m.role == "assistant" and m.content]
+                all_user_texts = " ".join(history_user_texts) + " " + msg_lower
             
-            is_booking_intent = any(k in msg_lower for k in ["book", "schedule", "appointment", "appointment Book", "अपॉइंटमेंट", "అపాయింట్మెంట్"])
-            was_booking_prompted = any(any(k in txt for k in ["book", "appointment", "doctor", "prefer", "time"]) for txt in history_assistant_texts[-3:])
+                is_booking_intent = any(k in msg_lower for k in ["book", "schedule", "appointment", "appointment Book", "अपॉइंटमेंट", "అపాయింట్మెంట్"])
+                was_booking_prompted = any(any(k in txt for k in ["book", "appointment", "doctor", "prefer", "time"]) for txt in history_assistant_texts[-3:])
             
-            in_booking_flow = is_booking_intent or was_booking_prompted
+                in_booking_flow = is_booking_intent or was_booking_prompted
             
-            if is_schedule_query:
-                if current_user.role == "patient":
-                    if patient_appts:
-                        appts_txt = []
-                        for appt in patient_appts:
-                            doc_name = appt.doctor.name if appt.doctor else "Doctor"
-                            doc_spec = appt.doctor.specialization if appt.doctor else "Specialist"
-                            appts_txt.append(f"{doc_name} ({doc_spec}) on {appt.date} at {appt.time}")
-                        appts_joined = ", ".join(appts_txt)
-                        if pref_lang == "te":
-                            reply = f"మీకు ఈ క్రింది రాబోయే అపాయింట్‌మెంట్‌లు ఉన్నాయి: {appts_joined}."
-                        elif pref_lang == "hi":
-                            reply = f"आपके पास निम्नलिखित आगामी अपॉइंटमेंट हैं: {appts_joined}."
+                if is_schedule_query:
+                    if current_user.role == "patient":
+                        if patient_appts:
+                            appts_txt = []
+                            for appt in patient_appts:
+                                doc_name = appt.doctor.name if appt.doctor else "Doctor"
+                                doc_spec = appt.doctor.specialization if appt.doctor else "Specialist"
+                                appts_txt.append(f"{doc_name} ({doc_spec}) on {appt.date} at {appt.time}")
+                            appts_joined = ", ".join(appts_txt)
+                            if pref_lang == "te":
+                                reply = f"మీకు ఈ క్రింది రాబోయే అపాయింట్‌మెంట్‌లు ఉన్నాయి: {appts_joined}."
+                            elif pref_lang == "hi":
+                                reply = f"आपके पास निम्नलिखित आगामी अपॉइंटमेंट हैं: {appts_joined}."
+                            else:
+                                reply = f"You have the following upcoming appointments: {appts_joined}."
                         else:
-                            reply = f"You have the following upcoming appointments: {appts_joined}."
+                            if pref_lang == "te":
+                                reply = "మీకు రాబోయే అపాయింట్‌మెంట్‌లు ఏవీ లేవు."
+                            elif pref_lang == "hi":
+                                reply = "आपके पास कोई आगामी अपॉइंटमेंट निर्धारित नहीं है।"
+                            else:
+                                reply = "You have no upcoming appointments scheduled."
+                    elif current_user.role == "doctor":
+                        if doctor and doctor_appts:
+                            consults_txt = []
+                            for appt in doctor_appts:
+                                p_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == appt.patient_id).first()
+                                p_name = p_profile.name if p_profile else "Unknown Patient"
+                                consults_txt.append(f"patient {p_name} on {appt.date} at {appt.time}")
+                            consults_joined = ", ".join(consults_txt)
+                            if pref_lang == "te":
+                                reply = f"మీకు ఈ క్రింది రాబోయే సంప్రదింపులు ఉన్నాయి: {consults_joined}."
+                            elif pref_lang == "hi":
+                                reply = f"आपके पास निम्नलिखित आगामी परामर्श हैं: {consults_joined}."
+                            else:
+                                reply = f"You have the following upcoming consultations: {consults_joined}."
+                        else:
+                            if pref_lang == "te":
+                                reply = "మీకు రాబోయే సంప్రదింపులు ఏవీ లేవు."
+                            elif pref_lang == "hi":
+                                reply = "आपके पास कोई आगामी परामर्श निर्धारित नहीं है।"
+                            else:
+                                reply = "You have no upcoming consultations scheduled."
                     else:
                         if pref_lang == "te":
-                            reply = "మీకు రాబోయే అపాయింట్‌మెంట్‌లు ఏవీ లేవు."
+                            reply = "అడ్మినిస్ట్రేటర్‌గా, మీకు అపాయింట్‌మెంట్‌లు లేదా సంప్రదింపులు లేవు."
                         elif pref_lang == "hi":
-                            reply = "आपके पास कोई आगामी अपॉइंटमेंट निर्धारित नहीं है।"
+                            reply = "एक प्रशासक के रूप में, आपके पास कोई अपॉइंटमेंट या परामर्श नहीं है।"
                         else:
-                            reply = "You have no upcoming appointments scheduled."
-                elif current_user.role == "doctor":
-                    if doctor and doctor_appts:
-                        consults_txt = []
-                        for appt in doctor_appts:
-                            p_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == appt.patient_id).first()
-                            p_name = p_profile.name if p_profile else "Unknown Patient"
-                            consults_txt.append(f"patient {p_name} on {appt.date} at {appt.time}")
-                        consults_joined = ", ".join(consults_txt)
+                            reply = "As an administrator, you do not have any appointments or consultations."
+                        
+                elif current_user.role in ["doctor", "admin"] and (in_booking_flow or any(k in msg_lower for k in ["appointment", "appointments", "doctor", "specialist"])):
+                    if current_user.role == "doctor":
                         if pref_lang == "te":
-                            reply = f"మీకు ఈ క్రింది రాబోయే సంప్రదింపులు ఉన్నాయి: {consults_joined}."
+                            reply = "మీరు ఒక రిజిస్టర్డ్ వైద్యునిగా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు. మీరు మీ డాష్‌బోర్డ్ వర్క్‌స్పేస్ నుండి కన్సల్టేషన్‌లను నిర్వహించవచ్చు."
                         elif pref_lang == "hi":
-                            reply = f"आपके पास निम्नलिखित आगामी परामर्श हैं: {consults_joined}."
+                            reply = "आप एक पंजीकृत डॉक्टर के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते। आप अपने डैशबोर्ड कार्यक्षेत्र से परामर्श प्रबंधित करते हैं।"
                         else:
-                            reply = f"You have the following upcoming consultations: {consults_joined}."
+                            reply = "You cannot book or browse appointments as a registered doctor. You manage consultations from your dashboard workspace."
                     else:
                         if pref_lang == "te":
-                            reply = "మీకు రాబోయే సంప్రదింపులు ఏవీ లేవు."
+                            reply = "మీరు అడ్మినిస్ట్రేటర్‌గా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు."
                         elif pref_lang == "hi":
-                            reply = "आपके पास कोई आगामी परामर्श निर्धारित नहीं है।"
+                            reply = "आप एक प्रशासक के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते।"
                         else:
-                            reply = "You have no upcoming consultations scheduled."
+                            reply = "You cannot book or browse appointments as an administrator."
+                        
+                elif in_booking_flow:
+                    # 1. Extract Doctor
+                    selected_doc_id = None
+                    selected_doc_name = None
+                
+                    if any(k in all_user_texts for k in ["alice", "smith", "cardiology", "cardiologist", "एलिस", "స్మిత్"]):
+                        selected_doc_id = 1
+                        selected_doc_name = "Dr. Alice Smith"
+                    elif any(k in all_user_texts for k in ["bob", "johnson", "dermatology", "dermatologist", "बॉब", "జాన్సన్"]):
+                        selected_doc_id = 2
+                        selected_doc_name = "Dr. Bob Johnson"
+                    elif any(k in all_user_texts for k in ["charlie", "brown", "general medicine", "general physician", "चार्लि", "బ్రౌన్"]):
+                        selected_doc_id = 3
+                        selected_doc_name = "Dr. Charlie Brown"
+                    elif any(k in all_user_texts for k in ["diana", "prince", "neurology", "neurologist", "डायना", "ప్రిన్స్"]):
+                        selected_doc_id = 4
+                        selected_doc_name = "Dr. Diana Prince"
+                    elif any(k in all_user_texts for k in ["evan", "wright", "pediatrics", "pediatrician", "child", "एवन", "రైట్"]):
+                        selected_doc_id = 5
+                        selected_doc_name = "Dr. Evan Wright"
+                
+                    # 2. Extract Date
+                    from datetime import datetime, timedelta
+                    selected_date = None
+                
+                    # Check for explicit YYYY-MM-DD pattern
+                    date_match = re.search(r'\b(202\d-\d{2}-\d{2})\b', all_user_texts)
+                    if date_match:
+                        selected_date = date_match.group(1)
+                    elif "tomorrow" in all_user_texts or "कल" in all_user_texts or "రేపు" in all_user_texts:
+                        selected_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
+                    elif "today" in all_user_texts or "आज" in all_user_texts or "ఈ రోజు" in all_user_texts:
+                        selected_date = datetime.now().strftime("%Y-%m-%d")
+                    else:
+                        days_mapping = {
+                            "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+                            "friday": 4, "saturday": 5, "sunday": 6
+                        }
+                        for day, day_num in days_mapping.items():
+                            if day in all_user_texts:
+                                today = datetime.now()
+                                days_ahead = day_num - today.weekday()
+                                if days_ahead <= 0:
+                                    days_ahead += 7
+                                selected_date = (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+                                break
+                
+                    # 3. Extract Time
+                    selected_time = None
+                    time_match = re.search(r'\b(\d{1,2}:\d{2})\b', all_user_texts)
+                    if time_match:
+                        t_str = time_match.group(1)
+                        if len(t_str.split(':')[0]) == 1:
+                            t_str = "0" + t_str
+                        selected_time = t_str
+                    elif any(k in all_user_texts for k in ["morning", "सुबह", "ఉదయం"]):
+                        selected_time = "10:00"
+                    elif any(k in all_user_texts for k in ["afternoon", "दोपहर", "మధ్యాహ్నం"]):
+                        selected_time = "14:00"
+                    elif any(k in all_user_texts for k in ["evening", "शाम", "సాయంత్రం"]):
+                        selected_time = "17:00"
+                    else:
+                        am_pm_match = re.search(r'\b(\d{1,2})\s*(am|pm)\b', all_user_texts)
+                        if am_pm_match:
+                            hour = int(am_pm_match.group(1))
+                            period = am_pm_match.group(2)
+                            if period == "pm" and hour < 12:
+                                hour += 12
+                            elif period == "am" and hour == 12:
+                                hour = 0
+                            selected_time = f"{hour:02d}:00"
+                
+                    # 4. Formulate conversational response
+                    if not selected_doc_id:
+                        if pref_lang == "te":
+                            reply = (
+                                "అపాయింట్‌మెంట్ బుక్ చేయడానికి, దయచేసి ఒక వైద్యుడిని ఎంచుకోండి:\n"
+                                "- Dr. Alice Smith (కార్డియాలజీ)\n"
+                                "- Dr. Bob Johnson (డెర్మటాలజీ)\n"
+                                "- Dr. Charlie Brown (జనరల్ మెడిసిన్)\n"
+                                "- Dr. Diana Prince (న్యూరాలజీ)\n"
+                                "- Dr. Evan Wright (పీడియాట్రిక్స్)\n\n"
+                                "మీరు ఏ వైద్యుడిని లేదా ఏ విభాగాన్ని సంప్రదించాలనుకుంటున్నారు?"
+                            )
+                        elif pref_lang == "hi":
+                            reply = (
+                                "अपॉइंटमेंट बुक करने के लिए, कृपया एक डॉक्टर चुनें:\n"
+                                "- Dr. Alice Smith (हृदय रोग विशेषज्ञ)\n"
+                                "- Dr. Bob Johnson (त्वचा विशेषज्ञ)\n"
+                                "- Dr. Charlie Brown (सामान्य चिकित्सा)\n"
+                                "- Dr. Diana Prince (न्यूरोलॉजिस्ट)\n"
+                                "- Dr. Evan Wright (बाल रोग विशेषज्ञ)\n\n"
+                                "आप किस डॉक्टर या विशेषज्ञ से परामर्श करना चाहते हैं?"
+                            )
+                        else:
+                            reply = (
+                                "To book an appointment, please choose a doctor:\n"
+                                "- Dr. Alice Smith (Cardiology)\n"
+                                "- Dr. Bob Johnson (Dermatology)\n"
+                                "- Dr. Charlie Brown (General Medicine)\n"
+                                "- Dr. Diana Prince (Neurology)\n"
+                                "- Dr. Evan Wright (Pediatrics)\n\n"
+                                "Which doctor or specialization would you like to consult?"
+                            )
+                    elif not selected_date:
+                        if pref_lang == "te":
+                            reply = (
+                                f"నేను {selected_doc_name} ని ఎంచుకున్నాను. "
+                                "మీరు ఏ తేదీని కోరుకుంటున్నారు? (ఉదాహరణకు, 'ఈ రోజు', 'రేపు', లేదా YYYY-MM-DD ఫార్మాట్‌లో తేదీ)"
+                            )
+                        elif pref_lang == "hi":
+                            reply = (
+                                f"मैंने {selected_doc_name} को चुना है। "
+                                "आप किस तारीख को प्राथमिकता देंगे? (जैसे, 'आज', 'कल', या YYYY-MM-DD जैसी तारीख)"
+                            )
+                        else:
+                            reply = (
+                                f"I've selected {selected_doc_name}. "
+                                "What date would you prefer? (e.g., 'today', 'tomorrow', 'this Friday', or a date like YYYY-MM-DD)"
+                            )
+                    elif not selected_time:
+                        if pref_lang == "te":
+                            reply = (
+                                f"నేను {selected_doc_name} ని {selected_date} కోసం షెడ్యూల్ చేసాను. "
+                                "మీరు ఏ సమయాన్ని కోరుకుంటున్నారు? (ఉదాహరణకు, 'ఉదయం', 'మధ్యాహ్నం', లేదా 10:00 AM వంటి సమయం)"
+                            )
+                        elif pref_lang == "hi":
+                            reply = (
+                                f"मैंने {selected_date} को {selected_doc_name} के लिए निर्धारित किया है। "
+                                "आप किस समय को प्राथमिकता देंगे? (जैसे, 'सुबह', 'दोपहर', या 10:00 AM जैसा विशिष्ट समय)"
+                            )
+                        else:
+                            reply = (
+                                f"I have scheduled {selected_doc_name} for {selected_date}. "
+                                "What time would you prefer? (e.g., 'morning', 'afternoon', or a specific time like 10:00 AM)"
+                            )
+                    else:
+                        if pref_lang == "te":
+                            reply = (
+                                f"నేను {selected_doc_name} తో {selected_date} నాడు {selected_time} గంటలకు విజయవంతంగా అపాయింట్‌మెంట్ బుక్ చేసాను."
+                                f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
+                            )
+                        elif pref_lang == "hi":
+                            reply = (
+                                f"मैंने {selected_date} को {selected_time} बजे {selected_doc_name} के साथ सफलतापूर्वक अपॉइंटमेंट बुक कर लिया है।"
+                                f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
+                            )
+                        else:
+                            reply = (
+                                f"I have successfully booked an appointment with {selected_doc_name} on {selected_date} at {selected_time}."
+                                f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
+                            )
+                elif "doctor" in msg_lower or "specialist" in msg_lower or "clinic" in msg_lower:
+                    if pref_lang == "te":
+                        reply = "ఖచ్చితంగా, నేను మీకు వైద్యులను వెతకడంలో సహాయపడగలను. దయచేసి ఫలితాలను చూడండి.\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
+                    elif pref_lang == "hi":
+                        reply = "ज़रूर, मैं डॉक्टरों को खोजने में आपकी मदद कर सकता हूँ। कृपया खोज परिणाम देखें।\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
+                    else:
+                        reply = "Sure, I can help you search for doctors. Please check the doctor search results.\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
+                elif "record" in msg_lower or "file" in msg_lower or "report" in msg_lower:
+                    if pref_lang == "te":
+                        reply = "నేను మీ వైద్య రికార్డుల డైరెక్టరీని తెరిచాను. మీరు అక్కడ ఫైళ్లను చూడవచ్చు లేదా అప్‌లోడ్ చేయవచ్చు.\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
+                    elif pref_lang == "hi":
+                        reply = "मैंने आपकी मेडिकल रिकॉर्ड डायरेक्टरी खोल दी है। आप वहां फाइलें देख या अपलोड कर सकते हैं।\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
+                    else:
+                        reply = "I've pulled up your medical records directory. You can view or upload files there.\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
+                elif "symptom" in msg_lower or "pain" in msg_lower or "check" in msg_lower or "sick" in msg_lower or "hurt" in msg_lower or "fever" in msg_lower or "cold" in msg_lower or "cough" in msg_lower or "headache" in msg_lower or "migraine" in msg_lower or "rash" in msg_lower or "acne" in msg_lower:
+                    doc_recommendation = ""
+                    otc_recommendation = ""
+                    spec = "general"
+                
+                    if any(k in msg_lower for k in ["chest", "heart", "bp", "cardio", "breath"]):
+                        if pref_lang == "te":
+                            doc_recommendation = "Dr. Alice Smith (కార్డియాలజీ, ID 1)"
+                            otc_recommendation = "హృదయ సంబంధిత సమస్యలకు దయచేసి స్వయం-మందులు తీసుకోకండి. విశ్రాంతి తీసుకోండి మరియు వెంటనే వైద్యుడిని సంప్రదించండి."
+                        elif pref_lang == "hi":
+                            doc_recommendation = "Dr. Alice Smith (हृदय रोग विशेषज्ञ, ID 1)"
+                            otc_recommendation = "कृपया हृदय संबंधी समस्याओं के लिए स्व-दवा से बचें। आराम करें और तुरंत डॉक्टर से परामर्श लें।"
+                        else:
+                            doc_recommendation = "Dr. Alice Smith (Cardiology, ID 1)"
+                            otc_recommendation = "Please avoid self-medication for cardiovascular issues. Rest and consult a doctor immediately."
+                        spec = "cardiology"
+                    elif any(k in msg_lower for k in ["skin", "rash", "acne", "itch", "eczema", "hair"]):
+                        if pref_lang == "te":
+                            doc_recommendation = "Dr. Bob Johnson (డెర్మటాలజీ, ID 2)"
+                            otc_recommendation = "తేలికపాటి చర్మ దురద కోసం, కాలమైన్ లోషన్ రాయండి లేదా ప్రతిరోజూ సెటిరిజైన్ (10mg) తీసుకోండి."
+                        elif pref_lang == "hi":
+                            doc_recommendation = "Dr. Bob Johnson (त्वचा विशेषज्ञ, ID 2)"
+                            otc_recommendation = "त्वचा की हल्की खुजली के लिए, कैलामाइन लोशन लगाएं या रोजाना Cetirizine (10mg) लें।"
+                        else:
+                            doc_recommendation = "Dr. Bob Johnson (Dermatology, ID 2)"
+                            otc_recommendation = "For mild skin itching, apply Calamine lotion or take Cetirizine (10mg) daily."
+                        spec = "dermatology"
+                    elif any(k in msg_lower for k in ["child", "kid", "baby", "pediatric", "vaccine"]):
+                        if pref_lang == "te":
+                            doc_recommendation = "Dr. Evan Wright (పీడియాట్రిక్స్, ID 5)"
+                            otc_recommendation = "పిల్లల మందుల మోతాదులు వారి వయస్సు మరియు బరువుపై ఆధారపడి ఉంటాయి. దయచేసి వైద్యుడిని సంప్రదించండి."
+                        elif pref_lang == "hi":
+                            doc_recommendation = "Dr. Evan Wright (बाल रोग विशेषज्ञ, ID 5)"
+                            otc_recommendation = "बच्चों की दवा की खुराक पूरी तरह से उम्र और वजन पर निर्भर करती है। कृपया डॉक्टर से सलाह लें।"
+                        else:
+                            doc_recommendation = "Dr. Evan Wright (Pediatrics, ID 5)"
+                            otc_recommendation = "Pediatric dosages depend strictly on age and weight. Please consult a doctor."
+                        spec = "pediatrics"
+                    elif any(k in msg_lower for k in ["headache", "migraine", "dizzy", "brain", "nerve", "head"]):
+                        if pref_lang == "te":
+                            doc_recommendation = "Dr. Diana Prince (న్యూరాలజీ, ID 4)"
+                            otc_recommendation = "తేలికపాటి తలనొప్పి కోసం, భోజనం తర్వాత ఒక సాధారణ పారాసిటమాల్ (500mg) టాబ్లెట్ తీసుకోవచ్చు."
+                        elif pref_lang == "hi":
+                            doc_recommendation = "Dr. Diana Prince (न्यूरोलॉजिस्ट, ID 4)"
+                            otc_recommendation = "हल्के सिरदर्द के लिए, आप भोजन के बाद एक मानक पैरासिटामोल (500mg) टैबलेट ले सकते हैं।"
+                        else:
+                            doc_recommendation = "Dr. Diana Prince (Neurology, ID 4)"
+                            otc_recommendation = "For mild headaches, you can take a standard Paracetamol (500mg) tablet after meals."
+                        spec = "neurology"
+                    else:
+                        if pref_lang == "te":
+                            doc_recommendation = "Dr. Charlie Brown (జనరల్ మెడిసిన్, ID 3)"
+                            otc_recommendation = "తేలికపాటి జలుబు, దగ్గు లేదా జ్వరం కోసం, భోజనం తర్వాత పారాసిటమాల్ (500mg) లేదా సెటిరిజైన్ (10mg) సరిపోతుంది."
+                        elif pref_lang == "hi":
+                            doc_recommendation = "Dr. Charlie Brown (सामान्य चिकित्सा, ID 3)"
+                            otc_recommendation = "हल्की सर्दी, खांसी या बुखार के लिए, भोजन के बाद पैरासिटामोल (500mg) या Cetirizine (10mg) उपयुक्त है।"
+                        else:
+                            doc_recommendation = "Dr. Charlie Brown (General Medicine, ID 3)"
+                            otc_recommendation = "For mild cold, cough or fever, a Paracetamol (500mg) or Cetirizine (10mg) after meals is suitable."
+                        spec = "general"
+                
+                    if pref_lang == "te":
+                        reply = (
+                            f"నేను మా నిపుణుడు {doc_recommendation} ని సంప్రదించాలని సిఫార్సు చేస్తున్నాను. "
+                            f"{otc_recommendation} (డిస్క్లైమర్: ఇది సాధారణ సలహా. లక్షణాలు తగ్గకపోతే దయచేసి వైద్యుడిని సంప్రదించండి.)\n\n"
+                            f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
+                        )
+                    elif pref_lang == "hi":
+                        reply = (
+                            f"मैं हमारे विशेषज्ञ {doc_recommendation} से परामर्श करने की सलाह देता हूँ। "
+                            f"{otc_recommendation} (अस्वीकरण: यह सामान्य सलाह है। यदि लक्षण बने रहते हैं तो कृपया डॉक्टर से परामर्श लें।)\n\n"
+                            f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
+                        )
+                    else:
+                        reply = (
+                            f"I recommend consulting our specialist, {doc_recommendation}. "
+                            f"{otc_recommendation} (Disclaimer: This is general advice. Please consult a doctor if symptoms persist.)\n\n"
+                            f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
+                        )
+                elif "setting" in msg_lower or "profile" in msg_lower or "address" in msg_lower or "username" in msg_lower:
+                    if pref_lang == "te":
+                        reply = "మీ ప్రొఫైల్ వివరాలు మరియు సెట్టింగులను నవీకరించడానికి మీ సెట్టింగుల పేజీని తెరుస్తున్నాను.\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
+                    elif pref_lang == "hi":
+                        reply = "आपका सेटिंग्स पेज खोल रहा हूँ जहाँ आप अपनी प्रोफ़ाइल विवरण और सेटिंग्स अपडेट कर सकते हैं।\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
+                    else:
+                        reply = "Opening your settings page where you can update your profile details and settings.\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
+                elif "chat" in msg_lower or "message" in msg_lower or "conversation" in msg_lower or "inbox" in msg_lower:
+                    if pref_lang == "te":
+                        reply = "సন্দేశాలు పంపడానికి మరియు ఫైళ్లను పంచుకోవడానికి మీ చాట్ వర్క్‌స్పేస్‌ను తెరుస్తున్నాను.\n\n[ACTION: {\"type\": \"view_chat\", \"parameters\": {}}]"
+                    elif pref_lang == "hi":
+                        reply = "आपका चैट वर्कस्पेस खोल रहा हूँ ताकि आप संदेश भेज सकें और फाइलें साझा कर सकें।\n\n[ACTION: {\"type\": \"view_chat\", \"parameters\": {}}]"
+                    else:
+                        reply = "Opening your Chat Workspace so you can message and share files.\n\n[ACTION: {\"type\": \"view_chat\", \"parameters\": {}}]"
+                elif "complaint" in msg_lower or "complain" in msg_lower or "feedback" in msg_lower:
+                    escaped_msg = input_data.message.replace('"', '\\"')
+                    if pref_lang == "te":
+                        reply = f"నేను మీ ఫిర్యాదును నమోదు చేసుకున్నాను మరియు మా అడ్మిన్ బృందానికి పంపించాను. మేము దీనిని వెంటనే పరిశీలిస్తాము.\n\n[ACTION: {{\"type\": \"lodge_complaint\", \"parameters\": {{\"message\": \"{escaped_msg}\"}}}}]"
+                    elif pref_lang == "hi":
+                        reply = f"मैंने आपकी शिकायत दर्ज कर ली है और इसे हमारी एडमिन टीम को भेज दिया है। हम इसे तुरंत देखेंगे।\n\n[ACTION: {{\"type\": \"lodge_complaint\", \"parameters\": {{\"message\": \"{escaped_msg}\"}}}}]"
+                    else:
+                        reply = f"I've noted your complaint and forwarded it to our admin team. We will look into this immediately.\n\n[ACTION: {{\"type\": \"lodge_complaint\", \"parameters\": {{\"message\": \"{escaped_msg}\"}}}}]"
                 else:
                     if pref_lang == "te":
-                        reply = "అడ్మినిస్ట్రేటర్‌గా, మీకు అపాయింట్‌మెంట్‌లు లేదా సంప్రదింపులు లేవు."
+                        reply = "నేను హెల్త్AI గ్లోబల్ అసిస్టెంట్. నేను వైద్యులను కనుగొనడంలో, అపాయింట్‌మెంట్‌లను బుక్ చేయడంలో, వైద్య రికార్డులను చూపడంలో లేదా లక్షణాలను విశ్లేషించడంలో సహాయపడగలను. ఈ రోజు నేను మీకు ఎలా సహాయపడగలను?"
                     elif pref_lang == "hi":
-                        reply = "एक प्रशासक के रूप में, आपके पास कोई अपॉइंटमेंट या परामर्श नहीं है।"
+                        reply = "मैं हेल्थएआई ग्लोबल असिस्टेंट हूँ। मैं आपको डॉक्टर ढूंढने, अपॉइंटमेंट बुक करने, मेडिकल रिकॉर्ड देखने या लक्षणों का विश्लेषण करने में मदद कर सकता हूँ। आज मैं आपकी क्या मदद कर सकता हूँ?"
                     else:
-                        reply = "As an administrator, you do not have any appointments or consultations."
+                        reply = "I am the HealthAI Global Assistant. I can help you find doctors, book appointments, view your medical records, or analyze symptoms. How can I help you today?"
+
+            # Yield rule-based if needed
+            import json
+            if reply and not has_groq and not has_hf:
+                yield f"data: {json.dumps({'type': 'chunk', 'content': reply})}\n\n"
+
+            # Parse action if present
+            action = None
+            action_match = re.search(r'\[ACTION:\s*(\{.*?\})\s*\]', reply, re.DOTALL)
+            if action_match:
+                try:
+                    parsed_action = json.loads(action_match.group(1))
+                    if parsed_action.get("type") == "book_appointment":
+                        # Check recent conversation history user messages for doctor, date, and time
+                        user_texts = " ".join([m.content.lower() for m in history_msgs if m.role == "user" and m.content])
+                        user_texts += " " + input_data.message.lower()
+                    
+                        doc_keywords = ["smith", "johnson", "brown", "prince", "wright", "cardiology", "dermatology", "medicine", "neurology", "pediatrics", "doctor", "specialist", "डॉक्टर", "विशेषज्ञ", "డాక్టర్", "వైద్యుడు"]
+                        date_keywords = ["tomorrow", "today", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "date", "/", "कल", "आज", "तारीख", "दिनांक", "రేపు", "ఈ రోజు", "తేదీ"]
+                        time_keywords = ["am", "pm", "morning", "afternoon", "evening", "o'clock", ":", "time", "बजे", "समय", "सुबह", "शाम", "दोपहर", "గంటల", "సమయం"]
+                    
+                        has_doctor = any(d in user_texts for d in doc_keywords)
+                        has_date = any(d in user_texts for d in date_keywords)
+                        has_time = any(t in user_texts for t in time_keywords)
+                    
+                        if not (has_doctor and has_date and has_time):
+                            action = None
+                            user_query = input_data.message.lower()
+                            user_query_words = set(user_query.split())
                         
-            elif current_user.role in ["doctor", "admin"] and (in_booking_flow or any(k in msg_lower for k in ["appointment", "appointments", "doctor", "specialist"])):
+                            has_hi_char = any(ord(c) >= 0x0900 and ord(c) <= 0x097F for c in user_query)
+                            has_te_char = any(ord(c) >= 0x0C00 and ord(c) <= 0x0C7F for c in user_query)
+                        
+                            is_hinglish = any(w in user_query_words for w in hinglish_words)
+                            is_tinglish = any(w in user_query_words for w in tinglish_words)
+                        
+                            if has_te_char:
+                                reply = "అపాయింట్‌మెంట్ బుక్ చేయడానికి, నాకు మరికొన్ని వివరాలు కావాలి. మీరు ఏ వైద్యుడిని సంప్రదించాలనుకుంటున్నారు, మరియు ఏ తేదీ మరియు సమయంలో?"
+                            elif has_hi_char:
+                                reply = "अपॉइंटमेंट बुक करने के लिए, मुझे कुछ और विवरण चाहिए। आप किस डॉक्टर से मिलना चाहते हैं, और किस तारीख और समय पर?"
+                            elif is_tinglish:
+                                reply = "Appointment book cheyyడానికి naku konchem details kavali. Meeku ey doctor kavali, ey date and time lo consult chestharu?"
+                            elif is_hinglish:
+                                reply = "Appointment book karne ke liye mujhe thode aur details chahiye. Aap kis doctor se milna chahte hain, aur kis date aur time par?"
+                            else:
+                                if pref_lang == "te":
+                                    reply = "అపాయింట్‌మెంట్ బుక్ చేయడానికి, నాకు మరికొన్ని వివరాలు కావాలి. మీరు ఏ వైద్యుడిని సంప్రదించాలనుకుంటున్నారు, మరియు ఏ తేదీ మరియు సమయంలో?"
+                                elif pref_lang == "hi":
+                                    reply = "अपॉइंटमेंट बुक करने के लिए, मुझे कुछ और विवरण चाहिए। आप किस डॉक्टर से मिलना चाहते हैं, और किस तारीख और समय पर?"
+                                else:
+                                    reply = "To book your appointment, I need a few more details. Which doctor or specialization would you like to consult, and on what date and time?"
+                        else:
+                            action = parsed_action
+                            reply = reply.replace(action_match.group(0), "").strip()
+                    else:
+                        action = parsed_action
+                        reply = reply.replace(action_match.group(0), "").strip()
+                except Exception as ex:
+                    print(f"Action parse error: {ex}")
+
+            # Guard action if the user role is doctor or admin
+            if action and action.get("type") in ["find_doctors", "book_appointment"] and current_user.role in ["doctor", "admin"]:
+                action = None
                 if current_user.role == "doctor":
                     if pref_lang == "te":
                         reply = "మీరు ఒక రిజిస్టర్డ్ వైద్యునిగా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు. మీరు మీ డాష్‌బోర్డ్ వర్క్‌స్పేస్ నుండి కన్సల్టేషన్‌లను నిర్వహించవచ్చు."
@@ -1324,373 +1689,25 @@ async def global_ai_assistant(
                         reply = "आप एक प्रशासक के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते।"
                     else:
                         reply = "You cannot book or browse appointments as an administrator."
-                        
-            elif in_booking_flow:
-                # 1. Extract Doctor
-                selected_doc_id = None
-                selected_doc_name = None
-                
-                if any(k in all_user_texts for k in ["alice", "smith", "cardiology", "cardiologist", "एलिस", "స్మిత్"]):
-                    selected_doc_id = 1
-                    selected_doc_name = "Dr. Alice Smith"
-                elif any(k in all_user_texts for k in ["bob", "johnson", "dermatology", "dermatologist", "बॉब", "జాన్సన్"]):
-                    selected_doc_id = 2
-                    selected_doc_name = "Dr. Bob Johnson"
-                elif any(k in all_user_texts for k in ["charlie", "brown", "general medicine", "general physician", "चार्लि", "బ్రౌన్"]):
-                    selected_doc_id = 3
-                    selected_doc_name = "Dr. Charlie Brown"
-                elif any(k in all_user_texts for k in ["diana", "prince", "neurology", "neurologist", "डायना", "ప్రిన్స్"]):
-                    selected_doc_id = 4
-                    selected_doc_name = "Dr. Diana Prince"
-                elif any(k in all_user_texts for k in ["evan", "wright", "pediatrics", "pediatrician", "child", "एवन", "రైట్"]):
-                    selected_doc_id = 5
-                    selected_doc_name = "Dr. Evan Wright"
-                
-                # 2. Extract Date
-                from datetime import datetime, timedelta
-                selected_date = None
-                
-                # Check for explicit YYYY-MM-DD pattern
-                date_match = re.search(r'\b(202\d-\d{2}-\d{2})\b', all_user_texts)
-                if date_match:
-                    selected_date = date_match.group(1)
-                elif "tomorrow" in all_user_texts or "कल" in all_user_texts or "రేపు" in all_user_texts:
-                    selected_date = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-                elif "today" in all_user_texts or "आज" in all_user_texts or "ఈ రోజు" in all_user_texts:
-                    selected_date = datetime.now().strftime("%Y-%m-%d")
-                else:
-                    days_mapping = {
-                        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-                        "friday": 4, "saturday": 5, "sunday": 6
-                    }
-                    for day, day_num in days_mapping.items():
-                        if day in all_user_texts:
-                            today = datetime.now()
-                            days_ahead = day_num - today.weekday()
-                            if days_ahead <= 0:
-                                days_ahead += 7
-                            selected_date = (today + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
-                            break
-                
-                # 3. Extract Time
-                selected_time = None
-                time_match = re.search(r'\b(\d{1,2}:\d{2})\b', all_user_texts)
-                if time_match:
-                    t_str = time_match.group(1)
-                    if len(t_str.split(':')[0]) == 1:
-                        t_str = "0" + t_str
-                    selected_time = t_str
-                elif any(k in all_user_texts for k in ["morning", "सुबह", "ఉదయం"]):
-                    selected_time = "10:00"
-                elif any(k in all_user_texts for k in ["afternoon", "दोपहर", "మధ్యాహ్నం"]):
-                    selected_time = "14:00"
-                elif any(k in all_user_texts for k in ["evening", "शाम", "సాయంత్రం"]):
-                    selected_time = "17:00"
-                else:
-                    am_pm_match = re.search(r'\b(\d{1,2})\s*(am|pm)\b', all_user_texts)
-                    if am_pm_match:
-                        hour = int(am_pm_match.group(1))
-                        period = am_pm_match.group(2)
-                        if period == "pm" and hour < 12:
-                            hour += 12
-                        elif period == "am" and hour == 12:
-                            hour = 0
-                        selected_time = f"{hour:02d}:00"
-                
-                # 4. Formulate conversational response
-                if not selected_doc_id:
-                    if pref_lang == "te":
-                        reply = (
-                            "అపాయింట్‌మెంట్ బుక్ చేయడానికి, దయచేసి ఒక వైద్యుడిని ఎంచుకోండి:\n"
-                            "- Dr. Alice Smith (కార్డియాలజీ)\n"
-                            "- Dr. Bob Johnson (డెర్మటాలజీ)\n"
-                            "- Dr. Charlie Brown (జనరల్ మెడిసిన్)\n"
-                            "- Dr. Diana Prince (న్యూరాలజీ)\n"
-                            "- Dr. Evan Wright (పీడియాట్రిక్స్)\n\n"
-                            "మీరు ఏ వైద్యుడిని లేదా ఏ విభాగాన్ని సంప్రదించాలనుకుంటున్నారు?"
-                        )
-                    elif pref_lang == "hi":
-                        reply = (
-                            "अपॉइंटमेंट बुक करने के लिए, कृपया एक डॉक्टर चुनें:\n"
-                            "- Dr. Alice Smith (हृदय रोग विशेषज्ञ)\n"
-                            "- Dr. Bob Johnson (त्वचा विशेषज्ञ)\n"
-                            "- Dr. Charlie Brown (सामान्य चिकित्सा)\n"
-                            "- Dr. Diana Prince (न्यूरोलॉजिस्ट)\n"
-                            "- Dr. Evan Wright (बाल रोग विशेषज्ञ)\n\n"
-                            "आप किस डॉक्टर या विशेषज्ञ से परामर्श करना चाहते हैं?"
-                        )
-                    else:
-                        reply = (
-                            "To book an appointment, please choose a doctor:\n"
-                            "- Dr. Alice Smith (Cardiology)\n"
-                            "- Dr. Bob Johnson (Dermatology)\n"
-                            "- Dr. Charlie Brown (General Medicine)\n"
-                            "- Dr. Diana Prince (Neurology)\n"
-                            "- Dr. Evan Wright (Pediatrics)\n\n"
-                            "Which doctor or specialization would you like to consult?"
-                        )
-                elif not selected_date:
-                    if pref_lang == "te":
-                        reply = (
-                            f"నేను {selected_doc_name} ని ఎంచుకున్నాను. "
-                            "మీరు ఏ తేదీని కోరుకుంటున్నారు? (ఉదాహరణకు, 'ఈ రోజు', 'రేపు', లేదా YYYY-MM-DD ఫార్మాట్‌లో తేదీ)"
-                        )
-                    elif pref_lang == "hi":
-                        reply = (
-                            f"मैंने {selected_doc_name} को चुना है। "
-                            "आप किस तारीख को प्राथमिकता देंगे? (जैसे, 'आज', 'कल', या YYYY-MM-DD जैसी तारीख)"
-                        )
-                    else:
-                        reply = (
-                            f"I've selected {selected_doc_name}. "
-                            "What date would you prefer? (e.g., 'today', 'tomorrow', 'this Friday', or a date like YYYY-MM-DD)"
-                        )
-                elif not selected_time:
-                    if pref_lang == "te":
-                        reply = (
-                            f"నేను {selected_doc_name} ని {selected_date} కోసం షెడ్యూల్ చేసాను. "
-                            "మీరు ఏ సమయాన్ని కోరుకుంటున్నారు? (ఉదాహరణకు, 'ఉదయం', 'మధ్యాహ్నం', లేదా 10:00 AM వంటి సమయం)"
-                        )
-                    elif pref_lang == "hi":
-                        reply = (
-                            f"मैंने {selected_date} को {selected_doc_name} के लिए निर्धारित किया है। "
-                            "आप किस समय को प्राथमिकता देंगे? (जैसे, 'सुबह', 'दोपहर', या 10:00 AM जैसा विशिष्ट समय)"
-                        )
-                    else:
-                        reply = (
-                            f"I have scheduled {selected_doc_name} for {selected_date}. "
-                            "What time would you prefer? (e.g., 'morning', 'afternoon', or a specific time like 10:00 AM)"
-                        )
-                else:
-                    if pref_lang == "te":
-                        reply = (
-                            f"నేను {selected_doc_name} తో {selected_date} నాడు {selected_time} గంటలకు విజయవంతంగా అపాయింట్‌మెంట్ బుక్ చేసాను."
-                            f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
-                        )
-                    elif pref_lang == "hi":
-                        reply = (
-                            f"मैंने {selected_date} को {selected_time} बजे {selected_doc_name} के साथ सफलतापूर्वक अपॉइंटमेंट बुक कर लिया है।"
-                            f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
-                        )
-                    else:
-                        reply = (
-                            f"I have successfully booked an appointment with {selected_doc_name} on {selected_date} at {selected_time}."
-                            f"\n\n[ACTION: {{\"type\": \"book_appointment\", \"parameters\": {{\"doctor_id\": {selected_doc_id}, \"date\": \"{selected_date}\", \"time\": \"{selected_time}\"}}}}]"
-                        )
-            elif "doctor" in msg_lower or "specialist" in msg_lower or "clinic" in msg_lower:
-                if pref_lang == "te":
-                    reply = "ఖచ్చితంగా, నేను మీకు వైద్యులను వెతకడంలో సహాయపడగలను. దయచేసి ఫలితాలను చూడండి.\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
-                elif pref_lang == "hi":
-                    reply = "ज़रूर, मैं डॉक्टरों को खोजने में आपकी मदद कर सकता हूँ। कृपया खोज परिणाम देखें।\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
-                else:
-                    reply = "Sure, I can help you search for doctors. Please check the doctor search results.\n\n[ACTION: {\"type\": \"find_doctors\", \"parameters\": {\"specialization\": \"general\"}}]"
-            elif "record" in msg_lower or "file" in msg_lower or "report" in msg_lower:
-                if pref_lang == "te":
-                    reply = "నేను మీ వైద్య రికార్డుల డైరెక్టరీని తెరిచాను. మీరు అక్కడ ఫైళ్లను చూడవచ్చు లేదా అప్‌లోడ్ చేయవచ్చు.\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
-                elif pref_lang == "hi":
-                    reply = "मैंने आपकी मेडिकल रिकॉर्ड डायरेक्टरी खोल दी है। आप वहां फाइलें देख या अपलोड कर सकते हैं।\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
-                else:
-                    reply = "I've pulled up your medical records directory. You can view or upload files there.\n\n[ACTION: {\"type\": \"view_records\", \"parameters\": {}}]"
-            elif "symptom" in msg_lower or "pain" in msg_lower or "check" in msg_lower or "sick" in msg_lower or "hurt" in msg_lower or "fever" in msg_lower or "cold" in msg_lower or "cough" in msg_lower or "headache" in msg_lower or "migraine" in msg_lower or "rash" in msg_lower or "acne" in msg_lower:
-                doc_recommendation = ""
-                otc_recommendation = ""
-                spec = "general"
-                
-                if any(k in msg_lower for k in ["chest", "heart", "bp", "cardio", "breath"]):
-                    if pref_lang == "te":
-                        doc_recommendation = "Dr. Alice Smith (కార్డియాలజీ, ID 1)"
-                        otc_recommendation = "హృదయ సంబంధిత సమస్యలకు దయచేసి స్వయం-మందులు తీసుకోకండి. విశ్రాంతి తీసుకోండి మరియు వెంటనే వైద్యుడిని సంప్రదించండి."
-                    elif pref_lang == "hi":
-                        doc_recommendation = "Dr. Alice Smith (हृदय रोग विशेषज्ञ, ID 1)"
-                        otc_recommendation = "कृपया हृदय संबंधी समस्याओं के लिए स्व-दवा से बचें। आराम करें और तुरंत डॉक्टर से परामर्श लें।"
-                    else:
-                        doc_recommendation = "Dr. Alice Smith (Cardiology, ID 1)"
-                        otc_recommendation = "Please avoid self-medication for cardiovascular issues. Rest and consult a doctor immediately."
-                    spec = "cardiology"
-                elif any(k in msg_lower for k in ["skin", "rash", "acne", "itch", "eczema", "hair"]):
-                    if pref_lang == "te":
-                        doc_recommendation = "Dr. Bob Johnson (డెర్మటాలజీ, ID 2)"
-                        otc_recommendation = "తేలికపాటి చర్మ దురద కోసం, కాలమైన్ లోషన్ రాయండి లేదా ప్రతిరోజూ సెటిరిజైన్ (10mg) తీసుకోండి."
-                    elif pref_lang == "hi":
-                        doc_recommendation = "Dr. Bob Johnson (त्वचा विशेषज्ञ, ID 2)"
-                        otc_recommendation = "त्वचा की हल्की खुजली के लिए, कैलामाइन लोशन लगाएं या रोजाना Cetirizine (10mg) लें।"
-                    else:
-                        doc_recommendation = "Dr. Bob Johnson (Dermatology, ID 2)"
-                        otc_recommendation = "For mild skin itching, apply Calamine lotion or take Cetirizine (10mg) daily."
-                    spec = "dermatology"
-                elif any(k in msg_lower for k in ["child", "kid", "baby", "pediatric", "vaccine"]):
-                    if pref_lang == "te":
-                        doc_recommendation = "Dr. Evan Wright (పీడియాట్రిక్స్, ID 5)"
-                        otc_recommendation = "పిల్లల మందుల మోతాదులు వారి వయస్సు మరియు బరువుపై ఆధారపడి ఉంటాయి. దయచేసి వైద్యుడిని సంప్రదించండి."
-                    elif pref_lang == "hi":
-                        doc_recommendation = "Dr. Evan Wright (बाल रोग विशेषज्ञ, ID 5)"
-                        otc_recommendation = "बच्चों की दवा की खुराक पूरी तरह से उम्र और वजन पर निर्भर करती है। कृपया डॉक्टर से सलाह लें।"
-                    else:
-                        doc_recommendation = "Dr. Evan Wright (Pediatrics, ID 5)"
-                        otc_recommendation = "Pediatric dosages depend strictly on age and weight. Please consult a doctor."
-                    spec = "pediatrics"
-                elif any(k in msg_lower for k in ["headache", "migraine", "dizzy", "brain", "nerve", "head"]):
-                    if pref_lang == "te":
-                        doc_recommendation = "Dr. Diana Prince (న్యూరాలజీ, ID 4)"
-                        otc_recommendation = "తేలికపాటి తలనొప్పి కోసం, భోజనం తర్వాత ఒక సాధారణ పారాసిటమాల్ (500mg) టాబ్లెట్ తీసుకోవచ్చు."
-                    elif pref_lang == "hi":
-                        doc_recommendation = "Dr. Diana Prince (न्यूरोलॉजिस्ट, ID 4)"
-                        otc_recommendation = "हल्के सिरदर्द के लिए, आप भोजन के बाद एक मानक पैरासिटामोल (500mg) टैबलेट ले सकते हैं।"
-                    else:
-                        doc_recommendation = "Dr. Diana Prince (Neurology, ID 4)"
-                        otc_recommendation = "For mild headaches, you can take a standard Paracetamol (500mg) tablet after meals."
-                    spec = "neurology"
-                else:
-                    if pref_lang == "te":
-                        doc_recommendation = "Dr. Charlie Brown (జనరల్ మెడిసిన్, ID 3)"
-                        otc_recommendation = "తేలికపాటి జలుబు, దగ్గు లేదా జ్వరం కోసం, భోజనం తర్వాత పారాసిటమాల్ (500mg) లేదా సెటిరిజైన్ (10mg) సరిపోతుంది."
-                    elif pref_lang == "hi":
-                        doc_recommendation = "Dr. Charlie Brown (सामान्य चिकित्सा, ID 3)"
-                        otc_recommendation = "हल्की सर्दी, खांसी या बुखार के लिए, भोजन के बाद पैरासिटामोल (500mg) या Cetirizine (10mg) उपयुक्त है।"
-                    else:
-                        doc_recommendation = "Dr. Charlie Brown (General Medicine, ID 3)"
-                        otc_recommendation = "For mild cold, cough or fever, a Paracetamol (500mg) or Cetirizine (10mg) after meals is suitable."
-                    spec = "general"
-                
-                if pref_lang == "te":
-                    reply = (
-                        f"నేను మా నిపుణుడు {doc_recommendation} ని సంప్రదించాలని సిఫార్సు చేస్తున్నాను. "
-                        f"{otc_recommendation} (డిస్క్లైమర్: ఇది సాధారణ సలహా. లక్షణాలు తగ్గకపోతే దయచేసి వైద్యుడిని సంప్రదించండి.)\n\n"
-                        f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
-                    )
-                elif pref_lang == "hi":
-                    reply = (
-                        f"मैं हमारे विशेषज्ञ {doc_recommendation} से परामर्श करने की सलाह देता हूँ। "
-                        f"{otc_recommendation} (अस्वीकरण: यह सामान्य सलाह है। यदि लक्षण बने रहते हैं तो कृपया डॉक्टर से परामर्श लें।)\n\n"
-                        f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
-                    )
-                else:
-                    reply = (
-                        f"I recommend consulting our specialist, {doc_recommendation}. "
-                        f"{otc_recommendation} (Disclaimer: This is general advice. Please consult a doctor if symptoms persist.)\n\n"
-                        f"[ACTION: {{\"type\": \"find_doctors\", \"parameters\": {{\"specialization\": \"{spec}\"}}}}]"
-                    )
-            elif "setting" in msg_lower or "profile" in msg_lower or "address" in msg_lower or "username" in msg_lower:
-                if pref_lang == "te":
-                    reply = "మీ ప్రొఫైల్ వివరాలు మరియు సెట్టింగులను నవీకరించడానికి మీ సెట్టింగుల పేజీని తెరుస్తున్నాను.\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
-                elif pref_lang == "hi":
-                    reply = "आपका सेटिंग्स पेज खोल रहा हूँ जहाँ आप अपनी प्रोफ़ाइल विवरण और सेटिंग्स अपडेट कर सकते हैं।\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
-                else:
-                    reply = "Opening your settings page where you can update your profile details and settings.\n\n[ACTION: {\"type\": \"view_settings\", \"parameters\": {}}]"
-            elif "chat" in msg_lower or "message" in msg_lower or "conversation" in msg_lower or "inbox" in msg_lower:
-                if pref_lang == "te":
-                    reply = "సন্দేశాలు పంపడానికి మరియు ఫైళ్లను పంచుకోవడానికి మీ చాట్ వర్క్‌స్పేస్‌ను తెరుస్తున్నాను.\n\n[ACTION: {\"type\": \"view_chat\", \"parameters\": {}}]"
-                elif pref_lang == "hi":
-                    reply = "आपका चैट वर्कस्पेस खोल रहा हूँ ताकि आप संदेश भेज सकें और फाइलें साझा कर सकें।\n\n[ACTION: {\"type\": \"view_chat\", \"parameters\": {}}]"
-                else:
-                    reply = "Opening your Chat Workspace so you can message and share files.\n\n[ACTION: {\"type\": \"view_chat\", \"parameters\": {}}]"
-            elif "complaint" in msg_lower or "complain" in msg_lower or "feedback" in msg_lower:
-                escaped_msg = input_data.message.replace('"', '\\"')
-                if pref_lang == "te":
-                    reply = f"నేను మీ ఫిర్యాదును నమోదు చేసుకున్నాను మరియు మా అడ్మిన్ బృందానికి పంపించాను. మేము దీనిని వెంటనే పరిశీలిస్తాము.\n\n[ACTION: {{\"type\": \"lodge_complaint\", \"parameters\": {{\"message\": \"{escaped_msg}\"}}}}]"
-                elif pref_lang == "hi":
-                    reply = f"मैंने आपकी शिकायत दर्ज कर ली है और इसे हमारी एडमिन टीम को भेज दिया है। हम इसे तुरंत देखेंगे।\n\n[ACTION: {{\"type\": \"lodge_complaint\", \"parameters\": {{\"message\": \"{escaped_msg}\"}}}}]"
-                else:
-                    reply = f"I've noted your complaint and forwarded it to our admin team. We will look into this immediately.\n\n[ACTION: {{\"type\": \"lodge_complaint\", \"parameters\": {{\"message\": \"{escaped_msg}\"}}}}]"
-            else:
-                if pref_lang == "te":
-                    reply = "నేను హెల్త్AI గ్లోబల్ అసిస్టెంట్. నేను వైద్యులను కనుగొనడంలో, అపాయింట్‌మెంట్‌లను బుక్ చేయడంలో, వైద్య రికార్డులను చూపడంలో లేదా లక్షణాలను విశ్లేషించడంలో సహాయపడగలను. ఈ రోజు నేను మీకు ఎలా సహాయపడగలను?"
-                elif pref_lang == "hi":
-                    reply = "मैं हेल्थएआई ग्लोबल असिस्टेंट हूँ। मैं आपको डॉक्टर ढूंढने, अपॉइंटमेंट बुक करने, मेडिकल रिकॉर्ड देखने या लक्षणों का विश्लेषण करने में मदद कर सकता हूँ। आज मैं आपकी क्या मदद कर सकता हूँ?"
-                else:
-                    reply = "I am the HealthAI Global Assistant. I can help you find doctors, book appointments, view your medical records, or analyze symptoms. How can I help you today?"
 
-        # Parse action if present
-        action = None
-        action_match = re.search(r'\[ACTION:\s*(\{.*?\})\s*\]', reply, re.DOTALL)
-        if action_match:
-            try:
-                parsed_action = json.loads(action_match.group(1))
-                if parsed_action.get("type") == "book_appointment":
-                    # Check recent conversation history user messages for doctor, date, and time
-                    user_texts = " ".join([m.content.lower() for m in history_msgs if m.role == "user" and m.content])
-                    user_texts += " " + input_data.message.lower()
-                    
-                    doc_keywords = ["smith", "johnson", "brown", "prince", "wright", "cardiology", "dermatology", "medicine", "neurology", "pediatrics", "doctor", "specialist", "डॉक्टर", "विशेषज्ञ", "డాక్టర్", "వైద్యుడు"]
-                    date_keywords = ["tomorrow", "today", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "date", "/", "कल", "आज", "तारीख", "दिनांक", "రేపు", "ఈ రోజు", "తేదీ"]
-                    time_keywords = ["am", "pm", "morning", "afternoon", "evening", "o'clock", ":", "time", "बजे", "समय", "सुबह", "शाम", "दोपहर", "గంటల", "సమయం"]
-                    
-                    has_doctor = any(d in user_texts for d in doc_keywords)
-                    has_date = any(d in user_texts for d in date_keywords)
-                    has_time = any(t in user_texts for t in time_keywords)
-                    
-                    if not (has_doctor and has_date and has_time):
-                        action = None
-                        user_query = input_data.message.lower()
-                        user_query_words = set(user_query.split())
-                        
-                        has_hi_char = any(ord(c) >= 0x0900 and ord(c) <= 0x097F for c in user_query)
-                        has_te_char = any(ord(c) >= 0x0C00 and ord(c) <= 0x0C7F for c in user_query)
-                        
-                        is_hinglish = any(w in user_query_words for w in hinglish_words)
-                        is_tinglish = any(w in user_query_words for w in tinglish_words)
-                        
-                        if has_te_char:
-                            reply = "అపాయింట్‌మెంట్ బుక్ చేయడానికి, నాకు మరికొన్ని వివరాలు కావాలి. మీరు ఏ వైద్యుడిని సంప్రదించాలనుకుంటున్నారు, మరియు ఏ తేదీ మరియు సమయంలో?"
-                        elif has_hi_char:
-                            reply = "अपॉइंटमेंट बुक करने के लिए, मुझे कुछ और विवरण चाहिए। आप किस डॉक्टर से मिलना चाहते हैं, और किस तारीख और समय पर?"
-                        elif is_tinglish:
-                            reply = "Appointment book cheyyడానికి naku konchem details kavali. Meeku ey doctor kavali, ey date and time lo consult chestharu?"
-                        elif is_hinglish:
-                            reply = "Appointment book karne ke liye mujhe thode aur details chahiye. Aap kis doctor se milna chahte hain, aur kis date aur time par?"
-                        else:
-                            if pref_lang == "te":
-                                reply = "అపాయింట్‌మెంట్ బుక్ చేయడానికి, నాకు మరికొన్ని వివరాలు కావాలి. మీరు ఏ వైద్యుడిని సంప్రదించాలనుకుంటున్నారు, మరియు ఏ తేదీ మరియు సమయంలో?"
-                            elif pref_lang == "hi":
-                                reply = "अपॉइंटमेंट बुक करने के लिए, मुझे कुछ और विवरण चाहिए। आप किस डॉक्टर से मिलना चाहते हैं, और किस तारीख और समय पर?"
-                            else:
-                                reply = "To book your appointment, I need a few more details. Which doctor or specialization would you like to consult, and on what date and time?"
-                    else:
-                        action = parsed_action
-                        reply = reply.replace(action_match.group(0), "").strip()
-                else:
-                    action = parsed_action
-                    reply = reply.replace(action_match.group(0), "").strip()
-            except Exception as ex:
-                print(f"Action parse error: {ex}")
+            # Save assistant reply
+            assistant_msg = models.Message(
+                conversation_id=conv.id,
+                role="assistant",
+                content=f"{reply}\n\n[Disclaimer: {disclaimer}]"
+            )
+            db.add(assistant_msg)
+            db.commit()
 
-        # Guard action if the user role is doctor or admin
-        if action and action.get("type") in ["find_doctors", "book_appointment"] and current_user.role in ["doctor", "admin"]:
-            action = None
-            if current_user.role == "doctor":
-                if pref_lang == "te":
-                    reply = "మీరు ఒక రిజిస్టర్డ్ వైద్యునిగా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు. మీరు మీ డాష్‌బోర్డ్ వర్క్‌స్పేస్ నుండి కన్సల్టేషన్‌లను నిర్వహించవచ్చు."
-                elif pref_lang == "hi":
-                    reply = "आप एक पंजीकृत डॉक्टर के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते। आप अपने डैशबोर्ड कार्यक्षेत्र से परामर्श प्रबंधित करते हैं।"
-                else:
-                    reply = "You cannot book or browse appointments as a registered doctor. You manage consultations from your dashboard workspace."
-            else:
-                if pref_lang == "te":
-                    reply = "మీరు అడ్మినిస్ట్రేటర్‌గా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు."
-                elif pref_lang == "hi":
-                    reply = "आप एक प्रशासक के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते।"
-                else:
-                    reply = "You cannot book or browse appointments as an administrator."
+            import json
+            yield f"data: {json.dumps({'type': 'action', 'action': action, 'disclaimer': disclaimer, 'reply': reply})}\n\n" 
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Assistant error: {str(e)}"
+            )
 
-        # Save assistant reply
-        assistant_msg = models.Message(
-            conversation_id=conv.id,
-            role="assistant",
-            content=f"{reply}\n\n[Disclaimer: {disclaimer}]"
-        )
-        db.add(assistant_msg)
-        db.commit()
-
-        return {
-            "reply": reply,
-            "action": action,
-            "disclaimer": disclaimer
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Assistant error: {str(e)}"
-        )
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 # --- AI Assistant API (Ad-Hoc) ---
 

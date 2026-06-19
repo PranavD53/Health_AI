@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useWebSocket } from '../context/WebSocketContext';
 
 export default function DoctorDashboard() {
   const { t } = useLanguage();
@@ -27,11 +28,21 @@ export default function DoctorDashboard() {
     }
   };
 
+  const { subscribe } = useWebSocket() || {};
+
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 15000); // Poll every 15s for new SOS alerts
-    return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!subscribe) return;
+    const unsubscribe = subscribe((data) => {
+      if (data.event === 'new_alert') {
+        loadData();
+      }
+    });
+    return unsubscribe;
+  }, [subscribe]);
 
   const handleResolveSOS = async (alertId) => {
     try {

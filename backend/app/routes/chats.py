@@ -285,7 +285,7 @@ def start_conversation(req: StartConvRequest, current_user: models.User = Depend
     return {"id": conv.id}
 
 @router.post("/conversations/{conversation_id}/send", response_model=PrivateMessageResponse)
-def send_message(
+async def send_message(
     conversation_id: int,
     content: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
@@ -314,9 +314,9 @@ def send_message(
         filename = f"chat_{int(datetime.datetime.utcnow().timestamp())}_{file.filename}"
         filepath = os.path.join(uploads_dir, filename)
         
-        content = file.file.read()
+        file_content = await file.read()
         with open(filepath, "wb") as f:
-            f.write(content)
+            f.write(file_content)
             
         attachment_path = f"/uploads/{filename}"
         attachment_name = file.filename
@@ -336,7 +336,7 @@ def send_message(
             ext = ext.lower()
             allowed_extensions = [".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".doc", ".docx"]
             if ext in allowed_extensions:
-                content_lower = content.lower() if content else b""
+                content_lower = file_content.lower() if file_content else b""
                 filename_lower = file.filename.lower()
                 is_tampered = False
                 fraud_reason = "None"
@@ -402,6 +402,25 @@ def send_message(
     )
     db.add(notif)
     db.commit()
+    
+    from app.websocket_manager import manager
+    import asyncio
+    
+    # Broadcast to sender and recipient
+    asyncio.create_task(manager.send_personal_json({
+        "event": "new_message",
+        "conversation_id": conversation_id,
+    }, current_user.id))
+    
+    asyncio.create_task(manager.send_personal_json({
+        "event": "new_message",
+        "conversation_id": conversation_id,
+    }, recipient_id))
+
+    asyncio.create_task(manager.send_personal_json({
+        "event": "new_notification"
+    }, recipient_id))
+    
     return new_msg
 
 
