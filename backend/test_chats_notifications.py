@@ -8,9 +8,11 @@ from sqlalchemy.pool import StaticPool
 # Setup test DB
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test_secret_key_12345"
+os.environ["UPLOADS_DIR"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_uploads")
 
 from app.main import app
 from app.database import Base, get_db
+from app.config import UPLOADS_DIR
 
 engine = create_engine(
     "sqlite:///:memory:",
@@ -34,11 +36,9 @@ def setup_teardown():
     Base.metadata.create_all(bind=engine)
     
     # Setup uploads folder
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    uploads_dir = os.path.join(base_dir, "uploads")
-    if os.path.exists(uploads_dir):
-        shutil.rmtree(uploads_dir)
-    os.makedirs(uploads_dir, exist_ok=True)
+    if os.path.exists(UPLOADS_DIR):
+        shutil.rmtree(UPLOADS_DIR)
+    os.makedirs(UPLOADS_DIR, exist_ok=True)
     
     yield
     
@@ -52,8 +52,8 @@ def setup_teardown():
             os.remove("test_chats.db")
         except Exception as e:
             print(f"Could not remove test_chats.db: {e}")
-    if os.path.exists(uploads_dir):
-        shutil.rmtree(uploads_dir)
+    if os.path.exists(UPLOADS_DIR):
+        shutil.rmtree(UPLOADS_DIR)
 
 def test_chats_and_notifications_flow():
     generator = setup_teardown()

@@ -9,10 +9,12 @@ from sqlalchemy.pool import StaticPool
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test_secret_key_12345"
 os.environ["GROQ_API_KEY"] = "gsk_mockkeyforlocaltesting"
+os.environ["UPLOADS_DIR"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_uploads")
 
 from app.main import app
 from app.database import Base, get_db
 from app import models
+from app.config import UPLOADS_DIR
 
 # Create test database engine
 engine = create_engine(
@@ -47,7 +49,9 @@ def setup_module():
         db.close()
     
     # Create uploads directory
-    os.makedirs("uploads", exist_ok=True)
+    if os.path.exists(UPLOADS_DIR):
+        shutil.rmtree(UPLOADS_DIR)
+    os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 def teardown_module():
     global engine
@@ -61,14 +65,12 @@ def teardown_module():
             os.remove("test_healthcare_new.db")
         except Exception as e:
             print(f"Warning removing DB file: {e}")
-    # Clean up only test files in uploads created during this test run
-    for f in CREATED_TEST_FILES:
-        for path in (f, os.path.join("backend", f), os.path.abspath(f)):
-            if os.path.exists(path) and os.path.isfile(path):
-                try:
-                    os.remove(path)
-                except Exception:
-                    pass
+    # Clean up test uploads directory
+    if os.path.exists(UPLOADS_DIR):
+        try:
+            shutil.rmtree(UPLOADS_DIR)
+        except Exception:
+            pass
 
 def test_new_endpoints():
     setup_module()
@@ -159,11 +161,9 @@ def test_new_endpoints():
         assert presc_resp.json()["attachment_path"].endswith(".pdf")
         assert "Clinical prescription" in presc_resp.json()["content"]
         
-        # Track prescription file path for teardown
-        CREATED_TEST_FILES.add(presc_resp.json()["attachment_path"].lstrip("/"))
-        
         # Verify PDF exists on disk and contains expected clinical content
-        presc_filepath = os.path.join(os.getcwd(), presc_resp.json()["attachment_path"].lstrip("/"))
+        filename = presc_resp.json()["attachment_name"]
+        presc_filepath = os.path.join(UPLOADS_DIR, filename)
         assert os.path.exists(presc_filepath)
         with open(presc_filepath, "rb") as f:
             pdf_bytes = f.read()
@@ -183,7 +183,7 @@ def test_new_endpoints():
         # 5. Test POST /records/{id}/analyze (AI Insights)
         # First write a fake medical record to disk
         record_filename = "test_record_report.txt"
-        record_filepath = os.path.join("uploads", record_filename)
+        record_filepath = os.path.join(UPLOADS_DIR, record_filename)
         CREATED_TEST_FILES.add(record_filepath)
         with open(record_filepath, "w", encoding="utf-8") as f:
             f.write("Patient: Test Patient\nBlood Report: WBC 14.5 K/uL (Abnormal High), Hemoglobin 14.2 g/dL\nSymptom: Fever and persistent cough.")

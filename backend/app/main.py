@@ -18,13 +18,11 @@ from app.routes.auth import get_password_hash
 from app.routes.doctors import seed_doctors
 from app.routes.symptoms import scan_for_emergency
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+from app.config import BASE_DIR, UPLOADS_DIR
+
 PROJECT_DIR = os.path.dirname(BASE_DIR)
 FRONTEND_DIR = os.path.join(PROJECT_DIR, "Frontend")
-UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
 
-if not os.path.exists(UPLOADS_DIR):
-    os.makedirs(UPLOADS_DIR)
 
 # Restore seeded uploads on startup to recover from test wipes
 SEED_UPLOADS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")

@@ -8,9 +8,11 @@ from sqlalchemy.pool import StaticPool
 # Set test environment database
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["SECRET_KEY"] = "test_secret_key_12345"
+os.environ["UPLOADS_DIR"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_uploads")
 
 from app.main import app
 from app.database import Base, get_db
+from app.config import UPLOADS_DIR
 
 # Create test database engine
 engine = create_engine(
@@ -45,10 +47,9 @@ def setup_module():
     finally:
         db.close()
     # Clear uploads directory for tests
-    uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
-    if os.path.exists(uploads_dir):
-        shutil.rmtree(uploads_dir)
-    os.makedirs(uploads_dir, exist_ok=True)
+    if os.path.exists(UPLOADS_DIR):
+        shutil.rmtree(UPLOADS_DIR)
+    os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 def teardown_module():
     if get_db in app.dependency_overrides:
@@ -65,10 +66,9 @@ def teardown_module():
         except Exception as e:
             print(f"Warning removing DB file: {e}")
     # Clean up uploads directory
-    uploads_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
-    if os.path.exists(uploads_dir):
+    if os.path.exists(UPLOADS_DIR):
         try:
-            shutil.rmtree(uploads_dir)
+            shutil.rmtree(UPLOADS_DIR)
         except Exception as e:
             print(f"Warning clearing uploads directory: {e}")
 

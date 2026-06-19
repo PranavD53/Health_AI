@@ -16,11 +16,8 @@ from app.routes.auth import get_current_user, log_action
 router = APIRouter(prefix="/records", tags=["Medical Records"])
 
 # --- Paths Setup ---
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-
-# Ensure the upload folder exists
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+from app.config import UPLOADS_DIR
+UPLOAD_DIR = UPLOADS_DIR
 
 # --- Pydantic Schemas ---
 class MedicalRecordResponse(BaseModel):

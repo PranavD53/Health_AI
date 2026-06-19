@@ -10,6 +10,7 @@ from app.database import get_db
 from app import models
 from app.routes.auth import get_current_user, require_role, log_action
 from app.services.prescription_pdf import generate_prescription_pdf
+from app.config import UPLOADS_DIR
 
 router = APIRouter(prefix="/chats", tags=["Private Messaging"])
 
@@ -307,15 +308,9 @@ async def send_message(
     attachment_name = None
     
     if file and file.filename:
-        # Create uploads directory if not exists
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        uploads_dir = os.path.join(base_dir, "uploads")
-        if not os.path.exists(uploads_dir):
-            os.makedirs(uploads_dir)
-            
         # Create a unique filename
         filename = f"chat_{int(datetime.datetime.utcnow().timestamp())}_{file.filename}"
-        filepath = os.path.join(uploads_dir, filename)
+        filepath = os.path.join(UPLOADS_DIR, filename)
         
         file_content = await file.read()
         with open(filepath, "wb") as f:
@@ -483,12 +478,8 @@ def send_prescription(
     issued_at = datetime.datetime.now()
 
     # Save styled PDF to uploads directory
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    uploads_dir = os.path.join(base_dir, "uploads")
-    os.makedirs(uploads_dir, exist_ok=True)
-
     filename = f"Prescription_{int(datetime.datetime.utcnow().timestamp())}.pdf"
-    filepath = os.path.join(uploads_dir, filename)
+    filepath = os.path.join(UPLOADS_DIR, filename)
 
     generate_prescription_pdf(
         filepath,
@@ -594,8 +585,7 @@ def delete_message(
         
     if msg.attachment_path:
         filename = msg.attachment_path.split("/")[-1]
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        filepath = os.path.join(base_dir, "uploads", filename)
+        filepath = os.path.join(UPLOADS_DIR, filename)
         if os.path.exists(filepath):
             try:
                 os.remove(filepath)

@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app import models
 from app.routes.auth import get_current_user, log_action
+from app.config import UPLOADS_DIR
 
 router = APIRouter(prefix="/doctors", tags=["Doctors"])
 
@@ -223,14 +224,10 @@ async def register_doctor(
             raise HTTPException(status_code=400, detail="Doctor profile already exists for this user")
 
         # Handle license document saving (using correct backend/uploads path)
-        uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
-        if not os.path.exists(uploads_dir):
-            os.makedirs(uploads_dir)
-
         # Save license document
         doc_ext = license_document.filename.split(".")[-1]
         doc_filename = f"license_{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}.{doc_ext}"
-        doc_path = os.path.join(uploads_dir, doc_filename)
+        doc_path = os.path.join(UPLOADS_DIR, doc_filename)
         with open(doc_path, "wb") as f:
             f.write(await license_document.read())
         
@@ -239,7 +236,7 @@ async def register_doctor(
         if profile_picture:
             pic_ext = profile_picture.filename.split(".")[-1]
             pic_filename = f"pic_{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}.{pic_ext}"
-            pic_path = os.path.join(uploads_dir, pic_filename)
+            pic_path = os.path.join(UPLOADS_DIR, pic_filename)
             with open(pic_path, "wb") as f:
                 f.write(await profile_picture.read())
             pic_relative_path = f"/uploads/{pic_filename}"
@@ -327,15 +324,11 @@ async def update_doctor_profile(
         if license_number is not None:
             doctor.license_number = license_number
 
-        uploads_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads")
-        if not os.path.exists(uploads_dir):
-            os.makedirs(uploads_dir)
-
         # Update license document if provided
         if license_document:
             doc_ext = license_document.filename.split(".")[-1]
             doc_filename = f"license_{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}.{doc_ext}"
-            doc_path = os.path.join(uploads_dir, doc_filename)
+            doc_path = os.path.join(UPLOADS_DIR, doc_filename)
             with open(doc_path, "wb") as f:
                 f.write(await license_document.read())
             doctor.license_document_path = f"/uploads/{doc_filename}"
@@ -355,7 +348,7 @@ async def update_doctor_profile(
         if profile_picture:
             pic_ext = profile_picture.filename.split(".")[-1]
             pic_filename = f"pic_{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}.{pic_ext}"
-            pic_path = os.path.join(uploads_dir, pic_filename)
+            pic_path = os.path.join(UPLOADS_DIR, pic_filename)
             with open(pic_path, "wb") as f:
                 f.write(await profile_picture.read())
             doctor.profile_picture = f"/uploads/{pic_filename}"
