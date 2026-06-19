@@ -33,6 +33,8 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
+CREATED_TEST_FILES = set()
+
 def setup_module():
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
@@ -59,12 +61,12 @@ def teardown_module():
             os.remove("test_healthcare_new.db")
         except Exception as e:
             print(f"Warning removing DB file: {e}")
-    # Clean up test files in uploads
-    if os.path.exists("uploads"):
-        for f in os.listdir("uploads"):
-            if f.startswith("Prescription_") or f.startswith("test_record") or f.startswith("chat_"):
+    # Clean up only test files in uploads created during this test run
+    for f in CREATED_TEST_FILES:
+        for path in (f, os.path.join("backend", f), os.path.abspath(f)):
+            if os.path.exists(path) and os.path.isfile(path):
                 try:
-                    os.remove(os.path.join("uploads", f))
+                    os.remove(path)
                 except Exception:
                     pass
 
@@ -157,6 +159,9 @@ def test_new_endpoints():
         assert presc_resp.json()["attachment_path"].endswith(".pdf")
         assert "Clinical prescription" in presc_resp.json()["content"]
         
+        # Track prescription file path for teardown
+        CREATED_TEST_FILES.add(presc_resp.json()["attachment_path"].lstrip("/"))
+        
         # Verify PDF exists on disk and contains expected clinical content
         presc_filepath = os.path.join(os.getcwd(), presc_resp.json()["attachment_path"].lstrip("/"))
         assert os.path.exists(presc_filepath)
@@ -179,6 +184,7 @@ def test_new_endpoints():
         # First write a fake medical record to disk
         record_filename = "test_record_report.txt"
         record_filepath = os.path.join("uploads", record_filename)
+        CREATED_TEST_FILES.add(record_filepath)
         with open(record_filepath, "w", encoding="utf-8") as f:
             f.write("Patient: Test Patient\nBlood Report: WBC 14.5 K/uL (Abnormal High), Hemoglobin 14.2 g/dL\nSymptom: Fever and persistent cough.")
             
@@ -230,12 +236,13 @@ def test_new_endpoints():
         assert len(patient_records) > 0
         presc_record = next((r for r in patient_records if "Prescription_" in r["file_name"]), None)
         assert presc_record is not None, "Prescription not found in patient's medical records"
-        assert presc_record["file_type"] == "text/plain"
+        assert presc_record["file_type"] == "application/pdf"
 
         # 7. Test uploading file in chat and storing it as Medical Record
         print("Testing file upload in chat & storage as medical record...")
         chat_filename = "test_record_chat_uploaded.png"
         chat_filepath = os.path.join("uploads", chat_filename)
+        CREATED_TEST_FILES.add(chat_filepath)
         with open(chat_filepath, "wb") as f:
             f.write(b"PNG_FAKE_IMAGE_DATA")
             
@@ -247,6 +254,8 @@ def test_new_endpoints():
                 files={"file": (chat_filename, f, "image/png")}
             )
         assert chat_upload_resp.status_code == 200, chat_upload_resp.text
+        if "attachment_path" in chat_upload_resp.json() and chat_upload_resp.json()["attachment_path"]:
+            CREATED_TEST_FILES.add(chat_upload_resp.json()["attachment_path"].lstrip("/"))
         msg_id = chat_upload_resp.json()["id"]
         
         # Verify it got saved to patient's medical records
