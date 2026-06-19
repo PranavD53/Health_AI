@@ -61,6 +61,7 @@ class UserResponse(BaseModel):
     admin_requested: bool = False
     has_admin_permission: bool = False
     base_role: str = "patient"
+    doctor_profile_id: Optional[int] = None
     created_at: datetime.datetime
 
     class Config:
@@ -127,6 +128,14 @@ def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session 
     user = db.query(models.User).filter(models.User.email == email).first()
     if user is None:
         raise credentials_exception
+    
+    # Just-in-time repair for legacy doctors/admins with default base_role = 'patient'
+    if user.base_role == "patient" and (user.role in ("doctor", "admin") or user.has_admin_permission):
+        is_doctor = db.query(models.Doctor).filter(models.Doctor.user_id == user.id).first() is not None
+        if is_doctor or user.has_admin_permission:
+            user.base_role = "doctor" if is_doctor else "admin"
+            db.commit()
+
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
     return user
@@ -582,6 +591,12 @@ def approve_admin(
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         
+        # Just-in-time repair for target user
+        is_doctor = db.query(models.Doctor).filter(models.Doctor.user_id == user.id).first() is not None
+        if is_doctor and user.base_role == "patient":
+            user.base_role = "doctor"
+            db.commit()
+            
         if user.base_role == "patient" or user.role == "patient":
             raise HTTPException(status_code=400, detail="Patients cannot be promoted to admin")
         
@@ -713,5 +728,6 @@ def switch_role(current_user: models.User = Depends(get_current_user), db: Sessi
     return {
         "status": "success",
         "role": current_user.role,
+        "doctor_profile_id": current_user.doctor_profile_id,
         "message": f"Successfully switched to {current_user.role} mode."
     }

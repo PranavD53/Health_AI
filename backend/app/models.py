@@ -27,6 +27,10 @@ class User(Base):
     metrics = relationship("PatientMetric", back_populates="user", cascade="all, delete-orphan")
     doctor_profile = relationship("Doctor", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
+    @property
+    def doctor_profile_id(self):
+        return self.doctor_profile.id if self.doctor_profile else None
+
 class PatientProfile(Base):
     __tablename__ = "patient_profiles"
 
