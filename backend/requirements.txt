@@ -8,3 +8,5 @@ pydantic[email]
 httpx
 python-multipart
 psycopg2-binary
+reportlab
+pypdf

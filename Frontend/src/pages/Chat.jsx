@@ -325,7 +325,9 @@ export default function Chat() {
 
   const getAttachmentPreview = (path, name) => {
     if (!path) return null;
-    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(name || path || '');
+    const label = name || path;
+    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(label);
+    const isPdf = /\.pdf$/i.test(label);
     const fullUrl = resolveMediaUrl(path);
 
     if (isImage) {
@@ -338,9 +340,11 @@ export default function Chat() {
 
     return (
       <div className="mt-2 flex items-center gap-xs p-2 bg-surface-container-high/60 rounded-lg max-w-xs border border-outline-variant/20 hover:bg-surface-container-high transition-colors">
-        <span className="material-symbols-outlined text-secondary text-lg">description</span>
-        <a href={fullUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-primary font-semibold hover:underline truncate flex-1">
-          {name || "Download File"}
+        <span className="material-symbols-outlined text-secondary text-lg">
+          {isPdf ? 'picture_as_pdf' : 'description'}
+        </span>
+        <a href={fullUrl} target="_blank" rel="noopener noreferrer" download={isPdf ? label : undefined} className="text-xs text-primary font-semibold hover:underline truncate flex-1">
+          {isPdf ? `Download Prescription (${label})` : (name || "Download File")}
         </a>
       </div>
     );

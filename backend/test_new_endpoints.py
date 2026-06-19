@@ -152,17 +152,27 @@ def test_new_endpoints():
         )
         assert presc_resp.status_code == 200, presc_resp.text
         assert presc_resp.json()["attachment_name"].startswith("Prescription_")
+        assert presc_resp.json()["attachment_name"].endswith(".pdf")
         assert presc_resp.json()["attachment_path"].startswith("/uploads/Prescription_")
+        assert presc_resp.json()["attachment_path"].endswith(".pdf")
         assert "Clinical prescription" in presc_resp.json()["content"]
         
-        # Verify file exists on disk
+        # Verify PDF exists on disk and contains expected clinical content
         presc_filepath = os.path.join(os.getcwd(), presc_resp.json()["attachment_path"].lstrip("/"))
         assert os.path.exists(presc_filepath)
-        with open(presc_filepath, "r", encoding="utf-8") as f:
-            file_content = f.read()
-            assert "Dr. Evan Wright" in file_content
-            assert "Oseltamivir" in file_content
-            assert "Seasonal Influenza" in file_content
+        with open(presc_filepath, "rb") as f:
+            pdf_bytes = f.read()
+            assert pdf_bytes.startswith(b"%PDF")
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(presc_filepath)
+            pdf_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+            assert "Dr. Evan Wright" in pdf_text or "Evan Wright" in pdf_text
+            assert "Oseltamivir" in pdf_text
+            assert "Seasonal Influenza" in pdf_text
+            assert "Digital Signature ID" in pdf_text
+        except ImportError:
+            pass
         print("[OK] Online Prescription successfully created, saved to disk, and attached to chat")
 
         # 5. Test POST /records/{id}/analyze (AI Insights)

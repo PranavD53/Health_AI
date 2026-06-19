@@ -1,7 +1,7 @@
 import os
 import datetime
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, status, Header
+from fastapi import FastAPI, Depends, HTTPException, status, Header, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -169,6 +169,42 @@ app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 @app.get("/", include_in_schema=False)
 def open_frontend():
     return RedirectResponse(url="/frontend/unified_login_flow/code.html")
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    if not token:
+        token = websocket.query_params.get("token")
+        
+    if not token:
+        await websocket.close(code=1008)
+        return
+
+    try:
+        from app.routes.auth import SECRET_KEY, ALGORITHM
+        from jose import jwt, JWTError
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        if email is None or token_type != "access":
+            await websocket.close(code=1008)
+            return
+    except JWTError:
+        await websocket.close(code=1008)
+        return
+
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if user is None or not user.is_active:
+        await websocket.close(code=1008)
+        return
+
+    from app.websocket_manager import manager
+    await manager.connect(websocket, user.id)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user.id)
 
 # --- Pydantic Schemas for Conversations & AI & Notifications ---
 class ConversationCreate(BaseModel):

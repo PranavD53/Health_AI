@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from app.database import get_db
 from app import models
 from app.routes.auth import get_current_user, require_role, log_action
-from app.routes.doctors import translate_doctor, DOCTOR_TRANSLATIONS
+from app.services.prescription_pdf import generate_prescription_pdf
 
 router = APIRouter(prefix="/chats", tags=["Private Messaging"])
 
@@ -448,52 +448,61 @@ def send_prescription(
         
     recipient_id = conv.user2_id if conv.user1_id == current_user.id else conv.user1_id
 
-    # Get doctor name
+    # Resolve doctor profile details
     doctor_name = "Doctor"
+    doctor_specialization = None
+    license_number = None
     doc_profile = db.query(models.Doctor).filter(models.Doctor.user_id == current_user.id).first()
     if doc_profile:
         doctor_name = doc_profile.name
+        doctor_specialization = doc_profile.specialization
+        license_number = doc_profile.license_number
     else:
-        # Fallback to user email/name
         prof = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == current_user.id).first()
         if prof:
             doctor_name = prof.name
         else:
             doctor_name = current_user.email.split("@")[0]
 
-    # Format prescription text
-    curr_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    meds_str = ""
-    for med in req.medicines:
-        meds_str += f"- {med.name}: {med.dosage} | {med.frequency} | {med.duration}\n"
-        
-    prescription_content = f"""=========================================
-          CLINICAL PRESCRIPTION
-=========================================
-Doctor: {doctor_name}
-Patient: {req.patient_name}
-Date: {curr_date}
-Diagnosis: {req.diagnosis}
------------------------------------------
-Prescribed Medications:
-{meds_str}
------------------------------------------
-Instructions:
-{req.instructions or "Take medications as prescribed."}
-=========================================
-"""
+    # Optional patient demographics for the PDF header
+    patient_details = None
+    recipient = db.query(models.User).filter(models.User.id == recipient_id).first()
+    if recipient and recipient.role == "patient":
+        patient_profile = db.query(models.PatientProfile).filter(
+            models.PatientProfile.user_id == recipient_id
+        ).first()
+        if patient_profile:
+            parts = []
+            if patient_profile.gender:
+                parts.append(patient_profile.gender)
+            if patient_profile.date_of_birth:
+                parts.append(f"DOB: {patient_profile.date_of_birth}")
+            if parts:
+                patient_details = " · ".join(parts)
 
-    # Save to uploads directory
+    issued_at = datetime.datetime.now()
+
+    # Save styled PDF to uploads directory
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     uploads_dir = os.path.join(base_dir, "uploads")
-    if not os.path.exists(uploads_dir):
-        os.makedirs(uploads_dir)
-        
-    filename = f"Prescription_{int(datetime.datetime.utcnow().timestamp())}.txt"
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    filename = f"Prescription_{int(datetime.datetime.utcnow().timestamp())}.pdf"
     filepath = os.path.join(uploads_dir, filename)
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(prescription_content)
-        
+
+    generate_prescription_pdf(
+        filepath,
+        doctor_name=doctor_name,
+        doctor_specialization=doctor_specialization,
+        license_number=license_number,
+        patient_name=req.patient_name,
+        patient_details=patient_details,
+        diagnosis=req.diagnosis,
+        medicines=req.medicines,
+        instructions=req.instructions,
+        issued_at=issued_at,
+    )
+
     attachment_path = f"/uploads/{filename}"
     attachment_name = filename
     
@@ -513,7 +522,7 @@ Instructions:
         user_id=recipient_id,
         file_name=filename,
         file_path=attachment_path,
-        file_type="text/plain",
+        file_type="application/pdf",
         fraud_status="VERIFIED (Authentic)"
     )
     db.add(new_record)
