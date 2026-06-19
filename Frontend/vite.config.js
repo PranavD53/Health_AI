@@ -22,6 +22,8 @@ export default defineConfig({
       '/admin/verify-doctor': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/admin/complaints': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/doctor/dashboard': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/calls': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/feedback': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/ws': { target: 'ws://127.0.0.1:8000', ws: true, changeOrigin: true },
     }
   },

@@ -15,14 +15,29 @@ export default function GlobalAssistant() {
     return localStorage.getItem('tars_voice_enabled') !== 'false';
   });
 
+  const [isInCall, setIsInCall] = useState(() => localStorage.getItem('is_in_call') === 'true');
+
   useEffect(() => {
     const handleStorageChange = () => {
       setTarsVoiceEnabled(localStorage.getItem('tars_voice_enabled') !== 'false');
+      setIsInCall(localStorage.getItem('is_in_call') === 'true');
+    };
+    const handleCallStateChange = () => {
+      const callActive = localStorage.getItem('is_in_call') === 'true';
+      setIsInCall(callActive);
+      if (callActive) {
+        cancelSpeech();
+        if (bgRecognitionRef.current) {
+          try { bgRecognitionRef.current.stop(); } catch (e) {}
+        }
+      }
     };
     window.addEventListener('tars_voice_toggle', handleStorageChange);
+    window.addEventListener('call_state_change', handleCallStateChange);
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('tars_voice_toggle', handleStorageChange);
+      window.removeEventListener('call_state_change', handleCallStateChange);
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
@@ -235,6 +250,10 @@ export default function GlobalAssistant() {
 
   // Speaks using exactly one sweet female voice per language, with human-paced rate
   const speakMessage = (text, callback = null) => {
+    if (isInCall) {
+      if (callback) callback();
+      return;
+    }
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
       setIsSpeaking(true);
@@ -325,6 +344,10 @@ export default function GlobalAssistant() {
   // Listen to global mic clicks from other components (like TopNavBar)
   useEffect(() => {
     const handleGlobalMicClick = () => {
+      if (localStorage.getItem('is_in_call') === 'true') {
+        alert("Voice assistant is disabled during an active video call.");
+        return;
+      }
       // Ensure TARS voice is enabled
       if (!tarsVoiceEnabled) {
         setTarsVoiceEnabled(true);
@@ -352,7 +375,7 @@ export default function GlobalAssistant() {
 
   // Background Standby listener logic (runs globally, halts when speaking, active listening, or in session)
   useEffect(() => {
-    if (!user || !tarsVoiceEnabled || isListening || isSpeaking || voiceSessionActive) {
+    if (!user || !tarsVoiceEnabled || isListening || isSpeaking || voiceSessionActive || isInCall) {
       if (bgRecognitionRef.current) {
         try {
           bgRecognitionRef.current.stop();
@@ -461,9 +484,13 @@ export default function GlobalAssistant() {
         bgRec.stop();
       } catch (e) {}
     };
-  }, [user, tarsVoiceEnabled, isListening, isSpeaking, voiceSessionActive, language]);
+  }, [user, tarsVoiceEnabled, isListening, isSpeaking, voiceSessionActive, language, isInCall]);
 
   const startListening = () => {
+    if (isInCall) {
+      alert("Voice assistant is disabled during an active video call.");
+      return;
+    }
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert("Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.");
@@ -968,6 +995,10 @@ export default function GlobalAssistant() {
                     } else {
                       if (isSpeaking) {
                         cancelSpeech();
+                      }
+                      if (isInCall) {
+                        alert("Voice assistant is disabled during an active video call.");
+                        return;
                       }
                       setVoiceSessionActive(true);
                       startListening();
