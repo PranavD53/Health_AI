@@ -99,7 +99,6 @@ async def initiate_call(
         )
 
     patient_id = None
-    room_id = None
 
     # 2. Validate using appointment or private chat
     if req.appointment_id:
@@ -113,7 +112,6 @@ async def initiate_call(
                 detail="Appointment not found or not owned by doctor."
             )
         patient_id = appointment.patient_id
-        room_id = f"room_app_{appointment.id}"
     elif req.chat_id:
         conversation = db.query(models.PrivateConversation).filter(
             models.PrivateConversation.id == req.chat_id
@@ -132,20 +130,31 @@ async def initiate_call(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You are not part of this conversation."
             )
-        room_id = f"room_chat_{conversation.id}_call"
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Provide either appointment_id or chat_id to start a call."
         )
 
-    # 3. Create or reuse room record
-    call = db.query(models.CallRecord).filter(
-        models.CallRecord.room_id == room_id,
-        models.CallRecord.status.in_(["INITIATED", "RINGING", "ACCEPTED", "ONGOING"])
-    ).first()
+    # 3. Create or reuse active call record
+    if req.appointment_id:
+        call = db.query(models.CallRecord).filter(
+            models.CallRecord.appointment_id == req.appointment_id,
+            models.CallRecord.status.in_(["INITIATED", "RINGING", "ACCEPTED", "ONGOING"])
+        ).first()
+    else:
+        call = db.query(models.CallRecord).filter(
+            models.CallRecord.chat_id == req.chat_id,
+            models.CallRecord.status.in_(["INITIATED", "RINGING", "ACCEPTED", "ONGOING"])
+        ).first()
 
     if not call:
+        # Generate a unique room_id with a timestamp to satisfy DB unique constraints
+        if req.appointment_id:
+            room_id = f"room_app_{req.appointment_id}_{int(time.time())}"
+        else:
+            room_id = f"room_chat_{req.chat_id}_{int(time.time())}"
+
         call = models.CallRecord(
             room_id=room_id,
             appointment_id=req.appointment_id,
@@ -158,6 +167,8 @@ async def initiate_call(
         db.add(call)
         db.commit()
         db.refresh(call)
+    else:
+        room_id = call.room_id
 
     # 4. Generate short-lived LiveKit token for doctor
     doc_token = generate_livekit_token(
