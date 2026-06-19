@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
+import { resolveMediaUrl } from '../utils/apiConfig';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function DoctorSearch() {
@@ -182,7 +183,7 @@ export default function DoctorSearch() {
                     {doc.profile_picture ? (
                       <img 
                         alt={doc.name} 
-                        src={doc.profile_picture}
+                        src={resolveMediaUrl(doc.profile_picture)}
                         className="w-full h-full object-cover"
                       />
                     ) : (
@@ -267,7 +268,7 @@ export default function DoctorSearch() {
                     {bookingDoc.profile_picture ? (
                       <img 
                         alt={bookingDoc.name} 
-                        src={bookingDoc.profile_picture} 
+                        src={resolveMediaUrl(bookingDoc.profile_picture)} 
                         className="w-full h-full object-cover"
                       />
                     ) : (

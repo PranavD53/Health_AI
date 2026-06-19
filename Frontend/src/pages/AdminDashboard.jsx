@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { resolveMediaUrl } from '../utils/apiConfig';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -259,7 +260,7 @@ export default function AdminDashboard() {
                         <button
                           onClick={() => {
                             if (req.license_document_path) {
-                              const docUrl = req.license_document_path;
+                              const docUrl = resolveMediaUrl(req.license_document_path);
                               const win = window.open(docUrl, '_blank');
                               if (!win) alert("Popup blocked. Please allow popups to view documentation.");
                             } else {
@@ -348,7 +349,7 @@ export default function AdminDashboard() {
                             <>
                               {u.license_document_path && (
                                 <a
-                                  href={u.license_document_path}
+                                  href={resolveMediaUrl(u.license_document_path)}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="px-2.5 py-1 bg-surface-container-high hover:bg-surface-container-highest text-secondary border border-outline-variant/35 text-xs font-bold rounded-lg transition-colors flex items-center gap-0.5 shadow-sm"

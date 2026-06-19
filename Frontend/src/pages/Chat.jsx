@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
+import { resolveMediaUrl } from '../utils/apiConfig';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useWebSocket } from '../context/WebSocketContext';
@@ -81,7 +82,8 @@ export default function Chat() {
         instructions: ''
       });
       setShowPrescriptionModal(false);
-      fetchMessages(activeConv.id, false);
+      await fetchMessages(activeConv.id, true);
+      fetchConversations();
     } catch (err) {
       console.error(err);
       alert(`Failed to send prescription: ${err.message}`);
@@ -323,13 +325,13 @@ export default function Chat() {
 
   const getAttachmentPreview = (path, name) => {
     if (!path) return null;
-    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(name || '');
-    const fullUrl = path;
+    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(name || path || '');
+    const fullUrl = resolveMediaUrl(path);
 
     if (isImage) {
       return (
         <div className="mt-2 rounded-lg overflow-hidden max-w-xs border border-outline-variant/30 shadow-sm bg-white">
-          <img src={fullUrl} alt={name || "Uploaded image"} className="max-h-48 w-auto object-contain cursor-pointer hover:opacity-95" onClick={() => window.open(fullUrl, '_blank')} />
+          <img src={fullUrl} alt={name || "Uploaded image"} className="max-h-48 w-auto object-contain cursor-pointer hover:opacity-95" onClick={() => window.open(fullUrl, '_blank', 'noopener,noreferrer')} />
         </div>
       );
     }
@@ -563,6 +565,7 @@ export default function Chat() {
                     <input 
                       key={fileInputKey}
                       type="file"
+                      accept=".pdf,.png,.jpg,.jpeg,.tiff,.doc,.docx,.txt,image/*"
                       className="hidden"
                       onChange={handleFileChange}
                     />

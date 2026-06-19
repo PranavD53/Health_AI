@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { resolveMediaUrl } from '../utils/apiConfig';
 import { useAuth } from '../context/AuthContext';
 
 export default function Settings() {
@@ -418,7 +419,7 @@ export default function Settings() {
                   </label>
                   {existingLicensePath && (
                     <p className="text-[10px] text-secondary font-bold mt-1">
-                      Current: <a href={existingLicensePath} target="_blank" rel="noopener noreferrer" className="hover:underline">View Active License Document</a>
+                      Current: <a href={resolveMediaUrl(existingLicensePath)} target="_blank" rel="noopener noreferrer" className="hover:underline">View Active License Document</a>
                     </p>
                   )}
                 </div>

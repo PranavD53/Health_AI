@@ -9,19 +9,45 @@ from dotenv import load_dotenv
 env_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
+def _normalize_db_url(url: str) -> str:
+    if url.startswith("postgres://"):
+        return url.replace("postgres://", "postgresql://", 1)
+    return url
+
+
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise RuntimeError("DATABASE_URL environment variable is missing. Supabase connection required.")
 
-# Normalize postgres URL schema for SQLAlchemy 1.4+
-if DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+DATABASE_URL = _normalize_db_url(DATABASE_URL)
 
-# For SQLite, check_same_thread: False is needed as FastAPI handles multiple requests in different threads
-if DATABASE_URL.startswith("sqlite"):
-    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
-else:
-    engine = create_engine(DATABASE_URL)
+# Direct connection (Supabase port 5432) — use for DDL/migrations when pooler is configured
+DIRECT_DATABASE_URL = os.getenv("DIRECT_DATABASE_URL")
+if DIRECT_DATABASE_URL:
+    DIRECT_DATABASE_URL = _normalize_db_url(DIRECT_DATABASE_URL)
+
+
+def _build_engine(url: str):
+    if url.startswith("sqlite"):
+        return create_engine(url, connect_args={"check_same_thread": False})
+    return create_engine(
+        url,
+        connect_args={"connect_timeout": 15},
+        pool_pre_ping=True,
+    )
+
+
+# Runtime engine (pooler / app traffic)
+engine = _build_engine(DATABASE_URL)
+
+
+def get_migration_engine():
+    """Engine for schema changes — prefers direct Postgres URL over transaction pooler."""
+    migration_url = DIRECT_DATABASE_URL or DATABASE_URL
+    if migration_url == DATABASE_URL:
+        return engine
+    return _build_engine(migration_url)
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
