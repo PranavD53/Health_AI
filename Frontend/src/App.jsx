@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { WebSocketProvider } from './context/WebSocketContext';
@@ -18,33 +18,70 @@ import MedicalRecords from './pages/MedicalRecords';
 import Settings from './pages/Settings';
 import Chat from './pages/Chat';
 
-function DashboardSwitch() {
+function DashboardRedirect() {
   const { user } = useAuth();
-  
-  if (!user) return null;
-  
-  if (user.role === 'patient') {
-    return <PatientDashboard />;
-  } else if (user.role === 'doctor') {
-    return <DoctorDashboard />;
-  } else if (user.role === 'admin') {
-    return <AdminDashboard />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'doctor') {
+    return <Navigate to={`/doctor/${user.doctor_profile_id}`} replace />;
   }
+  return <Navigate to={`/${user.role}/${user.id}`} replace />;
+}
+
+function PatientRoute() {
+  const { user } = useAuth();
+  const { id } = useParams();
   
-  return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  
+  if (user.role !== 'patient' || parseInt(id) !== user.id) {
+    return <Navigate to={`/${user.role}/${user.id}`} replace />;
+  }
+  return <PatientDashboard />;
+}
+
+function DoctorRoute() {
+  const { user } = useAuth();
+  const { id } = useParams();
+  
+  if (!user) return <Navigate to="/login" replace />;
+  
+  if (user.role !== 'doctor' || parseInt(id) !== user.doctor_profile_id) {
+    if (user.role === 'doctor') {
+      return <Navigate to={`/doctor/${user.doctor_profile_id}`} replace />;
+    }
+    return <Navigate to={`/${user.role}/${user.id}`} replace />;
+  }
+  return <DoctorDashboard />;
+}
+
+function AdminRoute() {
+  const { user } = useAuth();
+  const { id } = useParams();
+  
+  if (!user) return <Navigate to="/login" replace />;
+  
+  if (user.role !== 'admin' || parseInt(id) !== user.id) {
+    return <Navigate to={`/${user.role}/${user.id}`} replace />;
+  }
+  return <AdminDashboard />;
 }
 
 function AppointmentsRoute() {
   const { user } = useAuth();
-  if (!user) return null;
-  if (user.role === 'admin' || user.role === 'doctor') return <Navigate to="/dashboard" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'admin' || user.role === 'doctor') {
+    const targetId = user.role === 'doctor' ? user.doctor_profile_id : user.id;
+    return <Navigate to={`/${user.role}/${targetId}`} replace />;
+  }
   return <DoctorSearch />;
 }
 
 function RecordsRoute() {
   const { user } = useAuth();
-  if (!user) return null;
-  if (user.role === 'admin') return <Navigate to="/dashboard" replace />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'admin') {
+    return <Navigate to={`/${user.role}/${user.id}`} replace />;
+  }
   return <MedicalRecords />;
 }
 
@@ -61,15 +98,41 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/otp-verify" element={<OtpVerify />} />
 
-            {/* Protected routes wrapped in Layout */}
+            {/* Redirect /dashboard to the specific role dashboard */}
+            <Route path="/dashboard" element={<DashboardRedirect />} />
+
+            {/* Role specific ID dashboards */}
             <Route 
-              path="/dashboard" 
+              path="/patient/:id" 
               element={
                 <Layout>
-                  <DashboardSwitch />
+                  <PatientRoute />
                 </Layout>
               } 
             />
+            <Route 
+              path="/doctor/:id" 
+              element={
+                <Layout>
+                  <DoctorRoute />
+                </Layout>
+              } 
+            />
+            <Route 
+              path="/admin/:id" 
+              element={
+                <Layout>
+                  <AdminRoute />
+                </Layout>
+              } 
+            />
+
+            {/* Fallbacks if ID is missing */}
+            <Route path="/patient" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/doctor" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+
+            {/* Other routes */}
             <Route 
               path="/appointments" 
               element={
@@ -108,14 +171,16 @@ function App() {
             </Routes>
           </WebSocketProvider>
         </AuthProvider>
-    </Router>
+      </Router>
   </LanguageProvider>
   );
 }
 
 function PublicOrPrivateRedirect() {
   const { user } = useAuth();
-  return user ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />;
+  if (!user) return <Navigate to="/" replace />;
+  const targetId = user.role === 'doctor' ? user.doctor_profile_id : user.id;
+  return <Navigate to={`/${user.role}/${targetId}`} replace />;
 }
 
 export default App;

@@ -28,12 +28,11 @@ def override_get_db():
     finally:
         db.close()
 
-app.dependency_overrides[get_db] = override_get_db
-
 # Initialize client
 client = TestClient(app)
 
 def setup_module():
+    app.dependency_overrides[get_db] = override_get_db
     # Create tables
     Base.metadata.create_all(bind=engine)
     # Seed doctors table in testing DB
@@ -52,6 +51,8 @@ def setup_module():
     os.makedirs(uploads_dir, exist_ok=True)
 
 def teardown_module():
+    if get_db in app.dependency_overrides:
+        del app.dependency_overrides[get_db]
     # Drop tables and remove test DB
     try:
         Base.metadata.drop_all(bind=engine)
@@ -324,14 +325,31 @@ def test_healthcare_backend():
         assert "users" in admin_dash.json()
         print("[OK] Admin Dashboard successful")
 
-        # 19. Test Global Assistant Chat
+        # 19. Test Global Assistant Chat API
         print("Testing Global Assistant Chat API...")
         assist_resp = client.post("/ai/assistant", headers=patient_headers, json={
             "message": "Hello, find a doctor for me"
         })
         assert assist_resp.status_code == 200
-        assert "reply" in assist_resp.json()
-        assert "disclaimer" in assist_resp.json()
+        # Parse SSE data
+        response_text = assist_resp.text
+        if "data:" in response_text:
+            import json
+            data_json = None
+            for line in response_text.splitlines():
+                if line.startswith("data:"):
+                    try:
+                        parsed = json.loads(line.replace("data:", "").strip())
+                        if parsed.get("type") == "action":
+                            data_json = parsed
+                            break
+                    except Exception:
+                        pass
+            assert data_json is not None, f"Action response block not found in SSE stream: {response_text}"
+            assert "reply" in data_json
+            assert "disclaimer" in data_json
+        else:
+            assert "reply" in assist_resp.json()
         print("[OK] Global Assistant Chat successful")
 
         # 20. Test Admin Request, Approval, Rejection, and Deletion
@@ -345,24 +363,28 @@ def test_healthcare_backend():
         assert superadmin_login.status_code == 200, "Superadmin login failed"
         superadmin_headers = {"Authorization": f"Bearer {superadmin_login.json()['access_token']}"}
         
-        # Register a patient to promote
-        promo_patient_reg = client.post("/auth/register", json={
-            "email": "promo_patient@test.com",
+        # Register a doctor to promote (since patients cannot request admin)
+        promo_doctor_reg = client.post("/auth/register", json={
+            "email": "promo_doctor@test.com",
             "password": "password123",
-            "role": "patient"
+            "role": "doctor"
         })
-        assert promo_patient_reg.status_code == 201
-        promo_user_id = promo_patient_reg.json()["id"]
+        assert promo_doctor_reg.status_code == 201
+        promo_user_id = promo_doctor_reg.json()["id"]
         
         promo_login = client.post("/auth/login", json={
-            "email": "promo_patient@test.com",
+            "email": "promo_doctor@test.com",
             "password": "password123"
         })
         assert promo_login.status_code == 200
-        promo_patient_headers = {"Authorization": f"Bearer {promo_login.json()['access_token']}"}
+        promo_doctor_headers = {"Authorization": f"Bearer {promo_login.json()['access_token']}"}
         
-        # 1. Patient requests admin promotion
-        req_promo_resp = client.post("/auth/request-admin", headers=promo_patient_headers)
+        # Patient attempts to request admin -> should fail with 403
+        req_promo_fail = client.post("/auth/request-admin", headers=patient_headers)
+        assert req_promo_fail.status_code == 403
+        
+        # 1. Doctor requests admin promotion
+        req_promo_resp = client.post("/auth/request-admin", headers=promo_doctor_headers)
         assert req_promo_resp.status_code == 200
         assert req_promo_resp.json()["status"] == "success"
         
@@ -383,7 +405,7 @@ def test_healthcare_backend():
         assert promo_user_data2["admin_requested"] is False
         
         # 3. Request again and Approve request by superadmin
-        req_promo_resp2 = client.post("/auth/request-admin", headers=promo_patient_headers)
+        req_promo_resp2 = client.post("/auth/request-admin", headers=promo_doctor_headers)
         assert req_promo_resp2.status_code == 200
         
         approve_promo_resp = client.post(f"/auth/admin/approve-admin/{promo_user_id}", headers=superadmin_headers)

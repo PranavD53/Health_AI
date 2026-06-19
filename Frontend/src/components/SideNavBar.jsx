@@ -57,9 +57,10 @@ export default function SideNavBar() {
   const handleRoleSwitch = async () => {
     setSwitching(true);
     try {
-      await api.switchRole();
+      const res = await api.switchRole();
       await checkAuth();
-      window.location.href = '/dashboard';
+      const targetId = res.role === 'doctor' ? res.doctor_profile_id : user.id;
+      window.location.href = `/${res.role}/${targetId}`;
     } catch (err) {
       alert("Failed to switch role: " + err.message);
     } finally {
@@ -94,7 +95,7 @@ export default function SideNavBar() {
           {/* Patient navigation links */}
           {user?.role === 'patient' && (
             <>
-              <Link to="/dashboard" className={getLinkClass('/dashboard')}>
+              <Link to={`/patient/${user.id}`} className={getLinkClass(`/patient/${user.id}`)}>
                 <span className="material-symbols-outlined">dashboard</span>
                 <span className="text-label-md">{t('dashboard')}</span>
               </Link>
@@ -120,7 +121,7 @@ export default function SideNavBar() {
           {/* Doctor navigation links */}
           {user?.role === 'doctor' && (
             <>
-              <Link to="/dashboard" className={getLinkClass('/dashboard')}>
+              <Link to={`/doctor/${user.doctor_profile_id}`} className={getLinkClass(`/doctor/${user.doctor_profile_id}`)}>
                 <span className="material-symbols-outlined">dashboard</span>
                 <span className="text-label-md">{t('workspace')}</span>
                 {activeAlertsCount > 0 && (
@@ -143,7 +144,7 @@ export default function SideNavBar() {
           {/* Admin navigation links */}
           {user?.role === 'admin' && (
             <>
-              <Link to="/dashboard" className={getLinkClass('/dashboard')}>
+              <Link to={`/admin/${user.id}`} className={getLinkClass(`/admin/${user.id}`)}>
                 <span className="material-symbols-outlined">admin_panel_settings</span>
                 <span className="text-label-md">{t('adminPortal')}</span>
               </Link>
@@ -181,7 +182,9 @@ export default function SideNavBar() {
             >
               <span className="material-symbols-outlined">swap_horiz</span>
               <span className="text-label-md">
-                {switching ? 'Switching...' : user.role === 'admin' ? t('switchToUser') : t('switchToAdmin')}
+                {switching ? 'Switching...' : user.role === 'admin' 
+                  ? (user.base_role === 'doctor' ? t('switchToDoctor') : user.base_role === 'caregiver' ? t('switchToCaregiver') : t('switchToUser')) 
+                  : t('switchToAdmin')}
               </span>
             </button>
           )}

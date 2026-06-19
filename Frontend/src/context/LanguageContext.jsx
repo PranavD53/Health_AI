@@ -22,6 +22,8 @@ export const translations = {
     sosSending: "Activating Emergency...",
     switchToAdmin: "Switch to Admin Mode",
     switchToUser: "Switch to User Mode",
+    switchToDoctor: "Switch to Doctor Mode",
+    switchToCaregiver: "Switch to Caregiver Mode",
     
     // Patient Dashboard
     welcomeBack: "Welcome back,",
@@ -104,6 +106,8 @@ export const translations = {
     sosSending: "एसओएस सक्रिय किया जा रहा है...",
     switchToAdmin: "एडमिन मोड में जाएं",
     switchToUser: "यूज़र मोड में जाएं",
+    switchToDoctor: "डॉक्टर मोड में जाएं",
+    switchToCaregiver: "केयरगिवर मोड में जाएं",
     
     // Patient Dashboard
     welcomeBack: "आपका स्वागत है,",
@@ -186,6 +190,8 @@ export const translations = {
     sosSending: "SOS పంపుతోంది...",
     switchToAdmin: "అడ్మిన్ మోడ్‌కు మారండి",
     switchToUser: "యూజర్ మోడ్‌కు మారండి",
+    switchToDoctor: "డాక్టర్ మోడ్‌కు మారండి",
+    switchToCaregiver: "కేర్‌గివర్ మోడ్‌కు మారండి",
     
     // Patient Dashboard
     welcomeBack: "స్వాగతం,",
