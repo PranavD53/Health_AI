@@ -18,8 +18,15 @@ import MedicalRecords from './pages/MedicalRecords';
 import Settings from './pages/Settings';
 import Chat from './pages/Chat';
 
+const LoadingScreen = () => (
+  <div className="flex justify-center items-center h-screen bg-surface">
+    <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
+
 function DashboardRedirect() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'doctor') {
     return <Navigate to={`/doctor/${user.doctor_profile_id}`} replace />;
@@ -28,9 +35,10 @@ function DashboardRedirect() {
 }
 
 function PatientRoute() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { id } = useParams();
   
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   
   if (user.role !== 'patient' || parseInt(id) !== user.id) {
@@ -40,9 +48,10 @@ function PatientRoute() {
 }
 
 function DoctorRoute() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { id } = useParams();
   
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   
   if (user.role !== 'doctor' || parseInt(id) !== user.doctor_profile_id) {
@@ -55,9 +64,10 @@ function DoctorRoute() {
 }
 
 function AdminRoute() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { id } = useParams();
   
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   
   if (user.role !== 'admin' || parseInt(id) !== user.id) {
@@ -67,7 +77,8 @@ function AdminRoute() {
 }
 
 function AppointmentsRoute() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'admin' || user.role === 'doctor') {
     const targetId = user.role === 'doctor' ? user.doctor_profile_id : user.id;
@@ -77,7 +88,8 @@ function AppointmentsRoute() {
 }
 
 function RecordsRoute() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'admin') {
     return <Navigate to={`/${user.role}/${user.id}`} replace />;
