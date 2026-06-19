@@ -1,69 +1,50 @@
 import os
 import sys
-from dotenv import load_dotenv
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from sqlalchemy import text
-from sqlalchemy.orm import Session
 
-# Load env before importing database components
-load_dotenv()
+from app.database import engine, get_migration_engine
+from app.migrations import ensure_schema
 
-# Add current directory to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from app.database import engine, SessionLocal
-from app import models
 
 def main():
-    print("Connecting to database...")
     db_url = os.getenv("DATABASE_URL", "")
-    print(f"DATABASE_URL: {db_url[:40]}...")
-    
+    print(f"DATABASE_URL host: {db_url.split('@')[-1] if '@' in db_url else '(not set)'}")
+
+    direct = os.getenv("DIRECT_DATABASE_URL")
+    if direct:
+        print(f"DIRECT_DATABASE_URL host: {direct.split('@')[-1]}")
+    else:
+        print("DIRECT_DATABASE_URL: not set (using DATABASE_URL for migrations)")
+
     try:
-        # Check connection
         with engine.connect() as conn:
-            print("Successfully connected to Supabase database!")
-            
-            # Verify and count table records
-            for table in ["users", "doctors", "doctor_verifications", "patient_profiles", "appointments", "symptom_logs"]:
-                try:
-                    res = conn.execute(text(f"SELECT COUNT(*) FROM {table}"))
-                    count = res.scalar()
-                    print(f"Table '{table}' exists: count = {count}")
-                except Exception as e:
-                    print(f"Table '{table}' does not exist or failed: {e}")
-                    
-            # Let's check user columns
+            print("Successfully connected to database.")
+    except Exception as exc:
+        print(f"Database connection failed: {exc}")
+        sys.exit(1)
+
+    result = ensure_schema(engine=get_migration_engine())
+
+    print("\n--- Table row counts ---")
+    tables = [
+        "users", "doctors", "doctor_verifications", "patient_profiles",
+        "appointments", "symptom_logs", "medical_records", "private_conversations",
+        "private_messages", "notifications", "emergency_alerts", "complaints",
+    ]
+    with engine.connect() as conn:
+        for table in tables:
             try:
-                res = conn.execute(text("SELECT id, email, role, is_active, admin_requested FROM users LIMIT 1"))
-                row = res.fetchone()
-                print(f"User table columns check: {row}")
-            except Exception as e:
-                print(f"Failed to query User columns: {e}")
-                
-            # Let's run migrations manually to make sure
-            print("Ensuring all columns exist...")
-            migrations = [
-                ("users", "otp", "VARCHAR"),
-                ("users", "is_verified", "BOOLEAN DEFAULT FALSE"),
-                ("users", "admin_requested", "BOOLEAN DEFAULT FALSE"),
-                ("patient_profiles", "address", "TEXT"),
-                ("patient_profiles", "profile_picture", "VARCHAR"),
-                ("doctors", "address", "TEXT"),
-                ("doctors", "profile_picture", "VARCHAR"),
-                ("doctors", "license_document_path", "VARCHAR"),
-                ("doctors", "license_number", "VARCHAR"),
-                ("doctors", "user_id", "INTEGER REFERENCES users(id) ON DELETE SET NULL"),
-            ]
-            
-            for table, col, col_type in migrations:
-                try:
-                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type};"))
-                    print(f"Executed: ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type};")
-                except Exception as e:
-                    print(f"Error adding {col} to {table}: {e}")
-            
-    except Exception as e:
-        print(f"Database connection failed: {e}")
+                count = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar()
+                print(f"  {table}: {count} rows")
+            except Exception as exc:
+                print(f"  {table}: MISSING or error ({exc})")
+
+    if result.get("failed"):
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

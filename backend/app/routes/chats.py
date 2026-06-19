@@ -299,11 +299,14 @@ async def send_message(
     ).first()
     if not conv:
         raise HTTPException(status_code=403, detail="Not a participant in this conversation")
+
+    if not (content and content.strip()) and (not file or not file.filename):
+        raise HTTPException(status_code=400, detail="Message content or file attachment is required")
         
     attachment_path = None
     attachment_name = None
     
-    if file:
+    if file and file.filename:
         # Create uploads directory if not exists
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         uploads_dir = os.path.join(base_dir, "uploads")

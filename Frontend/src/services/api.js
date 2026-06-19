@@ -1,3 +1,7 @@
+import { resolveApiUrl } from '../utils/apiConfig';
+
+const apiFetch = (path, options = {}) => fetch(resolveApiUrl(path), options);
+
 const getHeaders = (isMultipart = false) => {
   const token = localStorage.getItem('access_token');
   const headers = {};
@@ -56,7 +60,7 @@ const handleResponse = async (response) => {
 export const api = {
   // Auth endpoints
   login: async (email, password) => {
-    const res = await fetch('/auth/login', {
+    const res = await apiFetch('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -70,7 +74,7 @@ export const api = {
   },
 
   register: async (email, password, role) => {
-    const res = await fetch('/auth/register', {
+    const res = await apiFetch('/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, role })
@@ -79,7 +83,7 @@ export const api = {
   },
 
   verifyOtp: async (email, otp) => {
-    const res = await fetch('/auth/verify-otp', {
+    const res = await apiFetch('/auth/verify-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp })
@@ -94,7 +98,7 @@ export const api = {
 
   logout: async () => {
     try {
-      await fetch('/auth/logout', {
+      await apiFetch('/auth/logout', {
         method: 'POST',
         headers: getHeaders()
       });
@@ -108,7 +112,7 @@ export const api = {
   },
 
   getMe: async () => {
-    const res = await fetch('/auth/me', {
+    const res = await apiFetch('/auth/me', {
       method: 'GET',
       headers: getHeaders()
     });
@@ -116,7 +120,7 @@ export const api = {
   },
 
   toggleUserStatus: async (userId, isActive) => {
-    const res = await fetch('/auth/toggle-status', {
+    const res = await apiFetch('/auth/toggle-status', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ user_id: userId, is_active: isActive })
@@ -127,7 +131,7 @@ export const api = {
   // Profile endpoints
   getProfile: async (patientUserId = null) => {
     const url = patientUserId ? `/profile?patient_user_id=${patientUserId}` : '/profile';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: 'GET',
       headers: getHeaders()
     });
@@ -135,7 +139,7 @@ export const api = {
   },
 
   createProfile: async (profileData) => {
-    const res = await fetch('/profile', {
+    const res = await apiFetch('/profile', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(profileData)
@@ -144,7 +148,7 @@ export const api = {
   },
 
   updateProfile: async (profileData) => {
-    const res = await fetch('/profile', {
+    const res = await apiFetch('/profile', {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(profileData)
@@ -154,7 +158,7 @@ export const api = {
 
   // Doctor Registration
   registerDoctor: async (formData) => {
-    const res = await fetch('/doctors/register', {
+    const res = await apiFetch('/doctors/register', {
       method: 'POST',
       headers: getHeaders(true),
       body: formData
@@ -163,7 +167,7 @@ export const api = {
   },
 
   updateDoctorProfile: async (formData) => {
-    const res = await fetch('/doctors/profile', {
+    const res = await apiFetch('/doctors/profile', {
       method: 'PUT',
       headers: getHeaders(true),
       body: formData
@@ -173,7 +177,7 @@ export const api = {
 
   getDoctors: async (specialization = '') => {
     const url = specialization ? `/doctors?specialization=${specialization}` : '/doctors';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: 'GET',
       headers: getHeaders()
     });
@@ -181,7 +185,7 @@ export const api = {
   },
 
   getPatientDashboard: async (lang = 'en') => {
-    const res = await fetch(`/dashboard-data?lang=${lang}`, {
+    const res = await apiFetch(`/dashboard-data?lang=${lang}`, {
       method: 'GET',
       headers: getHeaders()
     });
@@ -189,7 +193,7 @@ export const api = {
   },
 
   getDoctorDashboard: async () => {
-    const res = await fetch('/doctor/dashboard', {
+    const res = await apiFetch('/doctor/dashboard', {
       method: 'GET',
       headers: getHeaders()
     });
@@ -197,7 +201,7 @@ export const api = {
   },
 
   getAdminDashboard: async () => {
-    const res = await fetch('/admin/dashboard', {
+    const res = await apiFetch('/admin/dashboard', {
       method: 'GET',
       headers: getHeaders()
     });
@@ -205,7 +209,7 @@ export const api = {
   },
 
   verifyDoctor: async (id, status) => {
-    const res = await fetch(`/admin/verify-doctor/${id}`, {
+    const res = await apiFetch(`/admin/verify-doctor/${id}`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ status })
@@ -215,7 +219,7 @@ export const api = {
 
   // Emergency SOS endpoints
   triggerSOS: async () => {
-    const res = await fetch('/emergency/sos', {
+    const res = await apiFetch('/emergency/sos', {
       method: 'POST',
       headers: getHeaders()
     });
@@ -223,7 +227,7 @@ export const api = {
   },
 
   getEmergencyAlerts: async () => {
-    const res = await fetch('/emergency/alerts', {
+    const res = await apiFetch('/emergency/alerts', {
       method: 'GET',
       headers: getHeaders()
     });
@@ -231,7 +235,7 @@ export const api = {
   },
 
   resolveEmergencyAlert: async (id) => {
-    const res = await fetch(`/emergency/resolve/${id}`, {
+    const res = await apiFetch(`/emergency/resolve/${id}`, {
       method: 'POST',
       headers: getHeaders()
     });
@@ -240,7 +244,7 @@ export const api = {
 
   // Complaints
   submitComplaint: async (message) => {
-    const res = await fetch('/ai/complaint', {
+    const res = await apiFetch('/ai/complaint', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ message })
@@ -249,7 +253,7 @@ export const api = {
   },
 
   getComplaints: async () => {
-    const res = await fetch('/admin/complaints', {
+    const res = await apiFetch('/admin/complaints', {
       method: 'GET',
       headers: getHeaders()
     });
@@ -257,7 +261,7 @@ export const api = {
   },
 
   resolveComplaint: async (id) => {
-    const res = await fetch(`/admin/complaints/resolve/${id}`, {
+    const res = await apiFetch(`/admin/complaints/resolve/${id}`, {
       method: 'POST',
       headers: getHeaders()
     });
@@ -267,7 +271,7 @@ export const api = {
   // Appointments
   getAppointments: async (specialization = '') => {
     const url = specialization ? `/appointment/available-doctors?specialization=${specialization}` : '/appointment/available-doctors';
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method: 'GET',
       headers: getHeaders()
     });
@@ -275,7 +279,7 @@ export const api = {
   },
 
   getMyAppointments: async () => {
-    const res = await fetch('/appointment/my-appointments', {
+    const res = await apiFetch('/appointment/my-appointments', {
       method: 'GET',
       headers: getHeaders()
     });
@@ -283,7 +287,7 @@ export const api = {
   },
 
   bookAppointment: async (doctorId, date, time) => {
-    const res = await fetch('/appointment/book', {
+    const res = await apiFetch('/appointment/book', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ doctor_id: doctorId, date, time })
@@ -292,7 +296,7 @@ export const api = {
   },
 
   cancelAppointment: async (id) => {
-    const res = await fetch(`/appointment/cancel/${id}`, {
+    const res = await apiFetch(`/appointment/cancel/${id}`, {
       method: 'DELETE',
       headers: getHeaders()
     });
@@ -300,7 +304,7 @@ export const api = {
   },
 
   deleteAppointment: async (id) => {
-    const res = await fetch(`/appointment/delete/${id}`, {
+    const res = await apiFetch(`/appointment/delete/${id}`, {
       method: 'DELETE',
       headers: getHeaders()
     });
@@ -309,7 +313,7 @@ export const api = {
 
   // Medical Records
   getRecords: async () => {
-    const res = await fetch('/records/my-records', {
+    const res = await apiFetch('/records/my-records', {
       method: 'GET',
       headers: getHeaders()
     });
@@ -317,7 +321,7 @@ export const api = {
   },
 
   uploadRecord: async (formData) => {
-    const res = await fetch('/records/upload', {
+    const res = await apiFetch('/records/upload', {
       method: 'POST',
       headers: getHeaders(true),
       body: formData
@@ -332,7 +336,7 @@ export const api = {
     if (hfKey) payload.hf_key = hfKey;
     if (language) payload.language = language;
     
-    const res = await fetch('/ai/assistant', {
+    const res = await apiFetch('/ai/assistant', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(payload)
@@ -378,7 +382,7 @@ export const api = {
 
   // AI Symptom analysis
   analyzeSymptom: async (symptoms, duration, severity) => {
-    const res = await fetch('/ai/symptom-check', {
+    const res = await apiFetch('/ai/symptom-check', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ symptoms, duration, severity })
@@ -388,7 +392,7 @@ export const api = {
 
   // Password Recovery Flow
   forgotPassword: async (email) => {
-    const res = await fetch('/auth/forgot-password', {
+    const res = await apiFetch('/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
@@ -397,7 +401,7 @@ export const api = {
   },
 
   forgotPasswordVerify: async (email, otp) => {
-    const res = await fetch('/auth/forgot-password-verify', {
+    const res = await apiFetch('/auth/forgot-password-verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, otp })
@@ -412,7 +416,7 @@ export const api = {
 
   // Admin promotions & request
   requestAdmin: async () => {
-    const res = await fetch('/auth/request-admin', {
+    const res = await apiFetch('/auth/request-admin', {
       method: 'POST',
       headers: getHeaders()
     });
@@ -420,7 +424,7 @@ export const api = {
   },
 
   approveAdmin: async (userId) => {
-    const res = await fetch(`/auth/admin/approve-admin/${userId}`, {
+    const res = await apiFetch(`/auth/admin/approve-admin/${userId}`, {
       method: 'POST',
       headers: getHeaders()
     });
@@ -428,7 +432,7 @@ export const api = {
   },
 
   rejectAdmin: async (userId) => {
-    const res = await fetch(`/auth/admin/reject-admin/${userId}`, {
+    const res = await apiFetch(`/auth/admin/reject-admin/${userId}`, {
       method: 'POST',
       headers: getHeaders()
     });
@@ -437,7 +441,7 @@ export const api = {
 
   // Cascade delete user history
   deleteUser: async (userId) => {
-    const res = await fetch(`/auth/admin/users/${userId}`, {
+    const res = await apiFetch(`/auth/admin/users/${userId}`, {
       method: 'DELETE',
       headers: getHeaders()
     });
@@ -445,7 +449,7 @@ export const api = {
   },
 
   resendOtp: async (email) => {
-    const res = await fetch('/auth/resend-otp', {
+    const res = await apiFetch('/auth/resend-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
@@ -454,7 +458,7 @@ export const api = {
   },
 
   switchRole: async () => {
-    const res = await fetch('/auth/switch-role', {
+    const res = await apiFetch('/auth/switch-role', {
       method: 'POST',
       headers: getHeaders()
     });
@@ -464,7 +468,7 @@ export const api = {
   },
 
   getContacts: async () => {
-    const res = await fetch('/chats/contacts', {
+    const res = await apiFetch('/chats/contacts', {
       method: 'GET',
       headers: getHeaders()
     });
@@ -472,7 +476,7 @@ export const api = {
   },
 
   getConversations: async () => {
-    const res = await fetch('/chats/conversations', {
+    const res = await apiFetch('/chats/conversations', {
       method: 'GET',
       headers: getHeaders()
     });
@@ -480,7 +484,7 @@ export const api = {
   },
 
   getChatMessages: async (conversationId) => {
-    const res = await fetch(`/chats/conversations/${conversationId}/messages`, {
+    const res = await apiFetch(`/chats/conversations/${conversationId}/messages`, {
       method: 'GET',
       headers: getHeaders()
     });
@@ -488,7 +492,7 @@ export const api = {
   },
 
   startConversation: async (targetUserId) => {
-    const res = await fetch('/chats/conversations/start', {
+    const res = await apiFetch('/chats/conversations/start', {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ target_user_id: targetUserId })
@@ -497,7 +501,7 @@ export const api = {
   },
 
   sendChatMessage: async (conversationId, formData) => {
-    const res = await fetch(`/chats/conversations/${conversationId}/send`, {
+    const res = await apiFetch(`/chats/conversations/${conversationId}/send`, {
       method: 'POST',
       headers: getHeaders(true),
       body: formData
@@ -506,7 +510,7 @@ export const api = {
   },
 
   deleteConversation: async (conversationId) => {
-    const res = await fetch(`/chats/conversations/${conversationId}`, {
+    const res = await apiFetch(`/chats/conversations/${conversationId}`, {
       method: 'DELETE',
       headers: getHeaders()
     });
@@ -514,7 +518,7 @@ export const api = {
   },
 
   deleteMessage: async (conversationId, messageId) => {
-    const res = await fetch(`/chats/conversations/${conversationId}/messages/${messageId}`, {
+    const res = await apiFetch(`/chats/conversations/${conversationId}/messages/${messageId}`, {
       method: 'DELETE',
       headers: getHeaders()
     });
@@ -522,7 +526,7 @@ export const api = {
   },
 
   getNotifications: async () => {
-    const res = await fetch('/chats/notifications', {
+    const res = await apiFetch('/chats/notifications', {
       method: 'GET',
       headers: getHeaders()
     });
@@ -530,7 +534,7 @@ export const api = {
   },
 
   markNotificationRead: async (notificationId) => {
-    const res = await fetch(`/chats/notifications/${notificationId}/read`, {
+    const res = await apiFetch(`/chats/notifications/${notificationId}/read`, {
       method: 'POST',
       headers: getHeaders()
     });
@@ -538,7 +542,7 @@ export const api = {
   },
 
   markAllNotificationsRead: async () => {
-    const res = await fetch('/chats/notifications/read-all', {
+    const res = await apiFetch('/chats/notifications/read-all', {
       method: 'POST',
       headers: getHeaders()
     });
@@ -546,7 +550,7 @@ export const api = {
   },
 
   sendPrescription: async (conversationId, prescriptionData) => {
-    const res = await fetch(`/chats/conversations/${conversationId}/prescription`, {
+    const res = await apiFetch(`/chats/conversations/${conversationId}/prescription`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify(prescriptionData)
@@ -555,7 +559,7 @@ export const api = {
   },
 
   analyzeRecord: async (recordId) => {
-    const res = await fetch(`/records/${recordId}/analyze`, {
+    const res = await apiFetch(`/records/${recordId}/analyze`, {
       method: 'POST',
       headers: getHeaders()
     });
@@ -563,7 +567,7 @@ export const api = {
   },
 
   deleteRecord: async (recordId) => {
-    const res = await fetch(`/records/${recordId}`, {
+    const res = await apiFetch(`/records/${recordId}`, {
       method: 'DELETE',
       headers: getHeaders()
     });

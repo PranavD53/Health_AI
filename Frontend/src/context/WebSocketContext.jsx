@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useAuth } from './AuthContext';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
 const WebSocketContext = createContext(null);
 
@@ -11,14 +12,10 @@ export function WebSocketProvider({ children }) {
   const subscribersRef = useRef([]);
 
   const connect = () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('access_token');
     if (!token || !user) return;
 
-    // Use wss:// for https://, ws:// for http://
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // If running Vite dev server, we usually proxy. However WebSocket needs absolute URL or relative WS URL
-    // We'll use the API base URL but change protocol.
-    const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const apiBase = getApiBaseUrl() || `${window.location.protocol}//${window.location.host}`;
     const wsUrl = apiBase.replace(/^http/, 'ws') + `/ws?token=${token}`;
 
     const socket = new WebSocket(wsUrl);
@@ -46,7 +43,7 @@ export function WebSocketProvider({ children }) {
       setIsConnected(false);
       setWs(null);
       // Reconnect after 3 seconds if user is still logged in
-      if (localStorage.getItem('token')) {
+      if (localStorage.getItem('access_token')) {
         reconnectTimeoutRef.current = setTimeout(connect, 3000);
       }
     };

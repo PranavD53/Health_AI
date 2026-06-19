@@ -10,6 +10,7 @@ from pydantic import BaseModel
 import httpx
 
 from app.database import engine, Base, get_db
+from app.migrations import ensure_schema
 from app import models
 from app.routes import auth, profile, symptoms, doctors, appointments, records, dashboard, chats
 from app.routes.auth import get_current_user, require_role, log_action
@@ -44,10 +45,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-if os.path.isdir(FRONTEND_DIR):
-    app.mount("/frontend", StaticFiles(directory=FRONTEND_DIR), name="frontend")
-app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
-
 # --- CORS Middleware ---
 app.add_middleware(
     CORSMiddleware,
@@ -57,55 +54,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def run_migrations():
-    from sqlalchemy import text
-    db_url = os.getenv("DATABASE_URL", "")
-    is_sqlite = "sqlite" in db_url or not db_url
-    
-    migrations = [
-        # users
-        ("users", "otp", "VARCHAR"),
-        ("users", "is_verified", "BOOLEAN DEFAULT FALSE"),
-        ("users", "admin_requested", "BOOLEAN DEFAULT FALSE"),
-        ("users", "has_admin_permission", "BOOLEAN DEFAULT FALSE"),
-        ("users", "base_role", "VARCHAR DEFAULT 'patient'"),
-        # patient_profiles
-        ("patient_profiles", "address", "TEXT"),
-        ("patient_profiles", "profile_picture", "VARCHAR"),
-        # doctors
-        ("doctors", "address", "TEXT"),
-        ("doctors", "profile_picture", "VARCHAR"),
-        ("doctors", "license_document_path", "VARCHAR"),
-        ("doctors", "license_number", "VARCHAR"),
-        ("doctors", "user_id", "INTEGER REFERENCES users(id) ON DELETE SET NULL" if not is_sqlite else "INTEGER"),
-        # medical_records
-        ("medical_records", "fraud_status", "VARCHAR DEFAULT 'VERIFIED (Authentic)'"),
-    ]
-
-    print("Running database migrations for existing tables...")
-    try:
-        with engine.begin() as conn:
-            for table, col, col_type in migrations:
-                try:
-                    if is_sqlite:
-                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type};"))
-                        print(f"Migration: Added column {col} to {table} (SQLite)")
-                    else:
-                        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type};"))
-                        print(f"Migration: Ensured column {col} exists in {table} (Postgres)")
-                except Exception as e:
-                    # Ignore errors (column probably already exists)
-                    pass
-    except Exception as e:
-        print(f"Migration error: {e}")
-
 # --- Startup Event to Initialize and Seed DB ---
 @app.on_event("startup")
 def startup_db_setup():
-    # Run migrations to verify database schema matches model updates
-    run_migrations()
-    # Automatically create tables if they do not exist
-    Base.metadata.create_all(bind=engine)
+    ensure_schema()
     # Seed the doctors table
     db = next(get_db())
     try:
@@ -208,6 +160,10 @@ app.include_router(appointments.router)
 app.include_router(records.router)
 app.include_router(dashboard.router)
 app.include_router(chats.router)
+
+if os.path.isdir(FRONTEND_DIR):
+    app.mount("/frontend", StaticFiles(directory=FRONTEND_DIR), name="frontend")
+app.mount("/uploads", StaticFiles(directory=UPLOADS_DIR), name="uploads")
 
 
 @app.get("/", include_in_schema=False)

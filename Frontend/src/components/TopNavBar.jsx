@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { api } from '../services/api';
+import { resolveMediaUrl } from '../utils/apiConfig';
 
 export default function TopNavBar() {
   const { currentLanguage, setCurrentLanguage, t } = useLanguage();
@@ -337,7 +338,7 @@ export default function TopNavBar() {
               {profileData?.profile_picture ? (
                 <img 
                   alt="Profile" 
-                  src={profileData.profile_picture} 
+                  src={resolveMediaUrl(profileData.profile_picture)} 
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -378,7 +379,7 @@ export default function TopNavBar() {
                       {profileData?.profile_picture ? (
                         <img 
                           alt="Avatar" 
-                          src={profileData.profile_picture} 
+                          src={resolveMediaUrl(profileData.profile_picture)} 
                           className="w-full h-full object-cover"
                         />
                       ) : (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { resolveMediaUrl } from '../utils/apiConfig';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function MedicalRecords() {
@@ -188,7 +189,7 @@ export default function MedicalRecords() {
                       )}
 
                       <a 
-                        href={record.file_path} 
+                        href={resolveMediaUrl(record.file_path)} 
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-3.5 py-1.5 bg-secondary hover:bg-secondary/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm"
