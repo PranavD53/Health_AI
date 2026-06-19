@@ -489,7 +489,7 @@ export default function Settings() {
         </form>
       </div>
 
-      {user?.role !== 'admin' && (
+      {user?.role !== 'admin' && user?.role !== 'patient' && !user?.has_admin_permission && (
         <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm overflow-hidden p-lg mt-xl">
           <h3 className="text-on-surface font-title-lg text-title-lg mb-xs">Elevate Account Privileges</h3>
           <p className="text-on-surface-variant font-body-md text-body-md mb-lg">

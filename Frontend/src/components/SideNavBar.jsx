@@ -181,7 +181,9 @@ export default function SideNavBar() {
             >
               <span className="material-symbols-outlined">swap_horiz</span>
               <span className="text-label-md">
-                {switching ? 'Switching...' : user.role === 'admin' ? t('switchToUser') : t('switchToAdmin')}
+                {switching ? 'Switching...' : user.role === 'admin' 
+                  ? (user.base_role === 'doctor' ? t('switchToDoctor') : user.base_role === 'caregiver' ? t('switchToCaregiver') : t('switchToUser')) 
+                  : t('switchToAdmin')}
               </span>
             </button>
           )}

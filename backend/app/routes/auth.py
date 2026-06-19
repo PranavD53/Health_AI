@@ -542,6 +542,8 @@ def request_admin(current_user: models.User = Depends(get_current_user), db: Ses
     try:
         if current_user.role == "admin":
             raise HTTPException(status_code=400, detail="User is already an admin")
+        if current_user.base_role == "patient" or current_user.role == "patient":
+            raise HTTPException(status_code=403, detail="Patients are not allowed to request admin permissions")
         
         current_user.admin_requested = True
         
@@ -579,6 +581,9 @@ def approve_admin(
         user = db.query(models.User).filter(models.User.id == user_id).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+        
+        if user.base_role == "patient" or user.role == "patient":
+            raise HTTPException(status_code=400, detail="Patients cannot be promoted to admin")
         
         user.has_admin_permission = True
         user.role = "admin"
@@ -692,6 +697,9 @@ def delete_user(
 def switch_role(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
     if not current_user.has_admin_permission:
         raise HTTPException(status_code=403, detail="You do not have admin permissions.")
+    
+    if current_user.base_role == "patient" or current_user.role == "patient":
+        raise HTTPException(status_code=403, detail="Patients are not allowed to switch roles to admin")
     
     if current_user.role == "admin":
         # Switch back to base role
