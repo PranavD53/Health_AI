@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
@@ -11,6 +11,12 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Input Refs for focusing
+  const emailInputRef = useRef(null);
+  const passwordInputRef = useRef(null);
+  const forgotEmailInputRef = useRef(null);
+  const forgotOtpInputRef = useRef(null);
 
   // Forgot Password States
   const [showForgot, setShowForgot] = useState(false);
@@ -152,9 +158,11 @@ export default function Login() {
                 <form onSubmit={handleRequestForgotOtp} className="space-y-lg">
                   <div className="space-y-xs">
                     <label className="text-label-md font-label-md text-on-surface ml-unit">Email Address</label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">mail</span>
+                    <div className="relative cursor-text" onClick={() => forgotEmailInputRef.current?.focus()}>
+                      <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline select-none">mail</span>
                       <input 
+                        ref={forgotEmailInputRef}
+                        autoFocus
                         required
                         type="email" 
                         value={forgotEmail}
@@ -184,9 +192,11 @@ export default function Login() {
                 <form onSubmit={handleVerifyForgotOtp} className="space-y-lg">
                   <div className="space-y-xs">
                     <label className="text-label-md font-label-md text-on-surface ml-unit">Verification OTP Code</label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">key</span>
+                    <div className="relative cursor-text" onClick={() => forgotOtpInputRef.current?.focus()}>
+                      <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline select-none">key</span>
                       <input 
+                        ref={forgotOtpInputRef}
+                        autoFocus
                         required
                         type="text" 
                         maxLength="6"
@@ -249,9 +259,11 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-lg">
             <div className="space-y-xs">
               <label className="text-label-md font-label-md text-on-surface ml-unit">Email Address</label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">mail</span>
+              <div className="relative cursor-text" onClick={() => emailInputRef.current?.focus()}>
+                <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline select-none">mail</span>
                 <input 
+                  ref={emailInputRef}
+                  autoFocus
                   required
                   type="email" 
                   value={email}
@@ -273,9 +285,14 @@ export default function Login() {
                   Forgot Password?
                 </button>
               </div>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline">lock</span>
+              <div className="relative cursor-text" onClick={(e) => {
+                if (!e.target.closest('button')) {
+                  passwordInputRef.current?.focus();
+                }
+              }}>
+                <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline select-none">lock</span>
                 <input 
+                  ref={passwordInputRef}
                   required
                   type={showPassword ? "text" : "password"} 
                   value={password}
@@ -288,7 +305,7 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-md top-1/2 -translate-y-1/2 text-outline hover:text-on-surface focus:outline-none flex items-center"
                 >
-                  <span className="material-symbols-outlined text-lg">
+                  <span className="material-symbols-outlined text-lg select-none">
                     {showPassword ? "visibility_off" : "visibility"}
                   </span>
                 </button>

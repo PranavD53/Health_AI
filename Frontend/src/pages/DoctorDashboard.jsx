@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -7,12 +8,41 @@ import { useWebSocket } from '../context/WebSocketContext';
 export default function DoctorDashboard() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [activeSOS, setActiveSOS] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  
+  // Interactivity state & refs
+  const [filterType, setFilterType] = useState('all'); // 'all', 'today', 'pending'
+  const patientsSectionRef = useRef(null);
+  const feedbackSectionRef = useRef(null);
+
+  const scrollToSection = (ref) => {
+    ref.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handlePatientClick = (patientUserId) => {
+    navigate('/chat', { state: { selectUserId: patientUserId } });
+  };
+
+  const getFilteredAppointments = () => {
+    if (!dashboardData || !dashboardData.upcoming_appointments) return [];
+    if (filterType === 'today') {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayLocaleStr = new Date().toLocaleDateString();
+      return dashboardData.upcoming_appointments.filter(appt => {
+        return appt.date.includes(todayStr) || todayStr.includes(appt.date) || appt.date.includes(todayLocaleStr) || todayLocaleStr.includes(appt.date);
+      });
+    }
+    if (filterType === 'pending') {
+      return dashboardData.upcoming_appointments.filter(appt => appt.status === 'booked' || appt.status === 'pending');
+    }
+    return dashboardData.upcoming_appointments;
+  };
 
   const loadData = async () => {
     try {
@@ -151,7 +181,11 @@ export default function DoctorDashboard() {
 
       {/* Main Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-md">
-        <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card">
+        <div 
+          onClick={() => scrollToSection(patientsSectionRef)}
+          className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card cursor-pointer hover:shadow-md hover:border-primary/50 transition-all active:scale-[0.98]"
+          title="Scroll to Patients Directory"
+        >
           <div className="flex items-center gap-md">
             <div className="w-12 h-12 rounded-xl bg-primary-fixed text-primary flex items-center justify-center">
               <span className="material-symbols-outlined text-[28px]">group</span>
@@ -163,7 +197,13 @@ export default function DoctorDashboard() {
           </div>
         </div>
 
-        <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card">
+        <div 
+          onClick={() => setFilterType(filterType === 'today' ? 'all' : 'today')}
+          className={`bg-white border rounded-2xl shadow-sm p-lg interactive-card cursor-pointer hover:shadow-md transition-all active:scale-[0.98] ${
+            filterType === 'today' ? 'border-primary ring-2 ring-primary/20 bg-primary-container/5' : 'border-outline-variant/30'
+          }`}
+          title="Filter by Today's Visits"
+        >
           <div className="flex items-center gap-md">
             <div className="w-12 h-12 rounded-xl bg-secondary-fixed text-on-secondary-container flex items-center justify-center">
               <span className="material-symbols-outlined text-[28px]">today</span>
@@ -175,7 +215,13 @@ export default function DoctorDashboard() {
           </div>
         </div>
 
-        <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card">
+        <div 
+          onClick={() => setFilterType(filterType === 'pending' ? 'all' : 'pending')}
+          className={`bg-white border rounded-2xl shadow-sm p-lg interactive-card cursor-pointer hover:shadow-md transition-all active:scale-[0.98] ${
+            filterType === 'pending' ? 'border-primary ring-2 ring-primary/20 bg-primary-container/5' : 'border-outline-variant/30'
+          }`}
+          title="Filter by Pending Consultations"
+        >
           <div className="flex items-center gap-md">
             <div className="w-12 h-12 rounded-xl bg-tertiary-fixed text-on-tertiary-fixed flex items-center justify-center">
               <span className="material-symbols-outlined text-[28px]">pending_actions</span>
@@ -187,7 +233,11 @@ export default function DoctorDashboard() {
           </div>
         </div>
 
-        <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card">
+        <div 
+          onClick={() => scrollToSection(feedbackSectionRef)}
+          className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card cursor-pointer hover:shadow-md hover:border-primary/50 transition-all active:scale-[0.98]"
+          title="Scroll to Reviews & Feedback Analytics"
+        >
           <div className="flex items-center gap-md">
             <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
               <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
@@ -210,18 +260,37 @@ export default function DoctorDashboard() {
         {/* Appointments List */}
         <div className="lg:col-span-2 space-y-lg">
           <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card">
-            <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
-              <span className="material-symbols-outlined text-secondary font-bold">calendar_month</span>
-              Upcoming Consultations
+            <h3 className="text-title-md font-bold text-primary mb-md flex items-center justify-between">
+              <span className="flex items-center gap-xs">
+                <span className="material-symbols-outlined text-secondary font-bold">calendar_month</span>
+                Upcoming Consultations
+                {filterType !== 'all' && (
+                  <span className="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded font-bold capitalize">
+                    Filtered: {filterType}
+                  </span>
+                )}
+              </span>
+              {filterType !== 'all' && (
+                <button 
+                  onClick={() => setFilterType('all')} 
+                  className="text-[10px] text-primary hover:underline font-bold flex items-center gap-2xs focus:outline-none"
+                >
+                  Clear Filter
+                </button>
+              )}
             </h3>
 
-            {dashboardData?.upcoming_appointments?.length === 0 ? (
+            {getFilteredAppointments().length === 0 ? (
               <div className="p-xl border border-dashed border-outline-variant rounded-xl text-center text-outline">
-                <p className="text-sm font-semibold">No upcoming patient visits scheduled.</p>
+                <p className="text-sm font-semibold">
+                  {filterType === 'all' 
+                    ? "No upcoming patient visits scheduled." 
+                    : `No upcoming visits matching filter: ${filterType}`}
+                </p>
               </div>
             ) : (
               <div className="space-y-md">
-                {dashboardData?.upcoming_appointments?.map(appt => (
+                {getFilteredAppointments().map(appt => (
                   <div key={appt.id} className="p-md border border-outline-variant/50 rounded-xl bg-surface-container-lowest flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
                     <div>
                       <h4 className="font-bold text-on-surface">Patient: {appt.patient_name}</h4>
@@ -257,7 +326,7 @@ export default function DoctorDashboard() {
         </div>
 
         {/* Patients Summary Directory */}
-        <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg flex flex-col h-full interactive-card">
+        <div ref={patientsSectionRef} className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg flex flex-col h-full interactive-card">
           <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
             <span className="material-symbols-outlined text-secondary">group</span>
             Patients Directory
@@ -265,7 +334,12 @@ export default function DoctorDashboard() {
 
           <div className="flex-1 space-y-md overflow-y-auto max-h-[400px]">
             {dashboardData?.patient_summaries?.map(p => (
-              <div key={p.user_id} className="p-md border border-outline-variant/30 rounded-xl hover:border-secondary transition-colors">
+              <div 
+                key={p.user_id} 
+                onClick={() => handlePatientClick(p.user_id)}
+                className="p-md border border-outline-variant/30 rounded-xl hover:border-secondary cursor-pointer hover:bg-surface-container-high/40 active:scale-[0.99] transition-all"
+                title={`Chat with ${p.name}`}
+              >
                 <h4 className="font-bold text-on-surface text-sm">{p.name}</h4>
                 <p className="text-xs text-on-surface-variant mt-xs">
                   Gender: {p.gender || 'Not specified'} | Age: {p.age || 'Not specified'}
@@ -280,7 +354,7 @@ export default function DoctorDashboard() {
       </div>
 
       {/* Feedback Analytics & Patient Reviews */}
-      <section className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card space-y-lg">
+      <section ref={feedbackSectionRef} className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card space-y-lg">
         <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs border-b border-outline-variant/20 pb-xs">
           <span className="material-symbols-outlined text-secondary">analytics</span>
           {t('feedbackAnalytics') || 'Feedback Analytics & Reviews'}

@@ -218,8 +218,9 @@ export const api = {
   },
 
   // Emergency SOS endpoints
-  triggerSOS: async () => {
-    const res = await apiFetch('/emergency/sos', {
+  triggerSOS: async (patientId = null) => {
+    const url = patientId ? `/emergency/sos?patient_id=${patientId}` : '/emergency/sos';
+    const res = await apiFetch(url, {
       method: 'POST',
       headers: getHeaders()
     });
@@ -378,6 +379,27 @@ export const api = {
       }
     }
     return result;
+  },
+
+  getAIConfig: async () => {
+    const res = await apiFetch('/ai/config', {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  evaluateConfirmation: async (message, groqKey = '', hfKey = '') => {
+    const payload = { message };
+    if (groqKey) payload.groq_key = groqKey;
+    if (hfKey) payload.hf_key = hfKey;
+
+    const res = await apiFetch('/ai/evaluate_confirmation', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return handleResponse(res);
   },
 
   // AI Symptom analysis
@@ -667,6 +689,37 @@ export const api = {
 
   endCall: async (callId) => {
     const res = await apiFetch(`/calls/${callId}/end`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  // Color palette endpoints
+  getPalettes: async () => {
+    const res = await apiFetch('/palettes', {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  savePalette: async (colors) => {
+    const res = await apiFetch('/palettes', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({
+        primary_color: colors.primary,
+        secondary_color: colors.secondary,
+        background_color: colors.background,
+        accent_color: colors.accent
+      })
+    });
+    return handleResponse(res);
+  },
+
+  activatePalette: async (id) => {
+    const res = await apiFetch(`/palettes/activate/${id}`, {
       method: 'POST',
       headers: getHeaders()
     });

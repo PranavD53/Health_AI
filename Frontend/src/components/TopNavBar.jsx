@@ -4,6 +4,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { api } from '../services/api';
 import { resolveMediaUrl } from '../utils/apiConfig';
+import { useTheme } from '../context/ThemeContext';
 
 export default function TopNavBar() {
   const { currentLanguage, setCurrentLanguage, t } = useLanguage();
@@ -15,9 +16,8 @@ export default function TopNavBar() {
   const [notifications, setNotifications] = useState([]);
   const [previousNotificationCount, setPreviousNotificationCount] = useState(0);
 
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'light';
-  });
+  const { theme, setTheme, customColors, setCustomColor, recentPalettes, applyPaletteFromHistory } = useTheme();
+  const [showPaletteMenu, setShowPaletteMenu] = useState(false);
 
   const [tarsState, setTarsState] = useState({
     isListening: false,
@@ -50,19 +50,6 @@ export default function TopNavBar() {
     };
   }, []);
 
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
 
   const playNotificationSound = () => {
     try {
@@ -244,16 +231,158 @@ export default function TopNavBar() {
             </span>
           </button>
 
-          {/* Theme Toggle Button */}
-          <button
-            onClick={toggleTheme}
-            className="p-2 text-on-surface-variant hover:text-primary transition-all duration-300 focus:outline-none rounded-full hover:bg-surface-container-high active:scale-95 flex items-center justify-center"
-            title={theme === 'light' ? "Switch to Dark Mode" : "Switch to Light Mode"}
-          >
-            <span className="material-symbols-outlined text-[22px] transition-transform duration-500 hover:rotate-[30deg]">
-              {theme === 'light' ? 'dark_mode' : 'light_mode'}
-            </span>
-          </button>
+          {/* Theme Palette Dropdown Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setShowPaletteMenu(!showPaletteMenu)}
+              className="p-2 text-on-surface-variant hover:text-primary transition-all duration-300 focus:outline-none rounded-full hover:bg-surface-container-high active:scale-95 flex items-center justify-center"
+              title="Change Color Palette"
+            >
+              <span className="material-symbols-outlined text-[22px]">
+                palette
+              </span>
+            </button>
+            {showPaletteMenu && (
+              <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#111024] border border-outline-variant/30 rounded-2xl shadow-xl p-4 z-50 animate-in fade-in duration-200">
+                <p className="text-[10px] text-outline font-bold uppercase tracking-wider mb-2">Select Theme</p>
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => { setTheme('light'); setShowPaletteMenu(false); }}
+                    className={`flex items-center gap-2 p-2 rounded-lg text-xs font-semibold hover:bg-surface-container-low dark:hover:bg-white/5 text-left w-full ${theme === 'light' ? 'text-primary bg-primary-container/20' : 'text-on-surface dark:text-white'}`}
+                  >
+                    <span className="w-3.5 h-3.5 rounded-full bg-[#5c60f5] border border-white"></span>
+                    Classic
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTheme('dark'); setShowPaletteMenu(false); }}
+                    className={`flex items-center gap-2 p-2 rounded-lg text-xs font-semibold hover:bg-surface-container-low dark:hover:bg-white/5 text-left w-full ${theme === 'dark' ? 'text-primary bg-primary-container/20' : 'text-on-surface dark:text-white'}`}
+                  >
+                    <span className="w-3.5 h-3.5 rounded-full bg-[#818cf8] border border-white"></span>
+                    Midnight
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTheme('teal'); setShowPaletteMenu(false); }}
+                    className={`flex items-center gap-2 p-2 rounded-lg text-xs font-semibold hover:bg-surface-container-low dark:hover:bg-white/5 text-left w-full ${theme === 'teal' ? 'text-primary bg-primary-container/20' : 'text-on-surface dark:text-white'}`}
+                  >
+                    <span className="w-3.5 h-3.5 rounded-full bg-[#0d9488] border border-white"></span>
+                    Teal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTheme('purple'); setShowPaletteMenu(false); }}
+                    className={`flex items-center gap-2 p-2 rounded-lg text-xs font-semibold hover:bg-surface-container-low dark:hover:bg-white/5 text-left w-full ${theme === 'purple' ? 'text-primary bg-primary-container/20' : 'text-on-surface dark:text-white'}`}
+                  >
+                    <span className="w-3.5 h-3.5 rounded-full bg-[#8b5cf6] border border-white"></span>
+                    Purple
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTheme('rose'); setShowPaletteMenu(false); }}
+                    className={`flex items-center gap-2 p-2 rounded-lg text-xs font-semibold hover:bg-surface-container-low dark:hover:bg-white/5 text-left w-full ${theme === 'rose' ? 'text-primary bg-primary-container/20' : 'text-on-surface dark:text-white'}`}
+                  >
+                    <span className="w-3.5 h-3.5 rounded-full bg-[#f43f5e] border border-white"></span>
+                    Rose
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setTheme('custom'); setShowPaletteMenu(false); }}
+                    className={`flex items-center gap-2 p-2 rounded-lg text-xs font-semibold hover:bg-surface-container-low dark:hover:bg-white/5 text-left w-full ${theme === 'custom' ? 'text-primary bg-primary-container/20' : 'text-on-surface dark:text-white'}`}
+                  >
+                    <span className="w-3.5 h-3.5 rounded-full bg-gradient-to-tr from-pink-500 to-violet-500 border border-white animate-pulse"></span>
+                    Custom
+                  </button>
+                </div>
+
+                {theme === 'custom' && (
+                  <div className="border-t border-outline-variant/30 pt-3 mt-2 space-y-3">
+                    <p className="text-[10px] text-outline font-bold uppercase tracking-wider">Custom Palette</p>
+                    
+                    {/* Palette Strip Preview */}
+                    <div className="flex h-8 w-full rounded-lg overflow-hidden border border-outline-variant/30">
+                      <div className="flex-1 h-full" style={{ backgroundColor: customColors.primary }} title="Primary" />
+                      <div className="flex-1 h-full" style={{ backgroundColor: customColors.secondary }} title="Secondary" />
+                      <div className="flex-1 h-full" style={{ backgroundColor: customColors.background }} title="Background" />
+                      <div className="flex-1 h-full" style={{ backgroundColor: customColors.accent }} title="Accent" />
+                    </div>
+
+                    {/* Labeled Swatches */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-center justify-between border border-outline-variant/20 p-1.5 rounded-lg bg-surface-container-low dark:bg-white/5">
+                        <span className="text-[10px] font-medium text-on-surface-variant dark:text-white/70">Primary</span>
+                        <div className="relative w-6 h-6 rounded border border-outline-variant/50 overflow-hidden">
+                          <input
+                            type="color"
+                            value={customColors.primary}
+                            onChange={(e) => setCustomColor('primary', e.target.value)}
+                            className="absolute inset-0 w-10 h-10 -translate-x-2 -translate-y-2 cursor-pointer p-0 border-0"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between border border-outline-variant/20 p-1.5 rounded-lg bg-surface-container-low dark:bg-white/5">
+                        <span className="text-[10px] font-medium text-on-surface-variant dark:text-white/70">Secondary</span>
+                        <div className="relative w-6 h-6 rounded border border-outline-variant/50 overflow-hidden">
+                          <input
+                            type="color"
+                            value={customColors.secondary}
+                            onChange={(e) => setCustomColor('secondary', e.target.value)}
+                            className="absolute inset-0 w-10 h-10 -translate-x-2 -translate-y-2 cursor-pointer p-0 border-0"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between border border-outline-variant/20 p-1.5 rounded-lg bg-surface-container-low dark:bg-white/5">
+                        <span className="text-[10px] font-medium text-on-surface-variant dark:text-white/70">BG</span>
+                        <div className="relative w-6 h-6 rounded border border-outline-variant/50 overflow-hidden">
+                          <input
+                            type="color"
+                            value={customColors.background}
+                            onChange={(e) => setCustomColor('background', e.target.value)}
+                            className="absolute inset-0 w-10 h-10 -translate-x-2 -translate-y-2 cursor-pointer p-0 border-0"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between border border-outline-variant/20 p-1.5 rounded-lg bg-surface-container-low dark:bg-white/5">
+                        <span className="text-[10px] font-medium text-on-surface-variant dark:text-white/70">Accent</span>
+                        <div className="relative w-6 h-6 rounded border border-outline-variant/50 overflow-hidden">
+                          <input
+                            type="color"
+                            value={customColors.accent}
+                            onChange={(e) => setCustomColor('accent', e.target.value)}
+                            className="absolute inset-0 w-10 h-10 -translate-x-2 -translate-y-2 cursor-pointer p-0 border-0"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* History Row */}
+                    {recentPalettes && recentPalettes.length > 0 && (
+                      <div className="border-t border-outline-variant/20 pt-2 mt-2">
+                        <p className="text-[9px] text-outline font-bold uppercase tracking-wider mb-1.5">Recent Palettes</p>
+                        <div className="space-y-1">
+                          {recentPalettes.slice(0, 5).map((palette, index) => (
+                            <button
+                              type="button"
+                              key={palette.id || index}
+                              onClick={() => applyPaletteFromHistory(palette)}
+                              className="flex h-6 w-full rounded overflow-hidden border border-outline-variant/20 hover:scale-[1.02] transition-transform duration-200"
+                            >
+                              <div className="flex-1 h-full" style={{ backgroundColor: palette.primary }} />
+                              <div className="flex-1 h-full" style={{ backgroundColor: palette.secondary }} />
+                              <div className="flex-1 h-full" style={{ backgroundColor: palette.background }} />
+                              <div className="flex-1 h-full" style={{ backgroundColor: palette.accent }} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
 
           {/* Notifications button */}
           <div className="relative">

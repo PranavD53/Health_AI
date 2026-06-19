@@ -26,6 +26,11 @@ export default function PatientDashboard() {
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   
+  // Custom Interaction States
+  const [showTipModal, setShowTipModal] = useState(false);
+  const [refreshTipLoading, setRefreshTipLoading] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -59,6 +64,21 @@ export default function PatientDashboard() {
       setError("Failed to load dashboard data.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRefreshTip = async () => {
+    setRefreshTipLoading(true);
+    try {
+      const data = await api.getPatientDashboard(currentLanguage);
+      setDashboardData(prev => ({
+        ...prev,
+        health_tip: data.health_tip
+      }));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setRefreshTipLoading(false);
     }
   };
 
@@ -223,8 +243,15 @@ export default function PatientDashboard() {
               <div className="space-y-md">
                 {dashboardData?.upcoming_appointments?.map((appt) => (
                   <div key={appt.id} className="p-md border border-outline-variant/50 rounded-xl bg-surface-container-lowest flex flex-col md:flex-row justify-between items-start md:items-center gap-md hover:border-secondary transition-all">
-                    <div>
-                      <h4 className="font-bold text-on-surface">{appt.doctor?.name || 'Doctor'}</h4>
+                    <div 
+                      onClick={() => appt.doctor?.user_id && navigate('/chat', { state: { selectUserId: appt.doctor.user_id } })}
+                      className="cursor-pointer group flex-1"
+                      title="Click to chat with this doctor"
+                    >
+                      <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors flex items-center gap-xs">
+                        {appt.doctor?.name || 'Doctor'}
+                        <span className="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chat</span>
+                      </h4>
                       <p className="text-xs text-outline font-semibold mb-xs">{appt.doctor?.specialization || 'Specialist'}</p>
                       <div className="flex gap-md text-xs text-on-surface-variant font-medium">
                         <span className="flex items-center gap-xs">
@@ -269,8 +296,15 @@ export default function PatientDashboard() {
                   const isPending = pendingFeedbacks.some(p => p.id === appt.id);
                   return (
                     <div key={appt.id} className="p-md border border-outline-variant/50 rounded-xl bg-surface-container-lowest flex flex-col md:flex-row justify-between items-start md:items-center gap-md hover:border-secondary transition-all">
-                      <div>
-                        <h4 className="font-bold text-on-surface">{appt.doctor?.name || 'Doctor'}</h4>
+                      <div
+                        onClick={() => appt.doctor?.user_id && navigate('/chat', { state: { selectUserId: appt.doctor.user_id } })}
+                        className="cursor-pointer group flex-1"
+                        title="Click to chat with this doctor"
+                      >
+                        <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors flex items-center gap-xs">
+                          {appt.doctor?.name || 'Doctor'}
+                          <span className="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chat</span>
+                        </h4>
                         <p className="text-xs text-outline font-semibold mb-xs">{appt.doctor?.specialization || 'Specialist'}</p>
                         <div className="flex gap-md text-xs text-on-surface-variant font-medium">
                           <span className="flex items-center gap-xs">
@@ -311,18 +345,25 @@ export default function PatientDashboard() {
           </div>
 
           {/* AI Tip / Clinical Intelligence */}
-          <div className="bg-gradient-to-r from-primary to-primary-container text-white rounded-2xl p-lg shadow-md relative overflow-hidden interactive-card">
+          <div 
+            onClick={() => setShowTipModal(true)}
+            className="bg-gradient-to-r from-primary to-primary-container text-white rounded-2xl p-lg shadow-md relative overflow-hidden interactive-card cursor-pointer group"
+            title="Click to view detailed health guidelines"
+          >
             <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none transform translate-y-1/4 translate-x-1/4">
               <span className="material-symbols-outlined text-[200px]">lightbulb</span>
             </div>
             <div className="relative z-10 space-y-md">
-              <span className="px-2.5 py-1 bg-white/20 rounded-full text-[10px] font-bold tracking-wider uppercase">AI Daily Wellness Tip</span>
+              <span className="px-2.5 py-1 bg-white/20 rounded-full text-[10px] font-bold tracking-wider uppercase group-hover:scale-105 transition-transform inline-block">AI Daily Wellness Tip</span>
               <p className="font-body-lg text-lg leading-relaxed font-medium">
                 "{dashboardData?.health_tip}"
               </p>
-              <div className="flex items-center gap-xs text-xs opacity-75">
-                <span className="material-symbols-outlined text-[16px]">info</span>
-                <span>Powered by HealthAI Wellness Intelligence System</span>
+              <div className="flex items-center justify-between text-xs opacity-75">
+                <span className="flex items-center gap-xs">
+                  <span className="material-symbols-outlined text-[16px]">info</span>
+                  <span>Powered by HealthAI Wellness Intelligence System</span>
+                </span>
+                <span className="font-bold underline text-[10px] group-hover:translate-x-1 transition-transform">Click for detail roadmap &rarr;</span>
               </div>
             </div>
           </div>
@@ -339,7 +380,12 @@ export default function PatientDashboard() {
             
             <div className="flex-1 space-y-md overflow-y-auto max-h-[360px]">
               {dashboardData?.activity_logs?.map((log, index) => (
-                <div key={log.id || index} className="flex gap-md items-center justify-between border-b border-outline-variant/10 pb-3 last:border-0">
+                <div 
+                  key={log.id || index} 
+                  onClick={() => setSelectedActivity(log)}
+                  className="flex gap-md items-center justify-between border-b border-outline-variant/10 pb-3 last:border-0 cursor-pointer hover:bg-surface-container-low/30 p-1.5 rounded-lg transition-colors w-full text-left"
+                  title="Click to view activity details"
+                >
                   <div className="flex gap-md items-start min-w-0">
                     <div className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
                       <span className="material-symbols-outlined text-[16px]">
@@ -349,14 +395,15 @@ export default function PatientDashboard() {
                     <div className="min-w-0">
                       <h4 className="font-bold text-on-surface text-sm truncate">{log.action}</h4>
                       <p className="text-xs text-on-surface-variant mb-0.5 break-words">{log.details}</p>
-                      <span className="text-[10px] text-outline">
+                      <span className="text-[10px] text-outline font-semibold">
                         {new Date(log.timestamp).toLocaleString()}
                       </span>
                     </div>
                   </div>
                   {log.action === "Appointment Booked" && (
                     <button
-                      onClick={() => handleCancelAppointment(log.id)}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleCancelAppointment(log.id); }}
                       className="p-1 hover:bg-error/10 text-error rounded-lg transition-all focus:outline-none shrink-0"
                       title={t('cancel') || "Cancel Appointment"}
                     >
@@ -588,6 +635,106 @@ export default function PatientDashboard() {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* AI Tip Wellness Insights Modal */}
+      {showTipModal && (
+        <div className="fixed inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#111024] border border-outline-variant rounded-2xl w-full max-w-md shadow-2xl overflow-hidden p-lg space-y-md">
+            <div className="flex justify-between items-center border-b border-outline-variant/30 pb-sm">
+              <h3 className="font-bold text-primary text-title-md flex items-center gap-xs">
+                <span className="material-symbols-outlined text-secondary">lightbulb</span>
+                AI Wellness Insights
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setShowTipModal(false)}
+                className="p-1 hover:bg-surface-container-high rounded-full transition-colors text-outline focus:outline-none"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <div className="space-y-sm">
+              <span className="text-[10px] bg-primary/10 text-primary px-2.5 py-0.5 rounded font-bold uppercase tracking-wider block w-max">Active Recommendation</span>
+              <p className="font-body-lg text-on-surface dark:text-white font-semibold leading-relaxed">
+                "{dashboardData?.health_tip}"
+              </p>
+              <div className="h-px bg-outline-variant/20 my-md"></div>
+              <h4 className="font-bold text-xs text-secondary uppercase tracking-wider">Clinical Context</h4>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                This wellness tip is automatically compiled based on clinical health guidelines. Maintaining these healthy habits regularly helps improve cardiac metrics, sleep depth indices, and metabolic balance.
+              </p>
+            </div>
+
+            <div className="flex gap-sm pt-sm border-t border-outline-variant/30 mt-lg">
+              <button
+                type="button"
+                onClick={handleRefreshTip}
+                disabled={refreshTipLoading}
+                className="flex-1 py-2 border border-outline hover:bg-surface-container-high dark:text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-xs focus:outline-none"
+              >
+                {refreshTipLoading ? (
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[16px]">refresh</span>
+                    Get New Tip
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowTipModal(false)}
+                className="flex-1 py-2 bg-primary hover:bg-primary/95 text-white font-bold text-xs rounded-lg transition-colors focus:outline-none shadow-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Activity Details Modal */}
+      {selectedActivity && (
+        <div className="fixed inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#111024] border border-outline-variant rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-lg space-y-md">
+            <div className="flex justify-between items-center border-b border-outline-variant/30 pb-sm">
+              <h3 className="font-bold text-primary text-sm flex items-center gap-xs">
+                <span className="material-symbols-outlined text-secondary">history</span>
+                Activity Detail
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setSelectedActivity(null)}
+                className="p-1 hover:bg-surface-container-high rounded-full transition-colors text-outline focus:outline-none"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <div className="space-y-xs">
+              <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">Action</span>
+              <h4 className="font-bold text-on-surface dark:text-white text-base">{selectedActivity.action}</h4>
+              <span className="text-[10px] text-outline block">{new Date(selectedActivity.timestamp).toLocaleString()}</span>
+              <div className="h-px bg-outline-variant/20 my-md"></div>
+              <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">Description Details</span>
+              <p className="text-xs text-on-surface-variant leading-relaxed bg-surface-container-lowest dark:bg-white/5 p-sm rounded-lg border border-outline-variant/15">
+                {selectedActivity.details}
+              </p>
+            </div>
+            
+            <div className="pt-sm border-t border-outline-variant/30 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedActivity(null)}
+                className="px-6 py-2 bg-primary hover:bg-primary/95 text-white font-bold text-xs rounded-lg transition-colors focus:outline-none shadow-sm"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

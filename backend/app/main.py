@@ -12,14 +12,13 @@ import httpx
 from app.database import engine, Base, get_db
 from app.migrations import ensure_schema
 from app import models
-from app.routes import auth, profile, symptoms, doctors, appointments, records, dashboard, chats, calls
-from app.routes import auth, profile, symptoms, doctors, appointments, records, dashboard, chats, feedback
+from app.routes import auth, profile, symptoms, doctors, appointments, records, dashboard, chats, calls, feedback, palettes
 from app.routes.auth import get_current_user, require_role, log_action
 from app.routes.auth import get_password_hash
 from app.routes.doctors import seed_doctors
 from app.routes.symptoms import scan_for_emergency
 
-from app.config import BASE_DIR, UPLOADS_DIR
+from app.config import BASE_DIR, UPLOADS_DIR, SYSTEM_CAPABILITIES
 
 PROJECT_DIR = os.path.dirname(BASE_DIR)
 FRONTEND_DIR = os.path.join(PROJECT_DIR, "Frontend")
@@ -161,6 +160,7 @@ app.include_router(dashboard.router)
 app.include_router(chats.router)
 app.include_router(calls.router)
 app.include_router(feedback.router)
+app.include_router(palettes.router)
 
 
 if os.path.isdir(FRONTEND_DIR):
@@ -912,6 +912,131 @@ class AIAssistantResponse(BaseModel):
     action: Optional[dict] = None
     disclaimer: str
 
+class UIConfirmationInput(BaseModel):
+    message: str
+    groq_key: Optional[str] = None
+    hf_key: Optional[str] = None
+
+@app.get("/ai/config")
+def get_ai_config(current_user: models.User = Depends(get_current_user)):
+    return SYSTEM_CAPABILITIES
+
+@app.post("/ai/evaluate_confirmation")
+async def evaluate_confirmation(
+    input_data: UIConfirmationInput,
+    current_user: models.User = Depends(get_current_user)
+):
+    import json
+    import httpx
+    message_clean = input_data.message.strip().lower()
+    
+    # 1. Quick local check fallback first for standard english / local terms
+    affirmative_tokens = {"yes", "yeah", "yep", "y", "confirm", "proceed", "okay", "ok", "sure", "do it", "haan", "ha", "ji", "avunu", "sare", "sari", "yes please", "correct"}
+    negative_tokens = {"no", "nope", "n", "cancel", "stop", "dont", "don't", "reject", "deny", "nah", "nahi", "na", "vaddu", "oddu", "no thanks", "incorrect"}
+    
+    if message_clean in affirmative_tokens:
+        return {"intent": "affirmative"}
+    if message_clean in negative_tokens:
+        return {"intent": "negative"}
+        
+    # 2. LLM dynamic parsing for natural speech in other languages
+    groq_key = input_data.groq_key or os.getenv("GROQ_API_KEY", "")
+    hf_key = input_data.hf_key or os.getenv("HUGGINGFACE_API_KEY", os.getenv("HF_API_KEY", ""))
+    
+    has_groq = groq_key and not groq_key.startswith("your_groq_api_key")
+    has_hf = hf_key and not hf_key.startswith("your_hf_api_key")
+    
+    messages_payload = [
+        {
+            "role": "system",
+            "content": (
+                "You are a confirmation parser. Determine if the user's message represents an agreement/confirmation, a disagreement/cancellation, or if it is ambiguous.\n"
+                "Classify the intent into one of:\n"
+                "- 'affirmative' (agreement, yes, proceed, correct, confirm, haan, avunu, etc.)\n"
+                "- 'negative' (disagreement, no, cancel, stop, vaddu, nahi, etc.)\n"
+                "- 'ambiguous' (anything else)\n\n"
+                "Output ONLY a raw JSON block with 'intent' key. Example:\n"
+                "{\"intent\": \"affirmative\"}"
+            )
+        },
+        {"role": "user", "content": f"User message: \"{input_data.message}\""}
+    ]
+    
+    if has_groq:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {groq_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "llama-3.1-8b-instant",
+                        "messages": messages_payload,
+                        "temperature": 0.0,
+                        "max_tokens": 30
+                    },
+                    timeout=5.0
+                )
+                if response.status_code == 200:
+                    res_json = response.json()
+                    content_res = res_json["choices"][0]["message"]["content"].strip()
+                    import re
+                    match = re.search(r'\{.*?\}', content_res)
+                    if match:
+                        parsed = json.loads(match.group(0))
+                        if parsed.get("intent") in ["affirmative", "negative", "ambiguous"]:
+                            return {"intent": parsed["intent"]}
+        except Exception:
+            pass
+            
+    if has_hf:
+        try:
+            async with httpx.AsyncClient() as client:
+                prompt = ""
+                for msg in messages_payload:
+                    role_tag = "<|system|>" if msg["role"] == "system" else "<|user|>"
+                    prompt += f"{role_tag}\n{msg['content']}\n"
+                prompt += "<|assistant|>\n"
+                
+                response = await client.post(
+                    "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct",
+                    headers={
+                        "Authorization": f"Bearer {hf_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "inputs": prompt,
+                        "parameters": {"max_new_tokens": 30, "temperature": 0.0}
+                    },
+                    timeout=5.0
+                )
+                if response.status_code == 200:
+                    res_json = response.json()
+                    generated = ""
+                    if isinstance(res_json, list) and len(res_json) > 0:
+                        generated = res_json[0].get("generated_text", "")
+                    content_res = generated.split("<|assistant|>")[-1].strip() if "<|assistant|>" in generated else generated
+                    import re
+                    match = re.search(r'\{.*?\}', content_res)
+                    if match:
+                        parsed = json.loads(match.group(0))
+                        if parsed.get("intent") in ["affirmative", "negative", "ambiguous"]:
+                            return {"intent": parsed["intent"]}
+        except Exception:
+            pass
+            
+    # Substring search check fallback
+    for aff in ["yes", "yeah", "yep", "confirm", "proceed", "ok", "haan", "ha", "avunu", "sare", "sari", "correct"]:
+        if aff in message_clean:
+            return {"intent": "affirmative"}
+    for neg in ["no", "nope", "cancel", "stop", "dont", "don't", "reject", "nah", "nahi", "na", "vaddu", "oddu"]:
+        if neg in message_clean:
+            return {"intent": "negative"}
+            
+    return {"intent": "ambiguous"}
+
 @app.post("/ai/assistant")
 async def global_ai_assistant(
     input_data: AIAssistantInput,
@@ -923,45 +1048,21 @@ async def global_ai_assistant(
         import re
         import json
     
-        # Determine language preference from input payload first, then Accept-Language header (default: en)
+        # Determine language preference and detect language style dynamically
+        current_msg = input_data.message.strip()
         pref_lang = "en"
         if input_data.language:
-            lang_code = input_data.language.split("-")[0].strip().lower()
-            if lang_code in ["en", "hi", "te"]:
-                pref_lang = lang_code
+            pref_lang = input_data.language.split("-")[0].strip().lower()
         elif accept_language:
-            lang_code = accept_language.split(",")[0].split("-")[0].strip().lower()
-            if lang_code in ["en", "hi", "te"]:
-                pref_lang = lang_code
-            
-        # Check current message language and determine language rule
-        current_msg = input_data.message.strip()
-        has_hindi = any(ord(c) >= 0x0900 and ord(c) <= 0x097F for c in current_msg)
-        has_telugu = any(ord(c) >= 0x0C00 and ord(c) <= 0x0C7F for c in current_msg)
-    
-        msg_words = set(current_msg.lower().split())
-        hinglish_words = {"hai", "ko", "ki", "naam", "aaj", "kya", "karne", "mere", "se", "kar", "ho", "gaya", "koshish", "chahiye", "diya", "aapka", "kuch", "apne"}
-        tinglish_words = {"na", "andi", "ga", "ayyindi", "cheyyandi", "kavali", "kuda", "undi", "vundi", "naku"}
-    
-        is_user_speaking_hinglish = any(w in msg_words for w in hinglish_words)
-        is_user_speaking_tinglish = any(w in msg_words for w in tinglish_words)
-    
-        if has_telugu:
-            forced_rule = "The user is speaking in Telugu. You MUST respond strictly in Telugu (తెలుగు)."
-        elif has_hindi:
-            forced_rule = "The user is speaking in Hindi. You MUST respond strictly in Hindi (हिन्दी)."
-        elif is_user_speaking_tinglish:
-            forced_rule = "The user is speaking in Tinglish (Telugu-transliterated). You MUST respond in Tinglish."
-        elif is_user_speaking_hinglish:
-            forced_rule = "The user is speaking in Hinglish (Hindi-transliterated). You MUST respond in Hinglish."
-        else:
-            if pref_lang == "te":
-                forced_rule = "The user preferred language is Telugu. You MUST respond in Telugu (తెలుగు)."
-            elif pref_lang == "hi":
-                forced_rule = "The user preferred language is Hindi. You MUST respond in Hindi (हिन्दी)."
-            else:
-                forced_rule = "The user is speaking in English. You MUST respond strictly in standard English. Do NOT use any Hindi, Hinglish, or Telugu words."
-            
+            pref_lang = accept_language.split(",")[0].split("-")[0].strip().lower()
+
+        language_rule = (
+            "Detect the user's input language and writing style (e.g., English, Hindi, Telugu, Spanish, Hinglish, Tinglish, etc.) from their query. "
+            "Respond naturally in the EXACT SAME language, writing script, and style. "
+            "If the user uses a transliterated language (like Hinglish or Tinglish), respond in that transliterated style. "
+            "Ensure you do not translate to English unless requested; maintain alignment with the user's language."
+        )
+        
         try:
             is_emergency = scan_for_emergency(input_data.message)
             disclaimer = "This is AI-generated information. Please consult a real doctor."
@@ -1030,9 +1131,17 @@ async def global_ai_assistant(
                 # Query patient's upcoming appointments
                 patient_appts = db.query(models.Appointment).filter(
                     models.Appointment.patient_id == current_user.id,
-                    models.Appointment.status == "booked",
-                    models.Appointment.date >= today_str
-                ).order_by(models.Appointment.date.asc(), models.Appointment.time.asc()).all()
+                    models.Appointment.status == "booked"
+                ).all()
+                for appt in patient_appts:
+                    try:
+                        db.expunge(appt)
+                    except Exception:
+                        pass
+                from app.routes.appointments import adjust_timestamps_generic
+                adjust_timestamps_generic(patient_appts)
+                patient_appts = [a for a in patient_appts if a.date >= today_str]
+                patient_appts.sort(key=lambda x: (x.date, x.time))
             
                 appts_list = []
                 for appt in patient_appts:
@@ -1054,9 +1163,17 @@ async def global_ai_assistant(
                 if doctor:
                     doctor_appts = db.query(models.Appointment).filter(
                         models.Appointment.doctor_id == doctor.id,
-                        models.Appointment.status == "booked",
-                        models.Appointment.date >= today_str
-                    ).order_by(models.Appointment.date.asc(), models.Appointment.time.asc()).all()
+                        models.Appointment.status == "booked"
+                    ).all()
+                    for appt in doctor_appts:
+                        try:
+                            db.expunge(appt)
+                        except Exception:
+                            pass
+                    from app.routes.appointments import adjust_timestamps_generic
+                    adjust_timestamps_generic(doctor_appts)
+                    doctor_appts = [a for a in doctor_appts if a.date >= today_str]
+                    doctor_appts.sort(key=lambda x: (x.date, x.time))
                 
                     consults_list = []
                     for appt in doctor_appts:
@@ -1089,80 +1206,44 @@ async def global_ai_assistant(
                     "Patients can search for doctors (find_doctors), book appointments (book_appointment), and upload medical records (view_records).\n"
                 )
 
+            # Get the allowed permissions for the user's role
+            role_perms = SYSTEM_CAPABILITIES.get("roles", {}).get(current_user.role, {}).get("permissions", [])
+            
+            # Format the actions list dynamically based on permissions
+            allowed_actions_list = []
+            action_counter = 1
+            for act_name, act_def in SYSTEM_CAPABILITIES.get("actions", {}).items():
+                if act_name in role_perms:
+                    desc = act_def.get("description", "")
+                    params = act_def.get("parameters", {})
+                    allowed_actions_list.append(
+                        f"{action_counter}. {act_name.replace('_', ' ').title()}:" + chr(10) +
+                        f"   type: \"{act_name}\"" + chr(10) +
+                        f"   parameters: {json.dumps(params)}" + chr(10) +
+                        f"   Trigger description: {desc}" + chr(10)
+                    )
+                    action_counter += 1
+            allowed_actions_str = "".join(allowed_actions_list)
+
             messages_payload = [
                 {
                     "role": "system",
                     "content": (
-                        "You are TARS, a multilingual global assistant that offers all types of assistance available on our website (symptom analysis, booking appointments, viewing medical records, settings, and lodging complaints). You are compassionate, precise, and highly fluent.\n\n"
-                        f"{user_context}\n"
-                        f"USER PREFERRED LANGUAGE: {pref_lang.upper()}\n"
-                        "LANGUAGE PROTOCOL:\n"
-                        f"- {forced_rule}\n"
-                        "- If the user communicates in English, you MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, or Telugu words.\n"
-                        "- If the user communicates in Hindi (हिन्दी), respond in Hindi.\n"
-                        "- If the user communicates in Telugu (తెలుగు), respond in Telugu.\n"
-                        "- Only respond in Hinglish (e.g., 'Aapka appointment book ho gaya hai') if the user explicitly typed their message in Hinglish.\n"
-                        "- Only respond in Telugu-transliterated (e.g., 'Me appointment book ayyindi') if the user explicitly typed their message in Telugu-transliterated.\n"
-                        "- Automatically detect and align with the user's input language style. Never default to Hinglish or transliterated styles for plain English queries.\n\n"
-                        "CRITICAL RESPONSE LANGUAGE CONSTRAINT:\n"
-                        "- Do NOT output or mention doctor IDs (e.g. 'ID 1', 'ID 2', etc.) in your conversational responses. "
-                        "When referring to a doctor, always refer to them by their name and department/specialization, e.g. 'Dr. Alice Smith (Cardiology)' or 'Bhargav Nama (Dermatology)'. "
-                        "You MUST use the correct doctor ID in the JSON action block parameter 'doctor_id', but keep the IDs completely hidden from the user-facing text response.\n\n"
-                        "CRITICAL RESPONSE LENGTH CONSTRAINT:\n"
-                        "You MUST provide extremely concise, short, direct, and helpful answers (maximum 2-3 sentences, 40-50 words max). "
-                        "Do NOT write long paragraphs. Get straight to the point and do not drag the conversation.\n\n"
-                        "You can perform actions on behalf of the user by appending a special JSON block to the END of your response.\n"
-                        "For example, if you decide to execute an action, output EXACTLY like this:\n"
-                        "[ACTION: {\"type\": \"ACTION_TYPE\", \"parameters\": { ... }}]\n\n"
-                        "Available actions:\n"
-                        "1. Find Doctors:\n"
-                        "   type: \"find_doctors\"\n"
-                        "   parameters: {\"specialization\": \"cardiology\" | \"dermatology\" | \"general\" | \"neurology\" | \"pediatrics\"}\n"
-                        "   Trigger this when the user asks to search for doctors, find a clinic, or look for a medical specialist.\n\n"
-                        "2. Book Appointment:\n"
-                        "   type: \"book_appointment\"\n"
-                        "   parameters: {\"doctor_id\": int, \"date\": \"YYYY-MM-DD\", \"time\": \"HH:MM\"}\n"
-                        "   Trigger this when the user wants to book, schedule, or reserve an appointment.\n"
-                        "   CRITICAL: Before booking, you MUST explicitly ask for and receive the following details from the user:\n"
-                        "   - Doctor's name or specialization\n"
-                        "   - Date for the appointment\n"
-                        "   - Preferred time\n"
-                        "   Only output the booking action block AFTER the user has provided all three details. Do not book with defaults.\n"
-                        "   If any detail is missing, ask for it first before proceeding with the booking.\n"
-                        "   Active Doctor Directory for Booking:\n"
-                        f"{doctors_directory}\n\n"
-                        "3. View Medical Records:\n"
-                        "   type: \"view_records\"\n"
-                        "   parameters: {}\n"
-                        "   Trigger this when the user wants to see their uploaded medical files, reports, or records.\n\n"
-                        "4. Analyze Symptoms:\n"
-                        "   type: \"analyze_symptom\"\n"
-                        "   parameters: {\"symptoms\": \"description of symptoms\", \"severity\": \"mild\" | \"moderate\" | \"severe\", \"duration\": \"duration description\"}\n"
-                        "   Trigger this when the user wants to check symptoms or get a health assessment.\n\n"
-                        "5. View Dashboard:\n"
-                        "   type: \"view_dashboard\"\n"
-                        "   parameters: {}\n"
-                        "   Trigger this when the user asks to go home, view overview, or see their dashboard.\n\n"
-                        "6. Lodge a Complaint:\n"
-                        "   type: \"lodge_complaint\"\n"
-                        "   parameters: {\"message\": \"description of complaint/issue\"}\n"
-                        "   Trigger this when the user complains about the system, service, doctors, or submits negative feedback.\n\n"
-                        "7. View Settings:\n"
-                        "   type: \"view_settings\"\n"
-                        "   parameters: {}\n"
-                        "   Trigger this when the user wants to update their profile, username, address, preferences, or settings.\n\n"
-                        "8. View Chat Workspace:\n"
-                        "   type: \"view_chat\"\n"
-                        "   parameters: {}\n"
-                        "   Trigger this when the user wants to message, chat, send a prescription/file, or chat with a doctor, patient, or admin.\n\n"
-                        "9. Clinical Symptom Analysis & Doctor Mapping:\n"
-                        "   If the user lists their symptoms (even in broken, informal, or transliterated languages, e.g. 'mere chest me pain ho raha hai' or 'talanoppiga vundi'):\n"
-                        "   a) Recommend the correct doctor to consult from our active doctor directory based on their specialization/department matching the symptoms:\n"
-                        f"{doctors_directory}\n"
-                        "   b) Safe OTC Medicine Recommendation:\n"
-                        "      For minor, simple, non-critical symptoms (e.g. mild fever, common cold, minor headache, acid reflux), you may suggest a standard safe over-the-counter medicine (e.g., Paracetamol for mild fever, Cetirizine for cold/allergies, Antacids for indigestion) with clear dosage guidelines. You MUST append a safety disclaimer: 'This is general advice. Please consult a doctor if symptoms persist or worsen.'\n"
-                        "   c) For critical or severe symptoms (e.g. severe chest pressure, unconsciousness, severe bleeding), advise them to seek emergency care immediately (dial 108/100).\n"
-                        "   d) Proactively offer to schedule a consultation with the matched doctor (e.g. 'Would you like to book an appointment with Dr. Alice Smith (Cardiology)?') and collect their preferred date and time step-by-step before triggering the booking action.\n\n"
+                        "You are TARS, a multilingual global assistant that offers medical and system assistance available on our website. You are compassionate, precise, and highly fluent." + chr(10) + chr(10) +
+                        f"{user_context}" + chr(10) +
+                        "LANGUAGE PROTOCOL:" + chr(10) +
+                        f"- {language_rule}" + chr(10) +
+                        "- Do NOT output or mention doctor IDs (e.g. 'ID 1', 'ID 2', etc.) in your conversational responses. " +
+                        "When referring to a doctor, always refer to them by their name and department/specialization, e.g. 'Dr. Alice Smith (Cardiology)' or 'Dr. Bob Johnson (Dermatology)'. " +
+                        "You MUST use the correct doctor ID in the JSON action block parameter 'doctor_id', but keep the IDs completely hidden from the user-facing text response." + chr(10) + chr(10) +
+                        "CRITICAL RESPONSE LENGTH CONSTRAINT:" + chr(10) +
+                        "You MUST provide extremely concise, short, direct, and helpful answers (maximum 2-3 sentences, 40-50 words max). " +
+                        "Do NOT write long paragraphs. Get straight to the point and do not drag the conversation." + chr(10) + chr(10) +
+                        "You can perform actions on behalf of the user by appending a special JSON block to the END of your response." + chr(10) +
+                        "For example, if you decide to execute an action, output EXACTLY like this:" + chr(10) +
+                        "[ACTION: {\"type\": \"ACTION_TYPE\", \"parameters\": { ... }}]" + chr(10) + chr(10) +
+                        "Available actions for your role:" + chr(10) +
+                        f"{allowed_actions_str}" + chr(10) + chr(10) +
                         "Always prioritize safety, give clear advice in their language, and include the action JSON block if the user's intent matches one of the actions."
                     )
                 }
@@ -1173,18 +1254,10 @@ async def global_ai_assistant(
 
             # Reinforce language rules directly on the last user message to override history bias
             if messages_payload and messages_payload[-1]["role"] == "user":
-                prompt_instruction = ""
-                if has_telugu or (not has_hindi and not is_user_speaking_hinglish and not is_user_speaking_tinglish and pref_lang == "te"):
-                    prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Telugu. You MUST respond strictly in Telugu (తెలుగు script). Do NOT use Hindi, Hinglish, or English. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
-                elif has_hindi or (not has_telugu and not is_user_speaking_hinglish and not is_user_speaking_tinglish and pref_lang == "hi"):
-                    prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hindi. You MUST respond strictly in Hindi (हिन्दी script). Do NOT use English, Hinglish, or Telugu. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
-                elif is_user_speaking_tinglish:
-                    prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Tinglish. You MUST respond in Tinglish (Telugu words written in English/Latin letters). Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
-                elif is_user_speaking_hinglish:
-                    prompt_instruction = "\n\n[SYSTEM RULE: The user wants to communicate in Hinglish. You MUST respond in Hinglish (Hindi words written in English/Latin letters). Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
-                else:
-                    prompt_instruction = "\n\n[SYSTEM RULE: The user is speaking in English. You MUST respond in pure, standard English. Do NOT mix Hindi, Hinglish, Telugu, or Tinglish. Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
-            
+                prompt_instruction = (
+                    chr(10) + chr(10) + f"[SYSTEM RULE: Detect the language script and style of the message above and respond strictly in the same script/style. "
+                    f"Do NOT mention any doctor IDs in your response. Keep your response brief - maximum 2-3 sentences.]"
+                )
                 messages_payload[-1]["content"] += prompt_instruction
 
             # Use provided keys from request or fall back to environment variables
@@ -1684,24 +1757,48 @@ async def global_ai_assistant(
                 except Exception as ex:
                     print(f"Action parse error: {ex}")
 
-            # Guard action if the user role is doctor or admin
-            if action and action.get("type") in ["find_doctors", "book_appointment"] and current_user.role in ["doctor", "admin"]:
+            # Guard action checks based on dynamic Role-Based Access Control (RBAC)
+            user_role = current_user.role
+            role_permissions = SYSTEM_CAPABILITIES.get("roles", {}).get(user_role, {}).get("permissions", [])
+            
+            # Check if the user is trying to perform patient-only actions (booking/finding doctors) without permission
+            msg_lower = input_data.message.lower()
+            is_trying_patient_action = False
+            blocked_act_type = ""
+            
+            if "book_appointment" not in role_permissions and any(k in msg_lower for k in ["book", "schedule", "appointment"]):
+                is_trying_patient_action = True
+                blocked_act_type = "book_appointment"
+            elif "find_doctors" not in role_permissions and any(k in msg_lower for k in ["find", "search", "doctor", "specialist"]):
+                is_trying_patient_action = True
+                blocked_act_type = "find_doctors"
+                
+            if is_trying_patient_action:
                 action = None
-                if current_user.role == "doctor":
-                    if pref_lang == "te":
-                        reply = "మీరు ఒక రిజిస్టర్డ్ వైద్యునిగా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు. మీరు మీ డాష్‌బోర్డ్ వర్క్‌స్పేస్ నుండి కన్సల్టేషన్‌లను నిర్వహించవచ్చు."
-                    elif pref_lang == "hi":
-                        reply = "आप एक पंजीकृत डॉक्टर के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते। आप अपने डैशबोर्ड कार्यक्षेत्र से परामर्श प्रबंधित करते हैं।"
-                    else:
-                        reply = "You cannot book or browse appointments as a registered doctor. You manage consultations from your dashboard workspace."
+                if user_role == "doctor":
+                    reply = f"Access Denied: As a registered doctor, you cannot book or browse appointments or execute '{blocked_act_type}'."
+                elif user_role == "admin":
+                    reply = f"Access Denied: As an administrator, you cannot book or browse appointments or execute '{blocked_act_type}'."
                 else:
-                    if pref_lang == "te":
-                        reply = "మీరు అడ్మినిస్ట్రేటర్‌గా అపాయింట్‌మెంట్‌లను బుక్ చేయలేరు లేదా బ్రౌజ్ చేయలేరు."
-                    elif pref_lang == "hi":
-                        reply = "आप एक प्रशासक के रूप में अपॉइंटमेंट बुक या ब्राउज़ नहीं कर सकते।"
+                    reply = f"Access Denied: You do not have permission to execute '{blocked_act_type}' under your role."
+            elif action:
+                act_type = action.get("type")
+                # Check if this action is registered in capabilities
+                action_info = SYSTEM_CAPABILITIES.get("actions", {}).get(act_type)
+                
+                if not action_info:
+                    action = None
+                    reply = "I'm sorry, that action is not supported by the system capabilities."
+                elif act_type not in role_permissions:
+                    action = None
+                    # Generate a polite denial based on role
+                    if user_role == "doctor":
+                        reply = f"Access Denied: As a registered doctor, you cannot book or browse appointments or execute '{act_type}'."
+                    elif user_role == "admin":
+                        reply = f"Access Denied: As an administrator, you cannot book or browse appointments or execute '{act_type}'."
                     else:
-                        reply = "You cannot book or browse appointments as an administrator."
-
+                        reply = f"Access Denied: You do not have permission to execute '{act_type}' under your role."
+            
             # Save assistant reply
             assistant_msg = models.Message(
                 conversation_id=conv.id,

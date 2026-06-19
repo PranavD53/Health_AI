@@ -11,6 +11,7 @@ export default function DoctorSearch() {
   const [filteredDoctors, setFilteredDoctors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedDoctorId, setSelectedDoctorId] = useState(null);
 
   // Search/Filter states
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
@@ -76,8 +77,97 @@ export default function DoctorSearch() {
   const handleOpenBooking = (doc) => {
     setBookingDoc(doc);
     setBookingSuccess(false);
-    setBookingDate('');
+    
+    // Default to tomorrow if today is past 4:00 PM (16:00)
+    const now = new Date();
+    let defaultDate = now.toISOString().split('T')[0];
+    if (now.getHours() >= 16) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      defaultDate = tomorrow.toISOString().split('T')[0];
+    }
+    setBookingDate(defaultDate);
+
+    // Set dynamic default time based on available slots for that date
+    const slots = [
+      { value: "09:00", label: "09:00 AM" },
+      { value: "09:30", label: "09:30 AM" },
+      { value: "10:00", label: "10:00 AM" },
+      { value: "10:30", label: "10:30 AM" },
+      { value: "11:00", label: "11:00 AM" },
+      { value: "11:30", label: "11:30 AM" },
+      { value: "12:00", label: "12:00 PM" },
+      { value: "14:00", label: "02:00 PM" },
+      { value: "14:30", label: "02:30 PM" },
+      { value: "15:00", label: "03:00 PM" },
+      { value: "15:30", label: "03:30 PM" },
+      { value: "16:00", label: "04:00 PM" }
+    ];
+
+    const todayStr = now.toISOString().split('T')[0];
+    if (defaultDate === todayStr) {
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const available = slots.filter(slot => {
+        const [hourStr, minStr] = slot.value.split(':');
+        const slotHour = parseInt(hourStr, 10);
+        const slotMin = parseInt(minStr, 10);
+        if (slotHour > currentHour) return true;
+        if (slotHour === currentHour && slotMin > currentMinute) return true;
+        return false;
+      });
+      if (available.length > 0) {
+        setBookingTime(available[0].value);
+      } else {
+        setBookingTime('09:00');
+      }
+    } else {
+      setBookingTime('09:00');
+    }
   };
+
+  const getAvailableTimeSlots = () => {
+    const slots = [
+      { value: "09:00", label: "09:00 AM" },
+      { value: "09:30", label: "09:30 AM" },
+      { value: "10:00", label: "10:00 AM" },
+      { value: "10:30", label: "10:30 AM" },
+      { value: "11:00", label: "11:00 AM" },
+      { value: "11:30", label: "11:30 AM" },
+      { value: "12:00", label: "12:00 PM" },
+      { value: "14:00", label: "02:00 PM" },
+      { value: "14:30", label: "02:30 PM" },
+      { value: "15:00", label: "03:00 PM" },
+      { value: "15:30", label: "03:30 PM" },
+      { value: "16:00", label: "04:00 PM" }
+    ];
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (bookingDate === todayStr) {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      
+      return slots.filter(slot => {
+        const [hourStr, minStr] = slot.value.split(':');
+        const slotHour = parseInt(hourStr, 10);
+        const slotMin = parseInt(minStr, 10);
+        if (slotHour > currentHour) return true;
+        if (slotHour === currentHour && slotMin > currentMinute) return true;
+        return false;
+      });
+    }
+    return slots;
+  };
+
+  useEffect(() => {
+    const availableSlots = getAvailableTimeSlots();
+    if (availableSlots.length > 0) {
+      if (!availableSlots.some(s => s.value === bookingTime)) {
+        setBookingTime(availableSlots[0].value);
+      }
+    }
+  }, [bookingDate]);
 
   const handleOpenReviews = async (doc) => {
     setReviewsDoc(doc);
@@ -194,82 +284,108 @@ export default function DoctorSearch() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
-          {filteredDoctors.map(doc => (
-            <div key={doc.id} className="bg-white border border-outline-variant/30 rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between doctor-card hover:border-secondary/60 hover:shadow-md transition-all interactive-card">
-              <div className="p-lg space-y-md">
-                <div className="flex items-center gap-md">
-                  <div className="w-16 h-16 rounded-full overflow-hidden border border-outline-variant bg-surface-container flex items-center justify-center shrink-0">
-                    {doc.profile_picture ? (
-                      <img 
-                        alt={doc.name} 
-                        src={resolveMediaUrl(doc.profile_picture)}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="material-symbols-outlined text-3xl text-outline">medical_services</span>
+          {filteredDoctors.map(doc => {
+            const isSelected = selectedDoctorId === doc.id;
+            return (
+              <div 
+                key={doc.id} 
+                onClick={() => setSelectedDoctorId(selectedDoctorId === doc.id ? null : doc.id)}
+                className={`bg-white border rounded-2xl overflow-hidden shadow-sm flex flex-col justify-between doctor-card transition-all duration-200 cursor-pointer ${
+                  isSelected 
+                    ? 'border-primary ring-2 ring-primary/40 bg-primary-container/5 shadow-md scale-[1.01]' 
+                    : 'border-outline-variant/30 hover:border-secondary/60 hover:shadow-md hover:scale-[1.005]'
+                }`}
+              >
+                <div className="p-lg space-y-md">
+                  <div className="flex items-center gap-md">
+                    <div className="w-16 h-16 rounded-full overflow-hidden border border-outline-variant bg-surface-container flex items-center justify-center shrink-0">
+                      {doc.profile_picture ? (
+                        <img 
+                          alt={doc.name} 
+                          src={resolveMediaUrl(doc.profile_picture)}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="material-symbols-outlined text-3xl text-outline">medical_services</span>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-on-surface text-base">{doc.name}</h3>
+                      <p className="text-xs text-secondary font-bold">{doc.specialization}</p>
+                      <p className="text-[10px] text-outline font-semibold mb-1">{doc.experience_years} Years Experience</p>
+                      <div className="flex items-center gap-xs mt-0.5">
+                        <span className="material-symbols-outlined text-[16px] text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                        <span className="text-xs font-bold text-on-surface">{doc.rating_average || 4.9}</span>
+                        <span className="text-[10px] text-outline font-bold">({doc.review_count || 0} reviews)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-sm text-xs font-semibold text-on-surface-variant">
+                    <div className="flex items-start gap-xs">
+                      <span className="material-symbols-outlined text-[16px] text-secondary">home_pin</span>
+                      <span>Location: {doc.location}</span>
+                    </div>
+                    <div className="flex items-center gap-xs">
+                      <span className="material-symbols-outlined text-[16px] text-secondary">contact_mail</span>
+                      <span>Email: {doc.contact}</span>
+                    </div>
+                    {doc.address && (
+                      <div className="flex items-start gap-xs">
+                        <span className="material-symbols-outlined text-[16px] text-secondary">location_on</span>
+                        <span>Address: {doc.address}</span>
+                      </div>
                     )}
                   </div>
-                  <div>
-                    <h3 className="font-bold text-on-surface text-base">{doc.name}</h3>
-                    <p className="text-xs text-secondary font-bold">{doc.specialization}</p>
-                    <p className="text-[10px] text-outline font-semibold mb-1">{doc.experience_years} Years Experience</p>
-                    <div className="flex items-center gap-xs mt-0.5">
-                      <span className="material-symbols-outlined text-[16px] text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                      <span className="text-xs font-bold text-on-surface">{doc.rating_average || 4.9}</span>
-                      <span className="text-[10px] text-outline font-bold">({doc.review_count || 0} reviews)</span>
-                    </div>
-                  </div>
                 </div>
 
-                <div className="space-y-sm text-xs font-semibold text-on-surface-variant">
-                  <div className="flex items-start gap-xs">
-                    <span className="material-symbols-outlined text-[16px] text-secondary">home_pin</span>
-                    <span>Location: {doc.location}</span>
+                {isSelected && (
+                  <div className="px-lg pb-md pt-xs border-t border-outline-variant/20 bg-surface-container-lowest/60 space-y-xs animate-in slide-in-from-top duration-150">
+                    <p className="text-[10px] text-outline font-bold uppercase tracking-wider">Clinical Details & Guidelines</p>
+                    <p className="text-xs text-on-surface leading-relaxed font-medium">
+                      Dr. {doc.name.split(' ').pop()} provides comprehensive care in {doc.specialization} at the {doc.location} clinic. Consultation documents, prescriptions, and diagnostics are saved securely to your HealthAI account.
+                    </p>
                   </div>
-                  <div className="flex items-center gap-xs">
-                    <span className="material-symbols-outlined text-[16px] text-secondary">contact_mail</span>
-                    <span>Email: {doc.contact}</span>
-                  </div>
-                  {doc.address && (
-                    <div className="flex items-start gap-xs">
-                      <span className="material-symbols-outlined text-[16px] text-secondary">location_on</span>
-                      <span>Address: {doc.address}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
+                )}
 
-              <div className="p-lg bg-surface border-t border-outline-variant/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-sm">
-                <div className="flex items-center justify-between sm:justify-start gap-md">
-                  <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                    doc.available ? 'bg-success/15 text-success' : 'bg-outline/20 text-outline'
-                  }`}>
-                    {doc.available ? 'Available' : 'Unavailable'}
-                  </span>
+                <div className="p-lg bg-surface border-t border-outline-variant/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-sm">
+                  <div className="flex items-center justify-between sm:justify-start gap-md">
+                    <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                      doc.available ? 'bg-success/15 text-success' : 'bg-outline/20 text-outline'
+                    }`}>
+                      {doc.available ? 'Available' : 'Unavailable'}
+                    </span>
+                    
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenReviews(doc);
+                      }}
+                      className="text-xs text-secondary font-bold hover:underline flex items-center gap-1 active:scale-95 duration-100 focus:outline-none"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">rate_review</span>
+                      {t('viewReviewsBtn') || 'View Reviews'}
+                    </button>
+                  </div>
                   
                   <button
-                    onClick={() => handleOpenReviews(doc)}
-                    className="text-xs text-secondary font-bold hover:underline flex items-center gap-1 active:scale-95 duration-100"
+                    disabled={!doc.available}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenBooking(doc);
+                    }}
+                    className={`px-4 py-2 font-bold text-xs rounded-lg transition-all focus:outline-none ${
+                      doc.available 
+                        ? 'bg-secondary text-white hover:bg-secondary/95 active:scale-95 shadow-sm'
+                        : 'bg-outline-variant/40 text-outline cursor-not-allowed'
+                    }`}
                   >
-                    <span className="material-symbols-outlined text-[16px]">rate_review</span>
-                    {t('viewReviewsBtn') || 'View Reviews'}
+                    Book Visit
                   </button>
                 </div>
-                
-                <button
-                  disabled={!doc.available}
-                  onClick={() => handleOpenBooking(doc)}
-                  className={`px-4 py-2 font-bold text-xs rounded-lg transition-all focus:outline-none ${
-                    doc.available 
-                      ? 'bg-secondary text-white hover:bg-secondary/95 active:scale-95 shadow-sm'
-                      : 'bg-outline-variant/40 text-outline cursor-not-allowed'
-                  }`}
-                >
-                  Book Visit
-                </button>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -333,19 +449,15 @@ export default function DoctorSearch() {
                     value={bookingTime}
                     onChange={(e) => setBookingTime(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:border-secondary text-sm font-semibold text-on-surface"
+                    disabled={getAvailableTimeSlots().length === 0}
                   >
-                    <option value="09:00">09:00 AM</option>
-                    <option value="09:30">09:30 AM</option>
-                    <option value="10:00">10:00 AM</option>
-                    <option value="10:30">10:30 AM</option>
-                    <option value="11:00">11:00 AM</option>
-                    <option value="11:30">11:30 AM</option>
-                    <option value="12:00">12:00 PM</option>
-                    <option value="14:00">02:00 PM</option>
-                    <option value="14:30">02:30 PM</option>
-                    <option value="15:00">03:00 PM</option>
-                    <option value="15:30">03:30 PM</option>
-                    <option value="16:00">04:00 PM</option>
+                    {getAvailableTimeSlots().length === 0 ? (
+                      <option value="">No slots available for today</option>
+                    ) : (
+                      getAvailableTimeSlots().map(slot => (
+                        <option key={slot.value} value={slot.value}>{slot.label}</option>
+                      ))
+                    )}
                   </select>
                 </div>
 

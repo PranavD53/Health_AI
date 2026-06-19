@@ -123,7 +123,8 @@
   --color-outline: #94a3b8;
 }
 
-.dark {
+.dark,
+.theme-dark {
   --color-primary: #818cf8;
   --color-primary-container: #1e1b4b;
   --color-outline-variant: rgba(255, 255, 255, 0.08);
@@ -142,6 +143,76 @@
   --color-secondary: #818cf8;
   --color-surface-bright: #0d0d21;
 }
+
+.theme-teal {
+  --color-primary: #0d9488;
+  --color-primary-container: #ccfbf1;
+  --color-outline-variant: rgba(13, 148, 136, 0.08);
+  --color-background: #f0fdfa;
+  --color-surface: #ffffff;
+  --color-on-surface: #115e59;
+  --color-on-surface-variant: #14b8a6;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f4fbf9;
+  --color-surface-container: #f0fdfa;
+  --color-surface-container-high: #ccfbf1;
+  --color-surface-container-highest: #99f6e4;
+  --color-secondary-container: #e0f2fe;
+  --color-on-secondary-container: #0369a1;
+  --color-secondary: #0891b2;
+}
+
+.theme-purple {
+  --color-primary: #8b5cf6;
+  --color-primary-container: #f5f3ff;
+  --color-outline-variant: rgba(139, 92, 246, 0.08);
+  --color-background: #faf5ff;
+  --color-surface: #ffffff;
+  --color-on-surface: #1e1b4b;
+  --color-on-surface-variant: #6d28d9;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #faf5ff;
+  --color-surface-container: #faf5ff;
+  --color-surface-container-high: #f3e8ff;
+  --color-surface-container-highest: #e9d5ff;
+  --color-secondary-container: #fce7f3;
+  --color-on-secondary-container: #db2777;
+  --color-secondary: #d946ef;
+}
+
+.theme-rose {
+  --color-primary: #f43f5e;
+  --color-primary-container: #fff1f2;
+  --color-outline-variant: rgba(244, 63, 94, 0.08);
+  --color-background: #fff5f5;
+  --color-surface: #ffffff;
+  --color-on-surface: #4c0519;
+  --color-on-surface-variant: #be123c;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #fff5f5;
+  --color-surface-container: #fff5f5;
+  --color-surface-container-high: #ffe4e6;
+  --color-surface-container-highest: #fecdd3;
+  --color-secondary-container: #ffedd5;
+  --color-on-secondary-container: #c2410c;
+  --color-secondary: #fb923c;
+}
+
+@keyframes dnaRot {
+  0%, 100% {
+    transform: scaleY(0.12) translateY(0);
+    opacity: 0.2;
+  }
+  50% {
+    transform: scaleY(0.95) translateY(0);
+    opacity: 0.9;
+  }
+}
+
+.animate-dna-rot {
+  animation: dnaRot 3s ease-in-out infinite;
+}
+
 
 body {
   font-family: 'Inter', sans-serif;
@@ -267,4 +338,58 @@ body {
 
 .dark .wave-mesh-bg {
   background: radial-gradient(circle at 50% 120%, rgba(129, 140, 248, 0.15), transparent 50%);
+}
+
+/* Custom premium floating background orb animations */
+@keyframes floatOrb {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(40px, -60px) scale(1.15);
+  }
+  66% {
+    transform: translate(-30px, 30px) scale(0.9);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+}
+
+.animate-float-slow {
+  animation: floatOrb 20s ease-in-out infinite;
+}
+
+.animate-float-slower {
+  animation: floatOrb 28s ease-in-out infinite;
+}
+
+/* Premium Medical Landing Redesign Utilities */
+.font-jakarta {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+}
+
+.font-inter {
+  font-family: 'Inter', sans-serif;
+}
+
+.medical-grid-lines {
+  background-size: 50px 50px;
+  background-image: linear-gradient(to right, rgba(99, 102, 241, 0.03) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(99, 102, 241, 0.03) 1px, transparent 1px);
+}
+
+.dark .medical-grid-lines {
+  background-image: linear-gradient(to right, rgba(129, 140, 248, 0.04) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(129, 140, 248, 0.04) 1px, transparent 1px);
+}
+
+.glow-orb-subtle {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%);
+  filter: blur(40px);
+}
+
+.dark .glow-orb-subtle {
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.1) 0%, transparent 65%);
+  filter: blur(60px);
 }

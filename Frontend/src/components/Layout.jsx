@@ -5,6 +5,7 @@ import { useCall } from '../context/CallContext';
 import TopNavBar from './TopNavBar';
 import SideNavBar from './SideNavBar';
 import GlobalAssistant from './GlobalAssistant';
+import { applyTheme } from '../utils/theme';
 
 export default function Layout({ children }) {
   const { user, isVerified, loading } = useAuth();
@@ -48,6 +49,20 @@ export default function Layout({ children }) {
     }
   }, [user, isVerified, loading, navigate, location.pathname]);
 
+  // Global Theme event listener sync
+  useEffect(() => {
+    const handleThemeChange = () => {
+      const activeTheme = localStorage.getItem('theme') || 'light';
+      applyTheme(activeTheme);
+    };
+    handleThemeChange();
+    
+    window.addEventListener('theme_change', handleThemeChange);
+    return () => {
+      window.removeEventListener('theme_change', handleThemeChange);
+    };
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-4">
@@ -72,7 +87,14 @@ export default function Layout({ children }) {
           </div>
         </main>
       </div>
-      <div className="wave-mesh-bg" />
+      {/* Premium floating network decoration */}
+      <div className="absolute bottom-10 right-12 w-32 h-16 pointer-events-none z-0 opacity-20 hidden md:block select-none">
+        <svg className="w-full h-full text-primary" viewBox="0 0 100 50">
+          <line x1="20" y1="25" x2="80" y2="25" stroke="currentColor" strokeWidth="0.8" strokeDasharray="3,3" />
+          <circle cx="20" cy="25" r="4" fill="currentColor" className="animate-pulse" />
+          <circle cx="80" cy="25" r="4" fill="currentColor" className="animate-pulse" style={{ animationDelay: '0.5s' }} />
+        </svg>
+      </div>
       <GlobalAssistant />
 
       {/* 1. Incoming Call Ringing Overlay for Patient */}

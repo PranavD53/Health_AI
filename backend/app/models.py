@@ -1,4 +1,5 @@
 import datetime
+import uuid
 from sqlalchemy import Column, Integer, String, Boolean, Float, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -27,6 +28,7 @@ class User(Base):
     metrics = relationship("PatientMetric", back_populates="user", cascade="all, delete-orphan")
     doctor_profile = relationship("Doctor", back_populates="user", uselist=False, cascade="all, delete-orphan")
     feedbacks = relationship("Feedback", back_populates="patient", foreign_keys="[Feedback.patient_id]", cascade="all, delete-orphan")
+    color_palettes = relationship("UserColorPalette", back_populates="user", cascade="all, delete-orphan")
 
     @property
     def doctor_profile_id(self):
@@ -302,3 +304,19 @@ class Feedback(Base):
     appointment = relationship("Appointment", back_populates="feedback")
     patient = relationship("User", back_populates="feedbacks", foreign_keys=[patient_id])
     doctor = relationship("Doctor", back_populates="feedbacks", foreign_keys=[doctor_id])
+
+
+class UserColorPalette(Base):
+    __tablename__ = "user_color_palettes"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    primary_color = Column(String(7), nullable=False)
+    secondary_color = Column(String(7), nullable=False)
+    background_color = Column(String(7), nullable=False)
+    accent_color = Column(String(7), nullable=False)
+    is_active = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    user = relationship("User", back_populates="color_palettes")

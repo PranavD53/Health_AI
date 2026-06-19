@@ -1,10 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 
 export default function Register() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('patient'); // patient, doctor
+
+  // Input refs for container-click focus shifting
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
+  
+  const docEmailRef = useRef(null);
+  const docNameRef = useRef(null);
+  const docPasswordRef = useRef(null);
+  const docConfirmPasswordRef = useRef(null);
+  const docLicenseRef = useRef(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -169,20 +180,29 @@ export default function Register() {
             <form onSubmit={handlePatientSubmit} className="space-y-lg">
               <div className="space-y-xs">
                 <label className="text-label-md font-label-md text-on-surface ml-unit">Email Address</label>
-                <input 
-                  required
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none transition-all text-sm"
-                  placeholder="patient@example.com"
-                />
+                <div className="relative cursor-text" onClick={() => emailRef.current?.focus()}>
+                  <input 
+                    ref={emailRef}
+                    autoFocus
+                    required
+                    type="email" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none transition-all text-sm"
+                    placeholder="patient@example.com"
+                  />
+                </div>
               </div>
 
               <div className="space-y-xs">
                 <label className="text-label-md font-label-md text-on-surface ml-unit">Password</label>
-                <div className="relative">
+                <div className="relative cursor-text" onClick={(e) => {
+                  if (!e.target.closest('button')) {
+                    passwordRef.current?.focus();
+                  }
+                }}>
                   <input 
+                    ref={passwordRef}
                     required
                     type={showPassword ? "text" : "password"} 
                     value={password}
@@ -195,7 +215,7 @@ export default function Register() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-md top-1/2 -translate-y-1/2 text-outline hover:text-on-surface focus:outline-none flex items-center"
                   >
-                    <span className="material-symbols-outlined text-lg">
+                    <span className="material-symbols-outlined text-lg select-none">
                       {showPassword ? "visibility_off" : "visibility"}
                     </span>
                   </button>
@@ -204,8 +224,13 @@ export default function Register() {
 
               <div className="space-y-xs">
                 <label className="text-label-md font-label-md text-on-surface ml-unit">Confirm Password</label>
-                <div className="relative">
+                <div className="relative cursor-text" onClick={(e) => {
+                  if (!e.target.closest('button')) {
+                    confirmPasswordRef.current?.focus();
+                  }
+                }}>
                   <input 
+                    ref={confirmPasswordRef}
                     required
                     type={showConfirmPassword ? "text" : "password"} 
                     value={confirmPassword}
@@ -218,7 +243,7 @@ export default function Register() {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-md top-1/2 -translate-y-1/2 text-outline hover:text-on-surface focus:outline-none flex items-center"
                   >
-                    <span className="material-symbols-outlined text-lg">
+                    <span className="material-symbols-outlined text-lg select-none">
                       {showConfirmPassword ? "visibility_off" : "visibility"}
                     </span>
                   </button>
@@ -246,33 +271,45 @@ export default function Register() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div className="space-y-xs">
                   <label className="text-label-md font-label-md text-on-surface ml-unit">Email</label>
-                  <input 
-                    required
-                    type="email" 
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
-                    placeholder="doctor@example.com"
-                  />
+                  <div className="relative cursor-text" onClick={() => docEmailRef.current?.focus()}>
+                    <input 
+                      ref={docEmailRef}
+                      autoFocus
+                      required
+                      type="email" 
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
+                      placeholder="doctor@example.com"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-xs">
                   <label className="text-label-md font-label-md text-on-surface ml-unit">Full Name (including Dr.)</label>
-                  <input 
-                    required
-                    type="text" 
-                    value={doctorName}
-                    onChange={(e) => setDoctorName(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
-                    placeholder="Dr. Elizabeth Blackwell"
-                  />
+                  <div className="relative cursor-text" onClick={() => docNameRef.current?.focus()}>
+                    <input 
+                      ref={docNameRef}
+                      required
+                      type="text" 
+                      value={doctorName}
+                      onChange={(e) => setDoctorName(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
+                      placeholder="Dr. Elizabeth Blackwell"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div className="space-y-xs">
                   <label className="text-label-md font-label-md text-on-surface ml-unit">Password</label>
-                  <div className="relative">
+                  <div className="relative cursor-text" onClick={(e) => {
+                    if (!e.target.closest('button')) {
+                      docPasswordRef.current?.focus();
+                    }
+                  }}>
                     <input 
+                      ref={docPasswordRef}
                       required
                       type={showPassword ? "text" : "password"} 
                       value={password}
@@ -285,7 +322,7 @@ export default function Register() {
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-md top-1/2 -translate-y-1/2 text-outline hover:text-on-surface focus:outline-none flex items-center"
                     >
-                      <span className="material-symbols-outlined text-lg">
+                      <span className="material-symbols-outlined text-lg select-none">
                         {showPassword ? "visibility_off" : "visibility"}
                       </span>
                     </button>
@@ -293,8 +330,13 @@ export default function Register() {
                 </div>
                 <div className="space-y-xs">
                   <label className="text-label-md font-label-md text-on-surface ml-unit">Confirm Password</label>
-                  <div className="relative">
+                  <div className="relative cursor-text" onClick={(e) => {
+                    if (!e.target.closest('button')) {
+                      docConfirmPasswordRef.current?.focus();
+                    }
+                  }}>
                     <input 
+                      ref={docConfirmPasswordRef}
                       required
                       type={showConfirmPassword ? "text" : "password"} 
                       value={confirmPassword}
@@ -307,7 +349,7 @@ export default function Register() {
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-md top-1/2 -translate-y-1/2 text-outline hover:text-on-surface focus:outline-none flex items-center"
                     >
-                      <span className="material-symbols-outlined text-lg">
+                      <span className="material-symbols-outlined text-lg select-none">
                         {showConfirmPassword ? "visibility_off" : "visibility"}
                       </span>
                     </button>
@@ -370,14 +412,17 @@ export default function Register() {
 
               <div className="space-y-xs">
                 <label className="text-label-md font-label-md text-on-surface ml-unit">Medical License Number / Unique Doctor ID *</label>
-                <input 
-                  required
-                  type="text" 
-                  value={licenseNumber}
-                  onChange={(e) => setLicenseNumber(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
-                  placeholder="e.g. MD-12345-AI"
-                />
+                <div className="relative cursor-text" onClick={() => docLicenseRef.current?.focus()}>
+                  <input 
+                    ref={docLicenseRef}
+                    required
+                    type="text" 
+                    value={licenseNumber}
+                    onChange={(e) => setLicenseNumber(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
+                    placeholder="e.g. MD-12345-AI"
+                  />
+                </div>
               </div>
 
               {/* Upload Documents */}

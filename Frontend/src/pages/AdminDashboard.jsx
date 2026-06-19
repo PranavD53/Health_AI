@@ -176,7 +176,11 @@ export default function AdminDashboard() {
 
       {/* Stats Bento Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md">
-        <div className="bg-white border border-outline-variant/30 p-6 rounded-2xl shadow-sm interactive-card">
+        <div 
+          onClick={() => setActiveSubTab('users')}
+          className="bg-white border border-outline-variant/30 p-6 rounded-2xl shadow-sm interactive-card cursor-pointer hover:shadow-md hover:border-primary/50 transition-all active:scale-[0.98]"
+          title="Switch to User Management Tab"
+        >
           <div className="flex justify-between items-start mb-4">
             <div className="p-2 bg-primary/10 rounded-lg text-primary">
               <span className="material-symbols-outlined">person</span>
@@ -186,7 +190,11 @@ export default function AdminDashboard() {
           <h2 className="text-2xl font-bold text-primary">{dashboardData?.total_patients}</h2>
         </div>
 
-        <div className="bg-white border border-outline-variant/30 p-6 rounded-2xl shadow-sm interactive-card">
+        <div 
+          onClick={() => setActiveSubTab('users')}
+          className="bg-white border border-outline-variant/30 p-6 rounded-2xl shadow-sm interactive-card cursor-pointer hover:shadow-md hover:border-primary/50 transition-all active:scale-[0.98]"
+          title="Switch to User Management Tab"
+        >
           <div className="flex justify-between items-start mb-4">
             <div className="p-2 bg-secondary/10 rounded-lg text-secondary">
               <span className="material-symbols-outlined">medical_services</span>
@@ -196,7 +204,11 @@ export default function AdminDashboard() {
           <h2 className="text-2xl font-bold text-primary">{dashboardData?.total_doctors}</h2>
         </div>
 
-        <div className="bg-white border border-outline-variant/30 p-6 rounded-2xl shadow-sm interactive-card">
+        <div 
+          onClick={() => setActiveSubTab('verifications')}
+          className="bg-white border border-outline-variant/30 p-6 rounded-2xl shadow-sm interactive-card cursor-pointer hover:shadow-md hover:border-primary/50 transition-all active:scale-[0.98]"
+          title="Switch to Verification Queue Tab"
+        >
           <div className="flex justify-between items-start mb-4">
             <div className="p-2 bg-error/10 rounded-lg text-error animate-pulse">
               <span className="material-symbols-outlined">pending_actions</span>
@@ -206,7 +218,11 @@ export default function AdminDashboard() {
           <h2 className="text-2xl font-bold text-primary">{dashboardData?.pending_verifications}</h2>
         </div>
 
-        <div className="bg-white border border-outline-variant/30 p-6 rounded-2xl shadow-sm interactive-card">
+        <div 
+          onClick={() => setActiveSubTab('moderation')}
+          className="bg-white border border-outline-variant/30 p-6 rounded-2xl shadow-sm interactive-card cursor-pointer hover:shadow-md hover:border-primary/50 transition-all active:scale-[0.98]"
+          title="Switch to Feedback Moderation Tab"
+        >
           <div className="flex justify-between items-start mb-4">
             <div className="p-2 bg-tertiary-fixed rounded-lg text-tertiary">
               <span className="material-symbols-outlined">network_check</span>

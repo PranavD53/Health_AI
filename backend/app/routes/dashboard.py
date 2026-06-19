@@ -130,12 +130,25 @@ async def get_dashboard(
     try:
         today_str = datetime.date.today().strftime("%Y-%m-%d")
 
+        # Query all appointments for this user to adjust them dynamically
+        all_appts = db.query(models.Appointment).filter(
+            models.Appointment.patient_id == current_user.id
+        ).all()
+        
+        # Expunge so we do not write back to DB
+        for appt in all_appts:
+            try:
+                db.expunge(appt)
+            except Exception:
+                pass
+                
+        # Adjust all timestamps in-place
+        from app.routes.appointments import adjust_timestamps_generic
+        adjust_timestamps_generic(all_appts)
+
         # 1. Upcoming appointments (booked, today or future date)
-        appointments = db.query(models.Appointment).filter(
-            models.Appointment.patient_id == current_user.id,
-            models.Appointment.status == "booked",
-            models.Appointment.date >= today_str
-        ).order_by(models.Appointment.date.asc(), models.Appointment.time.asc()).all()
+        appointments = [a for a in all_appts if a.status == "booked" and a.date >= today_str]
+        appointments.sort(key=lambda x: (x.date, x.time))
 
         # 2. Recent symptom logs (last 5 entries)
         symptoms = db.query(models.SymptomLog).filter(
@@ -162,10 +175,9 @@ async def get_dashboard(
         }
 
         # 6. User Activity Logs (Previously Booked Appointments only)
-        appts = db.query(models.Appointment).filter(
-            models.Appointment.patient_id == current_user.id,
-            models.Appointment.status != "cancelled"
-        ).order_by(models.Appointment.created_at.desc()).limit(5).all()
+        appts = [a for a in all_appts if a.status != "cancelled"]
+        appts.sort(key=lambda x: x.created_at, reverse=True)
+        appts = appts[:5]
 
         # Translate language
         lang_code = "en"

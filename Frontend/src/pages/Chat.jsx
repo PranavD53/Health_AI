@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../services/api';
 import { resolveMediaUrl } from '../utils/apiConfig';
 import { useAuth } from '../context/AuthContext';
@@ -9,10 +10,12 @@ import { useCall } from '../context/CallContext';
 export default function Chat() {
   const { t } = useLanguage();
   const { user } = useAuth();
+  const location = useLocation();
   const [contacts, setContacts] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
   const [activeConv, setActiveConv] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [messageText, setMessageText] = useState('');
@@ -112,6 +115,13 @@ export default function Chat() {
     fetchContacts();
     fetchConversations();
   }, []);
+
+  // Handle auto-starting/opening chat with user passed via router state
+  useEffect(() => {
+    if (location.state && location.state.selectUserId) {
+      handleStartConversation(location.state.selectUserId);
+    }
+  }, [location.state]);
 
   // Use WebSocket for real-time messages
   useEffect(() => {
@@ -476,7 +486,11 @@ export default function Chat() {
           <>
             {/* Header info */}
             <div className="px-6 py-4 border-b border-outline-variant/30 flex items-center justify-between bg-surface shadow-sm z-10 shrink-0">
-              <div className="flex items-center gap-md">
+              <div 
+                className="flex items-center gap-md cursor-pointer hover:opacity-80 transition-opacity" 
+                onClick={() => setShowProfileModal(true)}
+                title="View user details"
+              >
                 <div className="w-10 h-10 rounded-full bg-primary-fixed text-primary font-bold flex items-center justify-center text-sm shadow-sm">
                   {getInitials(activeConv.other_user.name)}
                 </div>
@@ -796,6 +810,64 @@ export default function Chat() {
           </div>
         </div>
         )}
+
+      {/* Profile Detail Modal */}
+      {showProfileModal && activeConv && (
+        <div className="fixed inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-[#111024] border border-outline-variant rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden p-lg space-y-md">
+            <div className="flex justify-between items-center border-b border-outline-variant/30 pb-sm">
+              <h3 className="font-bold text-primary text-sm flex items-center gap-xs">
+                <span className="material-symbols-outlined text-secondary">account_circle</span>
+                User Profile
+              </h3>
+              <button 
+                type="button"
+                onClick={() => setShowProfileModal(false)}
+                className="p-1 hover:bg-surface-container-high rounded-full transition-colors text-outline focus:outline-none"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <div className="flex flex-col items-center py-md space-y-xs">
+              <div className="w-20 h-20 rounded-full bg-primary-fixed text-primary font-bold flex items-center justify-center text-2xl shadow-md border border-outline-variant/30">
+                {getInitials(activeConv.other_user.name)}
+              </div>
+              <h4 className="font-bold text-on-surface dark:text-white text-base mt-sm">{activeConv.other_user.name}</h4>
+              <span className="px-3 py-1 bg-secondary-container text-on-secondary-container font-semibold rounded-full text-[10px] capitalize">
+                {activeConv.other_user.role}
+              </span>
+            </div>
+
+            <div className="space-y-sm bg-surface-container-lowest dark:bg-white/5 p-md rounded-xl border border-outline-variant/15 text-xs">
+              <div className="flex justify-between">
+                <span className="text-outline font-semibold">Email Address</span>
+                <span className="text-on-surface dark:text-white font-medium">{activeConv.other_user.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-outline font-semibold">Workspace Access</span>
+                <span className="text-on-surface dark:text-white font-medium capitalize">{activeConv.other_user.role} Portal</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-outline font-semibold">Status</span>
+                <span className="text-success font-bold flex items-center gap-2xs">
+                  <span className="w-1.5 h-1.5 bg-success rounded-full"></span> Active
+                </span>
+              </div>
+            </div>
+            
+            <div className="pt-sm border-t border-outline-variant/30 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowProfileModal(false)}
+                className="px-6 py-2 bg-primary hover:bg-primary/95 text-white font-bold text-xs rounded-lg transition-colors focus:outline-none shadow-sm"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     );
   }

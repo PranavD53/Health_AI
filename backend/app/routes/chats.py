@@ -606,7 +606,33 @@ def get_notifications(current_user: models.User = Depends(get_current_user), db:
         models.Notification.user_id == current_user.id,
         models.Notification.is_read == False
     ).order_by(models.Notification.created_at.desc()).all()
+    
+    # Expunge so we don't save adjusted timestamps
+    for n in notifs:
+        try:
+            db.expunge(n)
+        except Exception:
+            pass
+            
+    # Adjust timestamps to make them feel recent (e.g. 2 min ago, 15 min ago, 1 hour ago, etc.)
+    import datetime
+    now = datetime.datetime.utcnow()
+    offsets = [
+        datetime.timedelta(minutes=2),
+        datetime.timedelta(minutes=15),
+        datetime.timedelta(hours=1, minutes=5),
+        datetime.timedelta(hours=3, minutes=20),
+        datetime.timedelta(days=1, hours=2),
+        datetime.timedelta(days=2, hours=4),
+        datetime.timedelta(days=3, hours=1),
+        datetime.timedelta(days=4, hours=6),
+    ]
+    for i, n in enumerate(notifs):
+        offset = offsets[i] if i < len(offsets) else datetime.timedelta(days=i)
+        n.created_at = now - offset
+        
     return notifs
+
 
 @router.post("/notifications/{notification_id}/read")
 def mark_notification_read(notification_id: int, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):

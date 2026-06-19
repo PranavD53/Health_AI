@@ -10,6 +10,8 @@ export default function GlobalAssistant() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [waitingForStandbyChoice, setWaitingForStandbyChoice] = useState(false);
+  const consecutiveSilencesRef = useRef(0);
   
   const [tarsVoiceEnabled, setTarsVoiceEnabled] = useState(() => {
     return localStorage.getItem('tars_voice_enabled') !== 'false';
@@ -84,44 +86,7 @@ export default function GlobalAssistant() {
   }, []);
 
   // Autoplay and run on login via first user interaction
-  useEffect(() => {
-    if (!user || !tarsVoiceEnabled) return;
-
-    const initVoiceOnInteraction = () => {
-      if (!hasGreetedRef.current) {
-        hasGreetedRef.current = true;
-        
-        try {
-          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-          }
-        } catch (e) {}
-
-        playActivationSound();
-        const uiLang = localStorage.getItem('app_lang') || 'en';
-        let greeting = "TARS is active and ready. How can I help you today?";
-        if (uiLang === 'hi') {
-          greeting = "नमस्कार, मैं टार्स हूँ। मैं आज आपकी क्या सहायता कर सकती हूँ?";
-        } else if (uiLang === 'te') {
-          greeting = "నమస్కారం, నేను టార్స్. ఈ రోజు నేను మీకు ఎలా సహాయపడగలను?";
-        }
-        
-        setVoiceSessionActive(true);
-        speakMessage(greeting, () => {
-          startListening();
-        });
-      }
-    };
-
-    window.addEventListener('click', initVoiceOnInteraction, { once: true });
-    window.addEventListener('keydown', initVoiceOnInteraction, { once: true });
-
-    return () => {
-      window.removeEventListener('click', initVoiceOnInteraction);
-      window.removeEventListener('keydown', initVoiceOnInteraction);
-    };
-  }, [user, tarsVoiceEnabled]);
+  // Autoplay greeting removed - TARS is silent and in standby by default on load
 
   // Voice broadcast listener for actions from other pages (e.g. anti-fraud scans)
   useEffect(() => {
@@ -232,9 +197,53 @@ export default function GlobalAssistant() {
       "tars stop", "stop tars", "tars deactivate", "tars bye", "bye tars",
       "tars sojao", "tars band karo", "tars off karo", "tars bandh karo", 
       "tars paduko", "tars off cheyyi", "tars stop cheyyi", "tars bandh cheyyi",
-      "go to sleep tars", "sleep tars", "sojao tars", "band karo tars"
+      "go to sleep tars", "sleep tars", "sojao tars", "band karo tars",
+      "that's enough", "go quiet", "stop listening", "bas karo", "oddu", "bye", "goodbye",
+      "chup", "chup ho jao", "chup raho", "silent", "go silent", "standby"
     ];
-    return sleepPhrases.some(phrase => t.includes(phrase));
+    return sleepPhrases.some(phrase => t.includes(phrase) || phrase === t);
+  };
+
+  // Classifies user's standby response
+  const classifyStandbyChoice = (text) => {
+    const t = text.toLowerCase().trim();
+    const standbySignals = [
+      "standby", "stand by", "no", "nahi", "oddu", "stop", "sleep", "bye", "goodbye",
+      "go to standby", "go quiet", "that's enough", "bas karo", "turn off", "deactivate",
+      "quiet", "silent", "chup"
+    ];
+    const activeSignals = [
+      "remain active", "active", "yes", "ha", "haan", "avunu", "keep active", "continue",
+      "stay active", "stay on", "chalu rakho", "melukoni undu"
+    ];
+    if (standbySignals.some(s => t === s || t.includes(s))) {
+      return 'standby';
+    }
+    if (activeSignals.some(s => t === s || t.includes(s))) {
+      return 'active';
+    }
+    return 'other';
+  };
+
+  // Prompts user with standby options
+  const askStandbyChoice = () => {
+    setWaitingForStandbyChoice(true);
+    const uiLang = localStorage.getItem('app_lang') || 'en';
+    let question = "Would you like me to remain active or return to standby?";
+    if (uiLang === 'hi') {
+      question = "क्या आप चाहते हैं कि मैं सक्रिय रहूँ या स्टैंडबाय पर वापस जाऊँ?";
+    } else if (uiLang === 'te') {
+      question = "నేను సక్రియంగా ఉండాలా లేక స్టాండ్-బైకి వెళ్ళాలా?";
+    }
+    
+    setMessages(prev => [...prev, { role: 'assistant', content: question }]);
+    speakMessage(question, () => {
+      if (voiceSessionActive) {
+        setTimeout(() => {
+          startListening();
+        }, 300);
+      }
+    });
   };
 
   // Automatic response language script detector
@@ -348,6 +357,17 @@ export default function GlobalAssistant() {
         alert("Voice assistant is disabled during an active video call.");
         return;
       }
+      
+      if (isListening || isSpeaking || voiceSessionActive) {
+        cancelSpeech();
+        setVoiceSessionActive(false);
+        if (activeRecognitionRef.current) {
+          try { activeRecognitionRef.current.stop(); } catch (e) {}
+        }
+        playDeactivationSound();
+        return;
+      }
+
       // Ensure TARS voice is enabled
       if (!tarsVoiceEnabled) {
         setTarsVoiceEnabled(true);
@@ -371,7 +391,7 @@ export default function GlobalAssistant() {
     return () => {
       window.removeEventListener('tars_global_mic_click', handleGlobalMicClick);
     };
-  }, [tarsVoiceEnabled]);
+  }, [tarsVoiceEnabled, isListening, isSpeaking, voiceSessionActive]);
 
   // Background Standby listener logic (runs globally, halts when speaking, active listening, or in session)
   useEffect(() => {
@@ -525,6 +545,7 @@ export default function GlobalAssistant() {
       
       const textToSend = finalTranscript.trim();
       if (textToSend.length > 0) {
+        consecutiveSilencesRef.current = 0;
         // Check for voice deactivation command
         if (isDeactivationCommand(textToSend)) {
           playDeactivationSound();
@@ -539,14 +560,25 @@ export default function GlobalAssistant() {
         }
         handleSend(textToSend);
       } else {
-        if (voiceSessionActive) {
-          // Continuous listening: restart recognition if no speech was transcribed
-          try {
-            recognition.start();
-          } catch (err) {
-            console.error("Failed to auto-restart recognition on end:", err);
-            setVoiceSessionActive(false);
-            playDeactivationSound();
+        consecutiveSilencesRef.current += 1;
+        if (consecutiveSilencesRef.current >= 2) {
+          consecutiveSilencesRef.current = 0;
+          playDeactivationSound();
+          const uiLang = localStorage.getItem('app_lang') || 'en';
+          let standbyMsg = "Going quiet now.";
+          if (uiLang === 'hi') standbyMsg = "अब मैं शांत हो रहा हूँ।";
+          else if (uiLang === 'te') standbyMsg = "ఇక నేను నిశ్శబ్దంగా ఉంటాను.";
+          speakMessage(standbyMsg);
+          setVoiceSessionActive(false);
+        } else {
+          if (voiceSessionActive) {
+            try {
+              recognition.start();
+            } catch (err) {
+              console.error("Failed to auto-restart recognition on end:", err);
+              setVoiceSessionActive(false);
+              playDeactivationSound();
+            }
           }
         }
       }
@@ -607,8 +639,45 @@ export default function GlobalAssistant() {
     const text = (textToSend || inputValue).trim();
     if (!text) return;
 
-    setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }]);
     setInputValue('');
+
+    if (waitingForStandbyChoice) {
+      setWaitingForStandbyChoice(false);
+      const choice = classifyStandbyChoice(text);
+      if (choice === 'active') {
+        consecutiveSilencesRef.current = 0;
+        const uiLang = localStorage.getItem('app_lang') || 'en';
+        let resumeMsg = "Understood. How else can I assist you?";
+        if (uiLang === 'hi') resumeMsg = "समझ गया। मैं आपकी और कैसे सहायता कर सकता हूँ?";
+        else if (uiLang === 'te') resumeMsg = "అర్థమైంది. నేను మీకు ఇంకా ఎలా సహాయపడగలను?";
+        
+        setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: resumeMsg }]);
+        if (voiceSessionActive) {
+          speakMessage(resumeMsg, () => {
+            setTimeout(() => {
+              startListening();
+            }, 300);
+          });
+        }
+        return;
+      } else if (choice === 'standby') {
+        consecutiveSilencesRef.current = 0;
+        const uiLang = localStorage.getItem('app_lang') || 'en';
+        let standbyMsg = "Okay, returning to standby mode.";
+        if (uiLang === 'hi') standbyMsg = "ठीक है, स्टैंडबाय मोड पर वापस जा रहा हूँ।";
+        else if (uiLang === 'te') standbyMsg = "సరే, స్టాండ్-బై మోడ్‌కి తిరిగి వెళ్తున్నాను.";
+        
+        setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: standbyMsg }]);
+        playDeactivationSound();
+        setVoiceSessionActive(false);
+        if (voiceSessionActive) {
+          speakMessage(standbyMsg);
+        }
+        return;
+      }
+    }
+
+    setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }]);
     setLoading(true);
 
     try {
@@ -626,19 +695,14 @@ export default function GlobalAssistant() {
         return newMessages;
       });
       
-      // Speak back response
-      speakMessage(data.reply, () => {
-        // Automatically restart listening if we are in an active voice session AND no action is executing next
-        if (!data.action && voiceSessionActive) {
-          setTimeout(() => {
-            startListening();
-          }, 300);
-        }
-      });
-
-      // Execute Action if present
       if (data.action) {
-        handleAction(data.action);
+        await handleAction(data.action, data.reply);
+      } else {
+        if (voiceSessionActive) {
+          speakMessage(data.reply, () => {
+            askStandbyChoice();
+          });
+        }
       }
     } catch (err) {
       console.error(err);
@@ -650,27 +714,33 @@ export default function GlobalAssistant() {
       if (uiLang === 'hi') speechError = "क्षमा करें, मुझे कोई त्रुटि मिली। कृपया पुनः प्रयास करें।";
       else if (uiLang === 'te') speechError = "క్షమించండి, ఒక లోపం సంభవించింది. దయచేసి మళ్ళీ ప్రయత్నించండి.";
       
-      speakMessage(speechError, () => {
-        if (voiceSessionActive) {
-          setTimeout(() => {
-            startListening();
-          }, 300);
-        }
-      });
+      if (voiceSessionActive) {
+        speakMessage(speechError, () => {
+          askStandbyChoice();
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAction = async (action) => {
+  const handleAction = async (action, assistantReply = '') => {
     const { type, parameters } = action;
     setMessages(prev => [...prev, { role: 'system', content: `Executing system action: ${type.replace('_', ' ')}...` }]);
 
     const resumeVoice = () => {
       if (voiceSessionActive) {
         setTimeout(() => {
-          startListening();
+          askStandbyChoice();
         }, 300);
+      }
+    };
+
+    const speakAndResume = (speakText) => {
+      if (voiceSessionActive) {
+        speakMessage(speakText, resumeVoice);
+      } else {
+        resumeVoice();
       }
     };
 
@@ -681,32 +751,32 @@ export default function GlobalAssistant() {
             ? "You cannot book or browse appointments as a doctor. You manage consultations from your dashboard workspace." 
             : "You cannot book or browse appointments as an administrator.";
           setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
-          speakMessage(errorMsg, resumeVoice);
+          speakAndResume(errorMsg);
           return;
         } else {
           const spec = parameters.specialization || '';
           navigate(`/appointments?search=${spec}`);
+          speakAndResume(assistantReply || "Finding doctors for you.");
         }
-        resumeVoice();
       } else if (type === 'view_records') {
         navigate('/records');
-        resumeVoice();
+        speakAndResume(assistantReply || "Opening medical records.");
       } else if (type === 'view_dashboard') {
         navigate('/dashboard');
-        resumeVoice();
+        speakAndResume(assistantReply || "Going to your dashboard.");
       } else if (type === 'view_settings') {
         navigate('/settings');
-        resumeVoice();
+        speakAndResume(assistantReply || "Opening settings.");
       } else if (type === 'view_chat') {
         navigate('/chat');
-        resumeVoice();
+        speakAndResume(assistantReply || "Opening chat panel.");
       } else if (type === 'book_appointment') {
         if (user.role === 'doctor' || user.role === 'admin') {
           const errorMsg = user.role === 'doctor' 
             ? "You cannot book an appointment as a doctor. You manage consultations from your dashboard workspace." 
             : "You cannot book an appointment as an administrator.";
           setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
-          speakMessage(errorMsg, resumeVoice);
+          speakAndResume(errorMsg);
           return;
         }
         const today = new Date();
@@ -724,13 +794,13 @@ export default function GlobalAssistant() {
         await api.bookAppointment(docId, date, time);
         const successMsg = `Appointment successfully booked for ${date} at ${time}!`;
         setMessages(prev => [...prev, { role: 'assistant', content: successMsg }]);
-        speakMessage(successMsg, resumeVoice);
+        speakAndResume(successMsg);
       } else if (type === 'lodge_complaint') {
         const msg = parameters.message || 'General Complaint';
         await api.submitComplaint(msg);
-        const successMsg = "Your complaint has been successfully filed with the admin panel.";
-        setMessages(prev => [...prev, { role: 'assistant', content: `I have lodged your complaint in our admin panel. Our support team will resolve this shortly.` }]);
-        speakMessage(successMsg, resumeVoice);
+        const successMsg = "Your complaint has been successfully filed with the admin panel. Our support team will resolve this shortly.";
+        setMessages(prev => [...prev, { role: 'assistant', content: successMsg }]);
+        speakAndResume(successMsg);
       } else if (type === 'analyze_symptom') {
         const sym = parameters.symptoms || '';
         const dur = parameters.duration || '1 day';
@@ -738,11 +808,23 @@ export default function GlobalAssistant() {
         
         const data = await api.analyzeSymptom(sym, dur, sev);
         setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
-        speakMessage(data.reply, resumeVoice);
+        speakAndResume(data.reply);
       }
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, { role: 'assistant', content: `Action failed: ${err.message}` }]);
+      const errorMsg = `Action failed: ${err.message}`;
+      setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
+      speakAndResume(errorMsg);
+    }
+  };
+
+  const handleInputFocusOrChange = () => {
+    cancelSpeech();
+    setVoiceSessionActive(false);
+    if (activeRecognitionRef.current) {
+      try {
+        activeRecognitionRef.current.stop();
+      } catch (e) {}
     }
   };
 
@@ -983,40 +1065,15 @@ export default function GlobalAssistant() {
 
               {/* Input Panel */}
               <div className="p-3 border-t border-outline-variant bg-white flex gap-sm items-center">
-                <button 
-                  onClick={() => {
-                    if (isListening) {
-                      setVoiceSessionActive(false);
-                      if (activeRecognitionRef.current) {
-                        try {
-                          activeRecognitionRef.current.stop();
-                        } catch (e) {}
-                      }
-                    } else {
-                      if (isSpeaking) {
-                        cancelSpeech();
-                      }
-                      if (isInCall) {
-                        alert("Voice assistant is disabled during an active video call.");
-                        return;
-                      }
-                      setVoiceSessionActive(true);
-                      startListening();
-                    }
-                  }}
-                  className={`p-2 rounded-full transition-all focus:outline-none ${
-                    (isListening || isSpeaking) ? 'bg-error text-white animate-pulse' : 'bg-surface-container-high text-outline hover:text-secondary'
-                  }`}
-                  title={(isListening || isSpeaking) ? "Stop Assistant" : "Click to speak"}
-                >
-                  <span className="material-symbols-outlined">{(isListening || isSpeaking) ? 'mic' : 'mic_off'}</span>
-                </button>
-                
                 <input 
                   type="text" 
                   placeholder="Ask TARS anything..."
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
+                  onChange={(e) => {
+                    setInputValue(e.target.value);
+                    handleInputFocusOrChange();
+                  }}
+                  onFocus={handleInputFocusOrChange}
                   onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                   className="flex-1 py-2 px-3 border border-outline-variant rounded-lg bg-surface text-xs text-on-surface focus:outline-none focus:border-secondary"
                 />
@@ -1035,7 +1092,17 @@ export default function GlobalAssistant() {
 
       {/* Launcher Button with dynamic TARS HUD */}
       <button 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const nextOpen = !isOpen;
+          setIsOpen(nextOpen);
+          if (!nextOpen) {
+            cancelSpeech();
+            setVoiceSessionActive(false);
+            if (activeRecognitionRef.current) {
+              try { activeRecognitionRef.current.stop(); } catch (e) {}
+            }
+          }
+        }}
         className={`w-14 h-14 ${hudBg} text-white rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-all duration-300 focus:outline-none relative`}
         title={hudTitle}
       >

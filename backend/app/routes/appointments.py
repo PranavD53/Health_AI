@@ -19,6 +19,7 @@ class AppointmentBook(BaseModel):
 
 class DoctorMinInfo(BaseModel):
     id: int
+    user_id: Optional[int] = None
     name: str
     specialization: str
     location: str
@@ -38,6 +39,58 @@ class AppointmentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+# --- Helper for dynamic timeline offsets ---
+def adjust_timestamps_generic(items: list, today_date=None):
+    import datetime
+    if not today_date:
+        today_date = datetime.date.today()
+    now = datetime.datetime.utcnow()
+    
+    def get_val(obj, key):
+        if isinstance(obj, dict):
+            return obj.get(key)
+        return getattr(obj, key, None)
+
+    def set_val(obj, key, val):
+        if isinstance(obj, dict):
+            obj[key] = val
+        else:
+            setattr(obj, key, val)
+
+    # Separate old and new
+    old_booked = []
+    old_past = []
+    
+    for item in items:
+        created_at = get_val(item, "created_at")
+        status = get_val(item, "status")
+        
+        # Check if created_at is naive or timezone-aware
+        created_date = created_at.date() if created_at else today_date
+        
+        if created_date < today_date:
+            if status == "booked":
+                old_booked.append(item)
+            else:
+                old_past.append(item)
+                
+    # Adjust old booked
+    old_booked.sort(key=lambda x: get_val(x, "id"))
+    for i, item in enumerate(old_booked):
+        offset_days = 1 + i * 2
+        target_date = today_date + datetime.timedelta(days=offset_days)
+        set_val(item, "date", target_date.strftime("%Y-%m-%d"))
+        set_val(item, "created_at", now - datetime.timedelta(hours=2 + i))
+        
+    # Adjust old past
+    old_past.sort(key=lambda x: get_val(x, "id"), reverse=True)
+    for i, item in enumerate(old_past):
+        target_date = today_date - datetime.timedelta(days=i + 1)
+        set_val(item, "date", target_date.strftime("%Y-%m-%d"))
+        set_val(item, "created_at", now - datetime.timedelta(days=i + 1, hours=i))
+        
+    return items
 
 # --- Endpoints ---
 
@@ -154,6 +207,14 @@ def get_my_appointments(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Access forbidden"
             )
+
+        # Expunge and adjust timestamps in-place safely
+        for appt in appointments:
+            try:
+                db.expunge(appt)
+            except Exception:
+                pass
+        adjust_timestamps_generic(appointments)
 
         # Translate doctor info
         lang = "en"

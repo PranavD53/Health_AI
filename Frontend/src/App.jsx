@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { LanguageProvider } from './context/LanguageContext';
 import { WebSocketProvider } from './context/WebSocketContext';
 import { CallProvider } from './context/CallContext';
@@ -103,88 +104,90 @@ function App() {
     <LanguageProvider>
       <Router>
         <AuthProvider>
-          <WebSocketProvider>
-            <CallProvider>
-              <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/otp-verify" element={<OtpVerify />} />
+          <ThemeProvider>
+            <WebSocketProvider>
+              <CallProvider>
+                <Routes>
+              {/* Public routes */}
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/otp-verify" element={<OtpVerify />} />
 
-            {/* Redirect /dashboard to the specific role dashboard */}
-            <Route path="/dashboard" element={<DashboardRedirect />} />
+              {/* Redirect /dashboard to the specific role dashboard */}
+              <Route path="/dashboard" element={<DashboardRedirect />} />
 
-            {/* Role specific ID dashboards */}
-            <Route 
-              path="/patient/:id" 
-              element={
-                <Layout>
-                  <PatientRoute />
-                </Layout>
-              } 
-            />
-            <Route 
-              path="/doctor/:id" 
-              element={
-                <Layout>
-                  <DoctorRoute />
-                </Layout>
-              } 
-            />
-            <Route 
-              path="/admin/:id" 
-              element={
-                <Layout>
-                  <AdminRoute />
-                </Layout>
-              } 
-            />
+              {/* Role specific ID dashboards */}
+              <Route 
+                path="/patient/:id" 
+                element={
+                  <Layout>
+                    <PatientRoute />
+                  </Layout>
+                } 
+              />
+              <Route 
+                path="/doctor/:id" 
+                element={
+                  <Layout>
+                    <DoctorRoute />
+                  </Layout>
+                } 
+              />
+              <Route 
+                path="/admin/:id" 
+                element={
+                  <Layout>
+                    <AdminRoute />
+                  </Layout>
+                } 
+              />
 
-            {/* Fallbacks if ID is missing */}
-            <Route path="/patient" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/doctor" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
+              {/* Fallbacks if ID is missing */}
+              <Route path="/patient" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/doctor" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/admin" element={<Navigate to="/dashboard" replace />} />
 
-            {/* Other routes */}
-            <Route 
-              path="/appointments" 
-              element={
-                <Layout>
-                  <AppointmentsRoute />
-                </Layout>
-              } 
-            />
-            <Route 
-              path="/records" 
-              element={
-                <Layout>
-                  <RecordsRoute />
-                </Layout>
-              } 
-            />
-            <Route 
-              path="/chat" 
-              element={
-                <Layout>
-                  <Chat />
-                </Layout>
-              } 
-            />
-            <Route 
-              path="/settings" 
-              element={
-                <Layout>
-                  <Settings />
-                </Layout>
-              } 
-            />
+              {/* Other routes */}
+              <Route 
+                path="/appointments" 
+                element={
+                  <Layout>
+                    <AppointmentsRoute />
+                  </Layout>
+                } 
+              />
+              <Route 
+                path="/records" 
+                element={
+                  <Layout>
+                    <RecordsRoute />
+                  </Layout>
+                } 
+              />
+              <Route 
+                path="/chat" 
+                element={
+                  <Layout>
+                    <Chat />
+                  </Layout>
+                } 
+              />
+              <Route 
+                path="/settings" 
+                element={
+                  <Layout>
+                    <Settings />
+                  </Layout>
+                } 
+              />
 
-            {/* Catch all - redirect to landing for unauthenticated, dashboard for authenticated */}
-            <Route path="*" element={<PublicOrPrivateRedirect />} />
-            </Routes>
-            </CallProvider>
-          </WebSocketProvider>
+              {/* Catch all - redirect to landing for unauthenticated, dashboard for authenticated */}
+              <Route path="*" element={<PublicOrPrivateRedirect />} />
+              </Routes>
+              </CallProvider>
+            </WebSocketProvider>
+          </ThemeProvider>
         </AuthProvider>
       </Router>
   </LanguageProvider>

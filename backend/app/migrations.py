@@ -148,6 +148,29 @@ def ensure_schema(engine=None, db_url: str | None = None) -> dict:
     created = create_tables(engine)
     column_summary = run_column_migrations(engine, db_url)
 
+    # If running on PostgreSQL (not SQLite), run specific DDL for user_color_palettes (RLS, indexes)
+    is_sqlite = _is_sqlite(db_url)
+    if not is_sqlite:
+        print("Running PostgreSQL specific migrations for user_color_palettes...")
+        try:
+            migration_file = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "migrations",
+                "create_user_color_palettes.sql"
+            )
+            if os.path.exists(migration_file):
+                with open(migration_file, "r") as f:
+                    sql_content = f.read()
+                
+                # Execute the raw SQL script
+                with engine.begin() as conn:
+                    conn.execute(text(sql_content))
+                print("  PostgreSQL specific migrations completed successfully.")
+            else:
+                print(f"  Migration file not found at {migration_file}")
+        except Exception as e:
+            print(f"  FAILED to run PostgreSQL specific migrations: {e}")
+
     result = {
         "tables_created": created,
         **column_summary,

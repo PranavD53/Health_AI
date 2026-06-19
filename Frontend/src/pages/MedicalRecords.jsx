@@ -154,7 +154,18 @@ export default function MedicalRecords() {
             ) : (
               <div className="divide-y divide-outline-variant/20">
                 {records.map(record => (
-                  <div key={record.id} className="py-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md hover:bg-surface-container-low/20 transition-colors px-2 rounded-lg">
+                  <div 
+                    key={record.id} 
+                    onClick={() => {
+                      if (record.fraud_status?.includes('VERIFIED')) {
+                        handleAnalyzeRecord(record);
+                      } else {
+                        window.open(resolveMediaUrl(record.file_path), '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                    className="py-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md hover:bg-surface-container-low/40 transition-all px-2 rounded-lg cursor-pointer hover:shadow-sm"
+                    title={record.fraud_status?.includes('VERIFIED') ? "Click to view AI Insights" : "Click to view file"}
+                  >
                     <div className="flex gap-md items-start">
                       <div className="w-10 h-10 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
                         <span className="material-symbols-outlined text-[20px]">
@@ -180,8 +191,11 @@ export default function MedicalRecords() {
                     <div className="flex flex-wrap items-center gap-xs">
                       {record.fraud_status?.includes('VERIFIED') && (
                         <button
-                          onClick={() => handleAnalyzeRecord(record)}
-                          className="px-3.5 py-1.5 bg-primary hover:bg-primary/95 text-on-primary font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAnalyzeRecord(record);
+                          }}
+                          className="px-3.5 py-1.5 bg-primary hover:bg-primary/95 text-on-primary font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm focus:outline-none"
                         >
                           <span className="material-symbols-outlined text-[16px]">psychology</span>
                           AI Insights
@@ -192,6 +206,9 @@ export default function MedicalRecords() {
                         href={resolveMediaUrl(record.file_path)} 
                         target="_blank"
                         rel="noopener noreferrer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
                         className="px-3.5 py-1.5 bg-secondary hover:bg-secondary/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm"
                       >
                         <span className="material-symbols-outlined text-[16px]">visibility</span>
@@ -199,8 +216,11 @@ export default function MedicalRecords() {
                       </a>
 
                       <button
-                        onClick={() => handleDeleteRecord(record.id)}
-                        className="px-3.5 py-1.5 bg-error hover:bg-error/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteRecord(record.id);
+                        }}
+                        className="px-3.5 py-1.5 bg-error hover:bg-error/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm focus:outline-none"
                       >
                         <span className="material-symbols-outlined text-[16px]">delete</span>
                         Delete
