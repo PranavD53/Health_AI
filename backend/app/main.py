@@ -13,6 +13,7 @@ from app.database import engine, Base, get_db
 from app.migrations import ensure_schema
 from app import models
 from app.routes import auth, profile, symptoms, doctors, appointments, records, dashboard, chats, calls
+from app.routes import auth, profile, symptoms, doctors, appointments, records, dashboard, chats, feedback
 from app.routes.auth import get_current_user, require_role, log_action
 from app.routes.auth import get_password_hash
 from app.routes.doctors import seed_doctors
@@ -159,6 +160,8 @@ app.include_router(records.router)
 app.include_router(dashboard.router)
 app.include_router(chats.router)
 app.include_router(calls.router)
+app.include_router(feedback.router)
+
 
 if os.path.isdir(FRONTEND_DIR):
     app.mount("/frontend", StaticFiles(directory=FRONTEND_DIR), name="frontend")
@@ -498,13 +501,21 @@ def get_doctor_dashboard(
         today_str = datetime.date.today().isoformat()
         today_appointments = [appt for appt in upcoming if appt["date"] == today_str]
         pending_appointments = len(upcoming)
+        # Dynamic rating calculation
+        feedbacks = db.query(models.Feedback).filter(
+            models.Feedback.doctor_id == doctor.id,
+            models.Feedback.is_approved == True
+        ).all()
+        avg_rating = 4.9
+        if feedbacks:
+            avg_rating = round(sum(f.rating_doctor for f in feedbacks) / len(feedbacks), 1)
 
         return {
             "name": doctor.name,
             "specialization": doctor.specialization,
             "license_number": doctor.license_number or f"MD-{doctor.id}00{doctor.experience_years}-AI",
             "consultations_count": consultations_count,
-            "rating": 4.9,
+            "rating": avg_rating,
             "profile_completion": 92,
             "verification_status": verification_status,
             "upcoming_appointments": upcoming,

@@ -9,6 +9,23 @@ export default function PatientDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
+  const [appointments, setAppointments] = useState([]);
+  const [pendingFeedbacks, setPendingFeedbacks] = useState([]);
+  const [currentFeedbackAppt, setCurrentFeedbackAppt] = useState(null);
+  
+  // Feedback form states
+  const [ratingOverall, setRatingOverall] = useState(0);
+  const [ratingDoctor, setRatingDoctor] = useState(0);
+  const [comments, setComments] = useState('');
+  const [ratingComm, setRatingComm] = useState(0);
+  const [ratingProf, setRatingProf] = useState(0);
+  const [ratingWait, setRatingWait] = useState(0);
+  const [ratingSat, setRatingSat] = useState(0);
+  
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -16,6 +33,27 @@ export default function PatientDashboard() {
     try {
       const data = await api.getPatientDashboard(currentLanguage);
       setDashboardData(data);
+      
+      const appts = await api.getMyAppointments();
+      setAppointments(appts);
+      
+      const pending = await api.getPendingFeedbacks();
+      setPendingFeedbacks(pending);
+      if (pending && pending.length > 0) {
+        const firstPending = pending[0];
+        // Format it so doctor details are mapped properly
+        setCurrentFeedbackAppt({
+          id: firstPending.id,
+          doctor_id: firstPending.doctor_id,
+          doctor: {
+            name: firstPending.doctor_name,
+            specialization: firstPending.specialization
+          },
+          date: firstPending.date,
+          time: firstPending.time
+        });
+        setIsEditMode(false);
+      }
     } catch (err) {
       console.error(err);
       setError("Failed to load dashboard data.");
@@ -27,6 +65,72 @@ export default function PatientDashboard() {
   useEffect(() => {
     loadDashboard();
   }, [currentLanguage]);
+
+  const handleOpenFeedback = async (appt) => {
+    try {
+      setFeedbackLoading(true);
+      const existing = await api.getFeedbackForAppointment(appt.id);
+      if (existing) {
+        setRatingOverall(existing.rating_overall);
+        setRatingDoctor(existing.rating_doctor);
+        setComments(existing.comments || '');
+        setRatingComm(existing.rating_communication || 0);
+        setRatingProf(existing.rating_professionalism || 0);
+        setRatingWait(existing.rating_wait_time || 0);
+        setRatingSat(existing.rating_satisfaction || 0);
+        setIsEditMode(true);
+      } else {
+        setRatingOverall(0);
+        setRatingDoctor(0);
+        setComments('');
+        setRatingComm(0);
+        setRatingProf(0);
+        setRatingWait(0);
+        setRatingSat(0);
+        setIsEditMode(false);
+      }
+      setCurrentFeedbackAppt(appt);
+    } catch (err) {
+      alert("Failed to load feedback details: " + err.message);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
+
+  const handleConfirmFeedback = async (e) => {
+    e.preventDefault();
+    if (ratingOverall === 0 || ratingDoctor === 0) {
+      alert(t('feedbackFormError'));
+      return;
+    }
+    
+    setFeedbackLoading(true);
+    try {
+      const payload = {
+        appointment_id: currentFeedbackAppt.id,
+        rating_overall: ratingOverall,
+        rating_doctor: ratingDoctor,
+        comments: comments || null,
+        rating_communication: ratingComm || null,
+        rating_professionalism: ratingProf || null,
+        rating_wait_time: ratingWait || null,
+        rating_satisfaction: ratingSat || null
+      };
+      
+      await api.submitFeedback(payload, isEditMode);
+      setFeedbackSuccess(true);
+      
+      setTimeout(() => {
+        setCurrentFeedbackAppt(null);
+        setFeedbackSuccess(false);
+        loadDashboard();
+      }, 1500);
+    } catch (err) {
+      alert("Failed to submit feedback: " + err.message);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
 
   const handleCancelAppointment = async (apptId) => {
     if (window.confirm("Are you sure you want to cancel this appointment?")) {
@@ -148,6 +252,64 @@ export default function PatientDashboard() {
             )}
           </div>
 
+          {/* Consultation History */}
+          <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card">
+            <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
+              <span className="material-symbols-outlined text-secondary">history_edu</span>
+              Consultation History
+            </h3>
+            
+            {appointments.filter(appt => appt.status === 'completed' || appt.status === 'cancelled').length === 0 ? (
+              <div className="p-md text-center text-outline text-xs">
+                No past consultations found.
+              </div>
+            ) : (
+              <div className="space-y-md">
+                {appointments.filter(appt => appt.status === 'completed' || appt.status === 'cancelled').map((appt) => {
+                  const isPending = pendingFeedbacks.some(p => p.id === appt.id);
+                  return (
+                    <div key={appt.id} className="p-md border border-outline-variant/50 rounded-xl bg-surface-container-lowest flex flex-col md:flex-row justify-between items-start md:items-center gap-md hover:border-secondary transition-all">
+                      <div>
+                        <h4 className="font-bold text-on-surface">{appt.doctor?.name || 'Doctor'}</h4>
+                        <p className="text-xs text-outline font-semibold mb-xs">{appt.doctor?.specialization || 'Specialist'}</p>
+                        <div className="flex gap-md text-xs text-on-surface-variant font-medium">
+                          <span className="flex items-center gap-xs">
+                            <span className="material-symbols-outlined text-[16px] text-secondary">calendar_month</span>
+                            {appt.date}
+                          </span>
+                          <span className="flex items-center gap-xs">
+                            <span className="material-symbols-outlined text-[16px] text-secondary">schedule</span>
+                            {appt.time}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-md w-full md:w-auto justify-between md:justify-end">
+                        <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                          appt.status === 'completed' ? 'bg-success/15 text-success' : 'bg-outline/20 text-outline'
+                        }`}>
+                          {appt.status}
+                        </span>
+                        
+                        {appt.status === 'completed' && (
+                          <button
+                            onClick={() => handleOpenFeedback(appt)}
+                            className="px-3 py-1.5 bg-secondary hover:bg-secondary/95 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-xs active:scale-[0.98]"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">
+                              {isPending ? 'rate_review' : 'edit_note'}
+                            </span>
+                            {isPending ? t('leaveFeedback') || 'Leave Review' : t('editFeedback') || 'Edit Review'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* AI Tip / Clinical Intelligence */}
           <div className="bg-gradient-to-r from-primary to-primary-container text-white rounded-2xl p-lg shadow-md relative overflow-hidden interactive-card">
             <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none transform translate-y-1/4 translate-x-1/4">
@@ -207,6 +369,228 @@ export default function PatientDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Feedback Modal */}
+      {currentFeedbackAppt && (
+        <div className="fixed inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-lg border border-outline-variant shadow-2xl overflow-hidden interactive-card max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b border-outline-variant bg-surface flex justify-between items-center shrink-0">
+              <h3 className="font-bold text-primary text-title-md flex items-center gap-xs">
+                <span className="material-symbols-outlined text-secondary">rate_review</span>
+                {isEditMode ? t('editFeedback') : t('feedbackTitle')}
+              </h3>
+              <button 
+                onClick={() => setCurrentFeedbackAppt(null)}
+                className="p-1 hover:bg-surface-container-high rounded-full transition-colors text-outline focus:outline-none"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {feedbackSuccess ? (
+              <div className="p-xl text-center space-y-md flex-1 flex flex-col items-center justify-center">
+                <span className="material-symbols-outlined text-6xl text-success animate-bounce">check_circle</span>
+                <div>
+                  <h4 className="font-bold text-lg text-on-surface">{t('feedbackSubmitted')}</h4>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleConfirmFeedback} className="flex-1 overflow-y-auto p-6 space-y-md">
+                <div className="flex items-center gap-md pb-md border-b border-outline-variant/30">
+                  <div className="w-12 h-12 rounded-full overflow-hidden border border-outline-variant bg-surface-container flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-2xl text-outline font-fill fill-1">person</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-on-surface">{currentFeedbackAppt.doctor?.name || 'Doctor'}</h4>
+                    <p className="text-xs text-secondary font-semibold">{currentFeedbackAppt.doctor?.specialization}</p>
+                    <p className="text-[10px] text-outline font-medium mt-0.5">Consultation date: {currentFeedbackAppt.date} at {currentFeedbackAppt.time}</p>
+                  </div>
+                </div>
+
+                {/* Rating Selectors */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-md py-xs">
+                  <div className="space-y-xs">
+                    <span className="text-xs font-bold text-primary block">{t('overallRating')} *</span>
+                    <div className="flex gap-xs">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setRatingOverall(star)}
+                          className="text-2xl transition-transform hover:scale-125 focus:outline-none"
+                        >
+                          <span 
+                            className={`material-symbols-outlined ${star <= ratingOverall ? 'text-amber-500' : 'text-outline-variant/60'}`}
+                            style={{ fontVariationSettings: star <= ratingOverall ? "'FILL' 1" : "'FILL' 0" }}
+                          >
+                            star
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-xs">
+                    <span className="text-xs font-bold text-primary block">{t('doctorRating')} *</span>
+                    <div className="flex gap-xs">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setRatingDoctor(star)}
+                          className="text-2xl transition-transform hover:scale-125 focus:outline-none"
+                        >
+                          <span 
+                            className={`material-symbols-outlined ${star <= ratingDoctor ? 'text-amber-500' : 'text-outline-variant/60'}`}
+                            style={{ fontVariationSettings: star <= ratingDoctor ? "'FILL' 1" : "'FILL' 0" }}
+                          >
+                            star
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Optional Category Ratings */}
+                <div className="p-md bg-surface-container-lowest rounded-xl border border-outline-variant/30 space-y-md">
+                  <h5 className="text-xs font-bold text-secondary uppercase tracking-wider">{t('optionalCategories')}</h5>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
+                    {/* Communication */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-bold text-on-surface-variant">{t('ratingCommunication')}</span>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setRatingComm(star)}
+                            className="text-lg focus:outline-none"
+                          >
+                            <span 
+                              className={`material-symbols-outlined text-[20px] ${star <= ratingComm ? 'text-amber-500' : 'text-outline-variant/60'}`}
+                              style={{ fontVariationSettings: star <= ratingComm ? "'FILL' 1" : "'FILL' 0" }}
+                            >
+                              star
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Professionalism */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-bold text-on-surface-variant">{t('ratingProfessionalism')}</span>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setRatingProf(star)}
+                            className="text-lg focus:outline-none"
+                          >
+                            <span 
+                              className={`material-symbols-outlined text-[20px] ${star <= ratingProf ? 'text-amber-500' : 'text-outline-variant/60'}`}
+                              style={{ fontVariationSettings: star <= ratingProf ? "'FILL' 1" : "'FILL' 0" }}
+                            >
+                              star
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Wait Time */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-bold text-on-surface-variant">{t('ratingWaitTime')}</span>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setRatingWait(star)}
+                            className="text-lg focus:outline-none"
+                          >
+                            <span 
+                              className={`material-symbols-outlined text-[20px] ${star <= ratingWait ? 'text-amber-500' : 'text-outline-variant/60'}`}
+                              style={{ fontVariationSettings: star <= ratingWait ? "'FILL' 1" : "'FILL' 0" }}
+                            >
+                              star
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Satisfaction */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[11px] font-bold text-on-surface-variant">{t('ratingSatisfaction')}</span>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setRatingSat(star)}
+                            className="text-lg focus:outline-none"
+                          >
+                            <span 
+                              className={`material-symbols-outlined text-[20px] ${star <= ratingSat ? 'text-amber-500' : 'text-outline-variant/60'}`}
+                              style={{ fontVariationSettings: star <= ratingSat ? "'FILL' 1" : "'FILL' 0" }}
+                            >
+                              star
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Written Review */}
+                <div className="space-y-xs">
+                  <label className="text-xs font-bold text-primary">{t('commentsLabel')}</label>
+                  <textarea 
+                    value={comments}
+                    onChange={(e) => setComments(e.target.value)}
+                    placeholder={t('commentsPlaceholder')}
+                    rows={3}
+                    className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:border-secondary text-sm font-semibold text-on-surface resize-none"
+                  />
+                </div>
+
+                <p className="text-[10px] text-outline font-semibold leading-relaxed">
+                  * {t('privacyDisclaimer')}
+                </p>
+
+                <div className="flex gap-sm border-t border-outline-variant/30 pt-md mt-md shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentFeedbackAppt(null)}
+                    className="flex-1 py-3 border border-outline hover:bg-surface-container-high font-bold text-xs rounded-lg transition-colors focus:outline-none active:scale-95"
+                  >
+                    {t('cancel')}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={feedbackLoading}
+                    className="flex-1 py-3 bg-secondary hover:bg-secondary/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-xs focus:outline-none shadow-md active:scale-95"
+                  >
+                    {feedbackLoading ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[16px]">done</span>
+                        {isEditMode ? t('submitFeedback') : t('submitFeedback')}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,7 +9,8 @@ export default function AdminDashboard() {
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
   const [complaints, setComplaints] = useState([]);
-  const [activeSubTab, setActiveSubTab] = useState('verifications'); // verifications, users, complaints
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [activeSubTab, setActiveSubTab] = useState('verifications'); // verifications, users, complaints, moderation
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -21,6 +22,9 @@ export default function AdminDashboard() {
 
       const compList = await api.getComplaints();
       setComplaints(compList);
+
+      const fbList = await api.getAdminFeedbacks();
+      setFeedbacks(fbList);
     } catch (err) {
       console.error(err);
       setError("Failed to load administration controls.");
@@ -120,6 +124,18 @@ export default function AdminDashboard() {
       loadData();
     } catch (err) {
       setError("Failed to cancel appointment: " + err.message);
+    }
+  };
+
+  const handleModerateFeedback = async (id, isApproved) => {
+    setError('');
+    setSuccessMsg('');
+    try {
+      await api.moderateFeedback(id, isApproved);
+      setSuccessMsg(`Review moderation status updated successfully.`);
+      loadData();
+    } catch (err) {
+      setError("Failed to moderate review: " + err.message);
     }
   };
 
@@ -231,7 +247,14 @@ export default function AdminDashboard() {
             Patient Complaints ({complaints.filter(c => c.status === 'pending').length || 0})
           </button>
 
-
+          <button
+            onClick={() => setActiveSubTab('moderation')}
+            className={`px-6 py-4 font-bold text-sm flex items-center gap-xs focus:outline-none transition-colors border-b-2 ${activeSubTab === 'moderation' ? 'border-primary text-primary' : 'border-transparent text-outline hover:text-on-surface'
+              }`}
+          >
+            <span className="material-symbols-outlined">rate_review</span>
+            Review Moderation ({feedbacks.length || 0})
+          </button>
         </div>
 
         <div className="p-lg">
@@ -465,6 +488,84 @@ export default function AdminDashboard() {
             </div>
           )}
 
+          {/* 4. Review Moderation Tab */}
+          {activeSubTab === 'moderation' && (
+            <div className="space-y-md animate-in fade-in duration-200">
+              {feedbacks.length === 0 ? (
+                <div className="text-center py-xl text-outline font-semibold">
+                  <span className="material-symbols-outlined text-4xl mb-xs">rate_review</span>
+                  <p>No patient reviews submitted in the system.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-outline-variant/30 text-outline">
+                        <th className="py-3 font-semibold">Patient ID</th>
+                        <th className="py-3 font-semibold">Doctor ID</th>
+                        <th className="py-3 font-semibold">Ratings</th>
+                        <th className="py-3 font-semibold">Comments</th>
+                        <th className="py-3 font-semibold">Status</th>
+                        <th className="py-3 font-semibold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/10">
+                      {feedbacks.map(f => (
+                        <tr key={f.id} className="align-top">
+                          <td className="py-3 font-semibold text-on-surface">Patient #{f.patient_id}</td>
+                          <td className="py-3 font-semibold text-on-surface">Doctor #{f.doctor_id}</td>
+                          <td className="py-3">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-[11px] font-bold text-primary">Overall: {f.rating_overall}/5</span>
+                              <span className="text-[10px] text-secondary font-semibold">Doctor: {f.rating_doctor}/5</span>
+                              {(f.rating_communication || f.rating_professionalism || f.rating_wait_time || f.rating_satisfaction) && (
+                                <span className="text-[9px] text-outline font-semibold">
+                                  C:{f.rating_communication || '-'} | P:{f.rating_professionalism || '-'} | W:{f.rating_wait_time || '-'} | S:{f.rating_satisfaction || '-'}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 max-w-xs">
+                            {f.comments ? (
+                              <p className="text-xs text-on-surface font-medium italic">"{f.comments}"</p>
+                            ) : (
+                              <span className="text-xs text-outline italic">No text comments</span>
+                            )}
+                          </td>
+                          <td className="py-3">
+                            <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold text-center inline-block ${
+                              f.is_approved ? 'bg-success/15 text-success' : 'bg-error-container/30 text-error'
+                            }`}>
+                              {f.is_approved ? 'Approved / Visible' : 'Hidden'}
+                            </span>
+                          </td>
+                          <td className="py-3 text-right">
+                            <div className="flex justify-end gap-sm">
+                              {f.is_approved ? (
+                                <button
+                                  onClick={() => handleModerateFeedback(f.id, false)}
+                                  className="px-2.5 py-1 bg-error hover:bg-error/90 text-on-error text-xs font-bold rounded-lg transition-colors shadow-sm"
+                                >
+                                  Hide Review
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleModerateFeedback(f.id, true)}
+                                  className="px-2.5 py-1 bg-success hover:bg-success/90 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+                                >
+                                  Approve
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
       </div>

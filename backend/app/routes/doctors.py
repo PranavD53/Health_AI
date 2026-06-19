@@ -26,6 +26,8 @@ class DoctorResponse(BaseModel):
     profile_picture: Optional[str] = None
     license_document_path: Optional[str] = None
     license_number: Optional[str] = None
+    rating_average: Optional[float] = 4.9
+    review_count: Optional[int] = 0
 
     class Config:
         from_attributes = True
@@ -194,6 +196,16 @@ def get_doctors(
         for d in doctors:
             d_resp = DoctorResponse.from_orm(d)
             translate_doctor(d_resp, lang)
+            
+            # Compute average rating & review count dynamically
+            approved_feedbacks = [f for f in d.feedbacks if f.is_approved]
+            if approved_feedbacks:
+                d_resp.rating_average = round(sum(f.rating_doctor for f in approved_feedbacks) / len(approved_feedbacks), 1)
+                d_resp.review_count = len(approved_feedbacks)
+            else:
+                d_resp.rating_average = 4.9 # Seed fallback
+                d_resp.review_count = 0
+                
             res.append(d_resp)
             
         return res

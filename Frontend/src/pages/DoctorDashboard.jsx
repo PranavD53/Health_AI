@@ -9,6 +9,8 @@ export default function DoctorDashboard() {
   const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState(null);
   const [activeSOS, setActiveSOS] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -20,11 +22,35 @@ export default function DoctorDashboard() {
       // Load active emergencies
       const alerts = await api.getEmergencyAlerts();
       setActiveSOS(alerts);
+
+      // Load feedback analytics
+      const docId = user?.doctor_profile_id || data?.id;
+      if (docId) {
+        try {
+          const docAnalytics = await api.getDoctorFeedbackAnalytics(docId);
+          setAnalytics(docAnalytics);
+          const docReviews = await api.getDoctorFeedbacks(docId);
+          setReviews(docReviews);
+        } catch (e) {
+          console.error("Failed to load feedback analytics: ", e);
+        }
+      }
     } catch (err) {
       console.error(err);
       setError("Failed to load doctor workspace details.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCompleteAppointment = async (apptId) => {
+    if (window.confirm("Are you sure you want to mark this consultation as completed?")) {
+      try {
+        await api.completeAppointment(apptId);
+        loadData();
+      } catch (err) {
+        alert("Failed to complete appointment: " + err.message);
+      }
     }
   };
 
@@ -124,7 +150,7 @@ export default function DoctorDashboard() {
       )}
 
       {/* Main Stats Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-md">
         <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card">
           <div className="flex items-center gap-md">
             <div className="w-12 h-12 rounded-xl bg-primary-fixed text-primary flex items-center justify-center">
@@ -157,6 +183,23 @@ export default function DoctorDashboard() {
             <div>
               <span className="text-xs text-outline font-semibold uppercase block">Pending Consults</span>
               <span className="text-2xl font-bold text-primary">{dashboardData?.pending_appointments}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card">
+          <div className="flex items-center gap-md">
+            <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+            </div>
+            <div>
+              <span className="text-xs text-outline font-semibold uppercase block">Average Rating</span>
+              <div className="flex items-baseline gap-xs">
+                <span className="text-2xl font-bold text-primary">
+                  {analytics ? analytics.average_doctor : (dashboardData?.rating || 4.9)}
+                </span>
+                <span className="text-[10px] text-outline font-bold">({reviews.length} reviews)</span>
+              </div>
             </div>
           </div>
         </div>
@@ -193,9 +236,19 @@ export default function DoctorDashboard() {
                         </span>
                       </div>
                     </div>
-                    <span className="px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-bold rounded-full capitalize">
-                      {appt.status}
-                    </span>
+                    <div className="flex items-center gap-sm">
+                      <span className="px-3 py-1 bg-secondary-container text-on-secondary-container text-xs font-bold rounded-full capitalize">
+                        {appt.status}
+                      </span>
+                      {appt.status === 'booked' && (
+                        <button
+                          onClick={() => handleCompleteAppointment(appt.id)}
+                          className="px-3 py-1.5 bg-secondary hover:bg-secondary/95 text-white text-xs font-bold rounded-lg transition-colors active:scale-[0.98]"
+                        >
+                          {t('completeVisit') || 'Complete Visit'}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -225,6 +278,107 @@ export default function DoctorDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Feedback Analytics & Patient Reviews */}
+      <section className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card space-y-lg">
+        <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs border-b border-outline-variant/20 pb-xs">
+          <span className="material-symbols-outlined text-secondary">analytics</span>
+          {t('feedbackAnalytics') || 'Feedback Analytics & Reviews'}
+        </h3>
+
+        {/* Categories Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-md">
+          <div className="p-md bg-surface-container-lowest rounded-xl border border-outline-variant/20 text-center space-y-1">
+            <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">{t('ratingCommunication') || 'Communication'}</span>
+            <div className="text-lg font-bold text-primary flex items-center justify-center gap-xs">
+              {analytics?.average_communication || 0} / 5
+              <span className="material-symbols-outlined text-[16px] text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+            </div>
+          </div>
+
+          <div className="p-md bg-surface-container-lowest rounded-xl border border-outline-variant/20 text-center space-y-1">
+            <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">{t('ratingProfessionalism') || 'Professionalism'}</span>
+            <div className="text-lg font-bold text-primary flex items-center justify-center gap-xs">
+              {analytics?.average_professionalism || 0} / 5
+              <span className="material-symbols-outlined text-[16px] text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+            </div>
+          </div>
+
+          <div className="p-md bg-surface-container-lowest rounded-xl border border-outline-variant/20 text-center space-y-1">
+            <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">{t('ratingWaitTime') || 'Wait Time'}</span>
+            <div className="text-lg font-bold text-primary flex items-center justify-center gap-xs">
+              {analytics?.average_wait_time || 0} / 5
+              <span className="material-symbols-outlined text-[16px] text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+            </div>
+          </div>
+
+          <div className="p-md bg-surface-container-lowest rounded-xl border border-outline-variant/20 text-center space-y-1">
+            <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">{t('ratingSatisfaction') || 'Satisfaction'}</span>
+            <div className="text-lg font-bold text-primary flex items-center justify-center gap-xs">
+              {analytics?.average_satisfaction || 0} / 5
+              <span className="material-symbols-outlined text-[16px] text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Written Review Comments */}
+        <div className="space-y-md">
+          <h4 className="font-bold text-on-surface text-sm">Patient Reviews Checklist</h4>
+          
+          {reviews.length === 0 ? (
+            <p className="text-center text-xs text-outline py-md">{t('noReviewsMsg') || 'No reviews submitted yet.'}</p>
+          ) : (
+            <div className="space-y-md max-h-[350px] overflow-y-auto pr-xs">
+              {reviews.map(review => (
+                <div key={review.id} className="p-md border border-outline-variant/30 rounded-xl bg-surface-container-lowest space-y-sm">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-xs">
+                      {/* Overall stars */}
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <span 
+                            key={star} 
+                            className={`material-symbols-outlined text-[16px] ${star <= review.rating_doctor ? 'text-amber-500' : 'text-outline-variant/30'}`}
+                            style={{ fontVariationSettings: star <= review.rating_doctor ? "'FILL' 1" : "'FILL' 0" }}
+                          >
+                            star
+                          </span>
+                        ))}
+                      </div>
+                      <span className="text-[10px] bg-secondary-container text-on-secondary-container font-bold px-2 py-0.5 rounded">
+                        Overall: {review.rating_overall}/5
+                      </span>
+                      {!review.is_approved && (
+                        <span className="text-[9px] bg-error-container text-on-error-container font-bold px-2 py-0.5 rounded uppercase">
+                          Pending Moderation
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-outline">
+                      {new Date(review.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  
+                  {review.comments && (
+                    <p className="text-xs text-on-surface font-medium italic">
+                      "{review.comments}"
+                    </p>
+                  )}
+                  
+                  <div className="flex justify-between items-center text-[10px] text-outline font-semibold">
+                    <span>{t('anonymousReview') || 'Verified Patient'}</span>
+                    <div className="flex gap-md">
+                      {review.rating_communication && <span>Comm: {review.rating_communication}</span>}
+                      {review.rating_professionalism && <span>Ethics: {review.rating_professionalism}</span>}
+                      {review.rating_wait_time && <span>Wait: {review.rating_wait_time}</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

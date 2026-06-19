@@ -572,5 +572,70 @@ export const api = {
       headers: getHeaders()
     });
     return handleResponse(res);
+  },
+
+  completeAppointment: async (id) => {
+    const res = await apiFetch(`/appointment/complete/${id}`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  submitFeedback: async (payload, edit = false) => {
+    const res = await apiFetch(`/feedback/submit?edit=${edit}`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return handleResponse(res);
+  },
+
+  getFeedbackForAppointment: async (apptId) => {
+    const res = await apiFetch(`/feedback/appointment/${apptId}`, {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  getPendingFeedbacks: async () => {
+    const res = await apiFetch('/feedback/pending', {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  getDoctorFeedbacks: async (docId) => {
+    const res = await apiFetch(`/feedback/doctor/${docId}`, {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  getDoctorFeedbackAnalytics: async (docId) => {
+    const res = await apiFetch(`/feedback/doctor/${docId}/analytics`, {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  getAdminFeedbacks: async () => {
+    const res = await apiFetch('/feedback/admin/all', {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  moderateFeedback: async (id, isApproved) => {
+    const res = await apiFetch(`/feedback/admin/moderate/${id}?is_approved=${isApproved}`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
   }
 };

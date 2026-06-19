@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 import bcrypt
 import httpx
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 # Load configurations by specifically locating the .env file relative to this module
 env_path = Path(__file__).resolve().parent.parent.parent / '.env'
@@ -34,12 +34,12 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # --- Pydantic Schemas ---
 class UserRegister(BaseModel):
-    email: EmailStr
+    email: str
     password: str
     role: str = "patient" # patient, doctor, admin, caregiver
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 class TokenRefresh(BaseModel):
@@ -384,7 +384,7 @@ def logout(current_user: models.User = Depends(get_current_user), db: Session = 
         )
 
 class VerifyOTPRequest(BaseModel):
-    email: EmailStr
+    email: str
     otp: str
 
 @router.post("/verify-otp", response_model=Token)
@@ -425,7 +425,7 @@ def verify_otp(data: VerifyOTPRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 class ResendOTPRequest(BaseModel):
-    email: EmailStr
+    email: str
 
 @router.post("/resend-otp")
 def resend_otp(data: ResendOTPRequest, db: Session = Depends(get_db)):
@@ -487,10 +487,10 @@ def toggle_user_status(
 # --- Password Recovery & Admin Promotion & Deletion ---
 
 class ForgotPasswordRequest(BaseModel):
-    email: EmailStr
+    email: str
 
 class ForgotPasswordVerifyRequest(BaseModel):
-    email: EmailStr
+    email: str
     otp: str
 
 @router.post("/forgot-password")

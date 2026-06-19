@@ -24,6 +24,11 @@ export default function DoctorSearch() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
 
+  // Reviews Modal states
+  const [reviewsDoc, setReviewsDoc] = useState(null);
+  const [reviewsList, setReviewsList] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+
   const loadDoctors = async () => {
     setLoading(true);
     try {
@@ -72,6 +77,20 @@ export default function DoctorSearch() {
     setBookingDoc(doc);
     setBookingSuccess(false);
     setBookingDate('');
+  };
+
+  const handleOpenReviews = async (doc) => {
+    setReviewsDoc(doc);
+    setReviewsLoading(true);
+    try {
+      const data = await api.getDoctorFeedbacks(doc.id);
+      setReviewsList(data);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to load doctor reviews: " + err.message);
+    } finally {
+      setReviewsLoading(false);
+    }
   };
 
   const handleConfirmBooking = async (e) => {
@@ -193,7 +212,12 @@ export default function DoctorSearch() {
                   <div>
                     <h3 className="font-bold text-on-surface text-base">{doc.name}</h3>
                     <p className="text-xs text-secondary font-bold">{doc.specialization}</p>
-                    <p className="text-[10px] text-outline font-semibold">{doc.experience_years} Years Experience</p>
+                    <p className="text-[10px] text-outline font-semibold mb-1">{doc.experience_years} Years Experience</p>
+                    <div className="flex items-center gap-xs mt-0.5">
+                      <span className="material-symbols-outlined text-[16px] text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                      <span className="text-xs font-bold text-on-surface">{doc.rating_average || 4.9}</span>
+                      <span className="text-[10px] text-outline font-bold">({doc.review_count || 0} reviews)</span>
+                    </div>
                   </div>
                 </div>
 
@@ -215,12 +239,22 @@ export default function DoctorSearch() {
                 </div>
               </div>
 
-              <div className="p-lg bg-surface border-t border-outline-variant/20 flex items-center justify-between">
-                <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                  doc.available ? 'bg-success/15 text-success' : 'bg-outline/20 text-outline'
-                }`}>
-                  {doc.available ? 'Available' : 'Unavailable'}
-                </span>
+              <div className="p-lg bg-surface border-t border-outline-variant/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-sm">
+                <div className="flex items-center justify-between sm:justify-start gap-md">
+                  <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                    doc.available ? 'bg-success/15 text-success' : 'bg-outline/20 text-outline'
+                  }`}>
+                    {doc.available ? 'Available' : 'Unavailable'}
+                  </span>
+                  
+                  <button
+                    onClick={() => handleOpenReviews(doc)}
+                    className="text-xs text-secondary font-bold hover:underline flex items-center gap-1 active:scale-95 duration-100"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">rate_review</span>
+                    {t('viewReviewsBtn') || 'View Reviews'}
+                  </button>
+                </div>
                 
                 <button
                   disabled={!doc.available}
@@ -331,6 +365,88 @@ export default function DoctorSearch() {
                 </button>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Doctor Reviews Modal */}
+      {reviewsDoc && (
+        <div className="fixed inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-lg border border-outline-variant shadow-2xl overflow-hidden interactive-card max-h-[80vh] flex flex-col">
+            <div className="p-6 border-b border-outline-variant bg-surface flex justify-between items-center shrink-0">
+              <div>
+                <h3 className="font-bold text-primary text-title-md flex items-center gap-xs">
+                  <span className="material-symbols-outlined text-secondary">rate_review</span>
+                  Reviews for {reviewsDoc.name}
+                </h3>
+                <p className="text-xs text-outline font-semibold mt-0.5">{reviewsDoc.specialization} specialist</p>
+              </div>
+              <button 
+                onClick={() => { setReviewsDoc(null); setReviewsList([]); }}
+                className="p-1 hover:bg-surface-container-high rounded-full transition-colors text-outline focus:outline-none"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-md">
+              {reviewsLoading ? (
+                <div className="py-xl flex flex-col items-center justify-center gap-md">
+                  <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-xs text-outline font-semibold">Loading reviews...</span>
+                </div>
+              ) : reviewsList.length === 0 ? (
+                <div className="text-center py-xl text-outline text-xs">
+                  {t('noReviewsMsg') || 'No reviews submitted yet.'}
+                </div>
+              ) : (
+                <div className="space-y-md">
+                  {reviewsList.map((review) => (
+                    <div key={review.id} className="p-md border border-outline-variant/30 rounded-xl bg-surface-container-lowest space-y-xs">
+                      <div className="flex justify-between items-center text-xs">
+                        <div className="flex gap-0.5">
+                          {[1, 2, 3, 4, 5].map(star => (
+                            <span 
+                              key={star} 
+                              className={`material-symbols-outlined text-[16px] ${star <= review.rating_doctor ? 'text-amber-500' : 'text-outline-variant/30'}`}
+                              style={{ fontVariationSettings: star <= review.rating_doctor ? "'FILL' 1" : "'FILL' 0" }}
+                            >
+                              star
+                            </span>
+                          ))}
+                        </div>
+                        <span className="text-[10px] text-outline">
+                          {new Date(review.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      
+                      {review.comments && (
+                        <p className="text-xs font-medium text-on-surface italic">
+                          "{review.comments}"
+                        </p>
+                      )}
+                      
+                      <div className="flex justify-between items-center text-[10px] text-outline font-semibold">
+                        <span>{t('anonymousReview') || 'Verified Patient'}</span>
+                        <div className="flex gap-sm">
+                          {review.rating_communication && <span>Comm: {review.rating_communication}/5</span>}
+                          {review.rating_professionalism && <span>Ethics: {review.rating_professionalism}/5</span>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-outline-variant bg-surface shrink-0 flex justify-end">
+              <button
+                onClick={() => { setReviewsDoc(null); setReviewsList([]); }}
+                className="px-4 py-2 bg-primary text-white font-bold text-xs rounded-lg transition-colors focus:outline-none hover:bg-primary/95 active:scale-95"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

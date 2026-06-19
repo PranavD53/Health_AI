@@ -26,6 +26,7 @@ class User(Base):
     medical_records = relationship("MedicalRecord", back_populates="user", cascade="all, delete-orphan")
     metrics = relationship("PatientMetric", back_populates="user", cascade="all, delete-orphan")
     doctor_profile = relationship("Doctor", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    feedbacks = relationship("Feedback", back_populates="patient", foreign_keys="[Feedback.patient_id]", cascade="all, delete-orphan")
 
     @property
     def doctor_profile_id(self):
@@ -108,6 +109,7 @@ class Doctor(Base):
     user = relationship("User", back_populates="doctor_profile")
     appointments = relationship("Appointment", back_populates="doctor", cascade="all, delete-orphan")
     verification = relationship("DoctorVerification", back_populates="doctor", uselist=False, cascade="all, delete-orphan")
+    feedbacks = relationship("Feedback", back_populates="doctor", foreign_keys="[Feedback.doctor_id]", cascade="all, delete-orphan")
 
 class Appointment(Base):
     __tablename__ = "appointments"
@@ -123,6 +125,7 @@ class Appointment(Base):
     # Relationships
     patient = relationship("User", back_populates="appointments")
     doctor = relationship("Doctor", back_populates="appointments")
+    feedback = relationship("Feedback", back_populates="appointment", uselist=False, cascade="all, delete-orphan")
 
 class MedicalRecord(Base):
     __tablename__ = "medical_records"
@@ -273,3 +276,29 @@ class VideoCallAuditLog(Base):
     ip_address = Column(String, nullable=False)
     device_info = Column(String, nullable=False)
 
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    appointment_id = Column(Integer, ForeignKey("appointments.id"), unique=True, nullable=False)
+    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False)
+
+    rating_overall = Column(Integer, nullable=False) # 1-5 stars
+    rating_doctor = Column(Integer, nullable=False) # 1-5 stars
+    comments = Column(Text, nullable=True)
+
+    # Optional category ratings (1-5 stars)
+    rating_communication = Column(Integer, nullable=True)
+    rating_professionalism = Column(Integer, nullable=True)
+    rating_wait_time = Column(Integer, nullable=True)
+    rating_satisfaction = Column(Integer, nullable=True)
+
+    is_approved = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    # Relationships
+    appointment = relationship("Appointment", back_populates="feedback")
+    patient = relationship("User", back_populates="feedbacks", foreign_keys=[patient_id])
+    doctor = relationship("Doctor", back_populates="feedbacks", foreign_keys=[doctor_id])

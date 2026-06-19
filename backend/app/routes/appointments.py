@@ -262,3 +262,62 @@ def delete_appointment(
             detail=f"An error occurred while deleting the appointment: {str(e)}"
         )
 
+@router.post("/complete/{id}")
+def complete_appointment(
+    id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        appointment = db.query(models.Appointment).filter(models.Appointment.id == id).first()
+        if not appointment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Appointment not found"
+            )
+
+        # Allow patient, doctor, or administrator
+        is_patient = appointment.patient_id == current_user.id
+        
+        is_doctor = False
+        doctor = db.query(models.Doctor).filter(models.Doctor.id == appointment.doctor_id).first()
+        if doctor and (doctor.user_id == current_user.id or doctor.contact == current_user.email):
+            is_doctor = True
+            
+        is_admin = current_user.role in ["admin", "caregiver"]
+
+        if not (is_patient or is_doctor or is_admin):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to complete this appointment"
+            )
+
+        if appointment.status == "completed":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Appointment is already completed"
+            )
+            
+        if appointment.status == "cancelled":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot complete a cancelled appointment"
+            )
+
+        appointment.status = "completed"
+        db.commit()
+
+        # Audit logging
+        log_action(db, current_user.id, "COMPLETE_APPOINTMENT", f"Completed appointment ID {id}")
+
+        return {"status": "success", "message": "Appointment successfully completed"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while completing the appointment: {str(e)}"
+        )
+
+

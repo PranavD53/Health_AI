@@ -87,7 +87,35 @@ export const translations = {
     loadingText: "HealthAI is loading...",
     searchDocPlaceholder: "Search doctors by name or specialization...",
     uploadBtn: "Upload Medical PDF/Image",
-    allRecords: "All Uploaded Records"
+    allRecords: "All Uploaded Records",
+
+    // Feedback System
+    feedbackTitle: "Consultation Feedback & Review",
+    editFeedback: "Edit Feedback",
+    submitFeedback: "Submit Feedback",
+    overallRating: "Overall Consultation Rating",
+    doctorRating: "Doctor Professional Rating",
+    commentsLabel: "Written Comments & Experience Details",
+    commentsPlaceholder: "Write about your experience with the doctor and consultation...",
+    ratingCommunication: "Communication Style",
+    ratingProfessionalism: "Professional Ethics & Skill",
+    ratingWaitTime: "Waiting Time & Schedule Adherence",
+    ratingSatisfaction: "Overall Service Satisfaction",
+    optionalCategories: "Detailed Ratings (Optional)",
+    privacyDisclaimer: "Your comments and detailed ratings are shared with the doctor and public profiles anonymously to protect your privacy.",
+    feedbackSubmitted: "Feedback submitted successfully! Thank you for your review.",
+    noPendingFeedback: "No consultations pending feedback.",
+    feedbackFormError: "Please ensure overall and doctor ratings are selected.",
+    completeVisit: "Complete Visit",
+    feedbackAnalytics: "Feedback Analytics & Reviews",
+    reviewsCount: "reviews",
+    anonymousReview: "Verified Patient",
+    averageRatingLabel: "Average Rating",
+    viewReviewsBtn: "View Reviews",
+    moderateReviewsTab: "Review Moderation",
+    approveBtn: "Approve",
+    rejectBtn: "Reject / Hide",
+    noReviewsMsg: "No reviews submitted yet."
   },
   hi: {
     // Nav / Sidebar
@@ -171,7 +199,35 @@ export const translations = {
     loadingText: "हेल्थएआई लोड हो रहा है...",
     searchDocPlaceholder: "नाम या विशेषज्ञता के आधार पर डॉक्टरों को खोजें...",
     uploadBtn: "चिकित्सा पीडीएफ/छवि अपलोड करें",
-    allRecords: "सभी अपलोड किए गए रिकॉर्ड"
+    allRecords: "सभी अपलोड किए गए रिकॉर्ड",
+
+    // Feedback System
+    feedbackTitle: "परामर्श प्रतिक्रिया और समीक्षा",
+    editFeedback: "प्रतिक्रिया संपादित करें",
+    submitFeedback: "प्रतिक्रिया भेजें",
+    overallRating: "समग्र परामर्श रेटिंग",
+    doctorRating: "डॉक्टर व्यावसायिक रेटिंग",
+    commentsLabel: "लिखित टिप्पणियाँ और अनुभव विवरण",
+    commentsPlaceholder: "डॉक्टर और परामर्श के अपने अनुभव के बारे में लिखें...",
+    ratingCommunication: "संचार शैली",
+    ratingProfessionalism: "व्यावसायिक नैतिकता और कौशल",
+    ratingWaitTime: "प्रतीक्षा समय और कार्यक्रम का पालन",
+    ratingSatisfaction: "समग्र सेवा संतुष्टि",
+    optionalCategories: "विस्तृत रेटिंग (वैकल्पिक)",
+    privacyDisclaimer: "आपकी गोपनीयता की रक्षा के लिए आपकी टिप्पणियाँ और विस्तृत रेटिंग डॉक्टर और सार्वजनिक प्रोफाइल के साथ गुमनाम रूप से साझा की जाती हैं।",
+    feedbackSubmitted: "प्रतिक्रिया सफलतापूर्वक सबमिट की गई! आपकी समीक्षा के लिए धन्यवाद।",
+    noPendingFeedback: "कोई परामर्श प्रतिक्रिया के लिए लंबित नहीं है।",
+    feedbackFormError: "कृपया सुनिश्चित करें कि समग्र और डॉक्टर रेटिंग चुनी गई हैं।",
+    completeVisit: "यात्रा पूरी करें",
+    feedbackAnalytics: "प्रतिक्रिया विश्लेषण और समीक्षाएं",
+    reviewsCount: "समीक्षाएं",
+    anonymousReview: "सत्यापित रोगी",
+    averageRatingLabel: "औसत रेटिंग",
+    viewReviewsBtn: "समीक्षाएं देखें",
+    moderateReviewsTab: "समीक्षा मॉडरेशन",
+    approveBtn: "स्वीकार करें",
+    rejectBtn: "अस्वीकार / छिपाएं",
+    noReviewsMsg: "अभी तक कोई समीक्षा सबमिट नहीं की गई है।"
   },
   te: {
     // Nav / Sidebar
@@ -255,7 +311,35 @@ export const translations = {
     loadingText: "హెల్త్AI లోడ్ అవుతోంది...",
     searchDocPlaceholder: "వైద్యుడిని పేరు లేదా ప్రత్యేకత ఆధారంగా వెతకండి...",
     uploadBtn: "మెడికల్ పిడిఎఫ్/చిత్రాన్ని అప్‌లోడ్ చేయండి",
-    allRecords: "అన్ని అప్‌లోడ్ చేయబడిన వైద్య రికార్డులు"
+    allRecords: "అన్ని అప్‌లోడ్ చేయబడిన వైద్య రికార్డులు",
+
+    // Feedback System
+    feedbackTitle: "సంప్రదింపుల అభిప్రాయం & సమీక్ష",
+    editFeedback: "అభిప్రాయాన్ని సవరించండి",
+    submitFeedback: "అభిప్రాయాన్ని సమర్పించండి",
+    overallRating: "మొత్తం సంప్రదింపుల రేటింగ్",
+    doctorRating: "వైద్యుడి వృత్తిపరమైన రేటింగ్",
+    commentsLabel: "లిఖితపూర్వక వ్యాఖ్యలు & అనుభవ వివరాలు",
+    commentsPlaceholder: "వైద్యుడు మరియు సంప్రదింపులతో మీ అనుభవం గురించి రాయండి...",
+    ratingCommunication: "కమ్యూనికేషన్ శైలి",
+    ratingProfessionalism: "వృత్తిపరమైన నీతి & నైపుణ్యం",
+    ratingWaitTime: "వేచి ఉండే సమయం & షెడ్యూల్ కట్టుబడి ఉండడం",
+    ratingSatisfaction: "మొత్తం సేవా సంప్త్యప్తి",
+    optionalCategories: "వివరణాత్మక రేటింగ్‌లు (ఐచ్ఛికం)",
+    privacyDisclaimer: "మీ గోప్యతను రక్షించడానికి మీ వ్యాఖ్యలు మరియు వివరణాత్మక రేటింగ్‌లు వైద్యుడు మరియు పబ్లిక్ ప్రొఫైల్‌లతో అనామకంగా భాగస్వామ్యం చేయబడతాయి.",
+    feedbackSubmitted: "అభిప్రాయం విజయవంతంగా సమర్పించబడింది! మీ సమీక్షకు ధన్యవాదాలు.",
+    noPendingFeedback: "అభిప్రాయం పెండింగ్‌లో ఉన్న సంప్రదింపులు ఏవీ లేవు.",
+    feedbackFormError: "దయచేసి మొత్తం మరియు వైద్యుడి రేటింగ్‌లు ఎంచుకున్నారని నిర్ధారించుకోండి.",
+    completeVisit: "సందర్శన పూర్తి చేయి",
+    feedbackAnalytics: "అభిప్రాయ విశ్లేషణ & సమీక్షలు",
+    reviewsCount: "సమీక్షలు",
+    anonymousReview: "ధృవీకరించబడిన రోగి",
+    averageRatingLabel: "సగటు రేటింగ్",
+    viewReviewsBtn: "సమీక్షలను వీక్షించండి",
+    moderateReviewsTab: "సమీక్షల నియంత్రణ",
+    approveBtn: "ఆమోదించు",
+    rejectBtn: "తిరస్కరించు / దాచు",
+    noReviewsMsg: "ఇంకా సమీక్షలు సమర్పించబడలేదు."
   }
 };
 

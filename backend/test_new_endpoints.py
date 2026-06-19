@@ -38,6 +38,7 @@ client = TestClient(app)
 CREATED_TEST_FILES = set()
 
 def setup_module():
+    app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     try:
