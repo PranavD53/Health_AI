@@ -12,7 +12,7 @@ import httpx
 from app.database import engine, Base, get_db
 from app.migrations import ensure_schema
 from app import models
-from app.routes import auth, profile, symptoms, doctors, appointments, records, dashboard, chats
+from app.routes import auth, profile, symptoms, doctors, appointments, records, dashboard, chats, calls
 from app.routes.auth import get_current_user, require_role, log_action
 from app.routes.auth import get_password_hash
 from app.routes.doctors import seed_doctors
@@ -158,6 +158,7 @@ app.include_router(appointments.router)
 app.include_router(records.router)
 app.include_router(dashboard.router)
 app.include_router(chats.router)
+app.include_router(calls.router)
 
 if os.path.isdir(FRONTEND_DIR):
     app.mount("/frontend", StaticFiles(directory=FRONTEND_DIR), name="frontend")

@@ -241,7 +241,7 @@ def test_new_endpoints():
         # 7. Test uploading file in chat and storing it as Medical Record
         print("Testing file upload in chat & storage as medical record...")
         chat_filename = "test_record_chat_uploaded.png"
-        chat_filepath = os.path.join("uploads", chat_filename)
+        chat_filepath = os.path.join(UPLOADS_DIR, chat_filename)
         CREATED_TEST_FILES.add(chat_filepath)
         with open(chat_filepath, "wb") as f:
             f.write(b"PNG_FAKE_IMAGE_DATA")

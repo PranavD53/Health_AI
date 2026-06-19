@@ -228,3 +228,48 @@ class Notification(Base):
 
     # Relationship
     user = relationship("User")
+
+
+class CallRecord(Base):
+    __tablename__ = "call_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(String, unique=True, index=True, nullable=False)
+    appointment_id = Column(Integer, ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
+    chat_id = Column(Integer, ForeignKey("private_conversations.id", ondelete="SET NULL"), nullable=True)
+    doctor_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(String, default="INITIATED", nullable=False) # INITIATED, RINGING, ACCEPTED, ONGOING, COMPLETED, DECLINED, MISSED
+    initiated_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    accepted_at = Column(DateTime, nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    ended_at = Column(DateTime, nullable=True)
+    duration_seconds = Column(Integer, default=0, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    metadata_json = Column(Text, default="{}", nullable=True)
+    audit_trail = Column(Text, default="[]", nullable=True)
+
+
+class CallParticipants(Base):
+    __tablename__ = "call_participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    call_id = Column(Integer, ForeignKey("call_records.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String, nullable=False) # doctor, patient
+    joined_at = Column(DateTime, nullable=True)
+    left_at = Column(DateTime, nullable=True)
+    reconnect_count = Column(Integer, default=0, nullable=False)
+
+
+class VideoCallAuditLog(Base):
+    __tablename__ = "video_call_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    call_id = Column(Integer, ForeignKey("call_records.id", ondelete="SET NULL"), nullable=True)
+    actor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    action = Column(String, nullable=False)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    ip_address = Column(String, nullable=False)
+    device_info = Column(String, nullable=False)
+

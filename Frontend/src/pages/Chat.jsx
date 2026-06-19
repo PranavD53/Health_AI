@@ -517,7 +517,7 @@ export default function Chat() {
                           <button
                             type="button"
                             onClick={() => handleDeleteMessage(msg.id)}
-                            className="absolute -left-7 top-1/2 -translate-y-1/2 p-1 text-outline hover:text-error hover:bg-error/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none"
+                            className="absolute -left-7 top-1/2 -translate-y-1/2 p-1 text-outline hover:text-error hover:bg-error/10 rounded-lg opacity-60 hover:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity focus:outline-none"
                             title="Delete Message"
                           >
                             <span className="material-symbols-outlined text-[14px]">delete</span>
