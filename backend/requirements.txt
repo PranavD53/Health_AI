@@ -10,3 +10,6 @@ python-multipart
 psycopg2-binary
 reportlab
 pypdf
+pdfplumber
+pytesseract
+pdf2image

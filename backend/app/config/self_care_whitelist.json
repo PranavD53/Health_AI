@@ -1,0 +1,22 @@
+{
+  "cold_flu": {
+    "eligible": true,
+    "precautions": "Rest, stay hydrated, and monitor your condition. Consider taking over-the-counter pain relievers or fever reducers as directed. Consult a doctor if symptoms persist beyond a few days or worsen."
+  },
+  "minor_ache": {
+    "eligible": true,
+    "precautions": "Rest the affected area, apply ice if swollen, and avoid strenuous activity. Over-the-counter pain relief may help. If the pain is severe or does not improve, consult a doctor."
+  },
+  "mild_allergy": {
+    "eligible": true,
+    "precautions": "Avoid known allergens if possible. Over-the-counter antihistamines may provide relief. Seek medical help if you develop swelling in your face or throat, or have difficulty breathing."
+  },
+  "indigestion": {
+    "eligible": true,
+    "precautions": "Eat smaller meals, avoid spicy or fatty foods, and stay upright after eating. Over-the-counter antacids may help. If symptoms persist or you experience severe abdominal pain, see a doctor."
+  },
+  "OTHER": {
+    "eligible": false,
+    "precautions": "Your symptoms do not clearly match a known self-care category. Please consult a doctor."
+  }
+}

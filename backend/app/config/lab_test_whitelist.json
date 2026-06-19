@@ -1,0 +1,54 @@
+{
+  "CBC": {
+    "marker_keywords": ["Hemoglobin", "WBC", "Platelet Count", "Hematocrit", "RBC"],
+    "parameters": {
+      "Hemoglobin": {
+        "pattern": "(?i)Hemoglobin[:\\s]+([\\d.]+)",
+        "unit": "g/dL",
+        "normal_range": [12.0, 17.5],
+        "range_note": "general reference — varies by lab/sex/age"
+      },
+      "WBC": {
+        "pattern": "(?i)(?:WBC|White Blood Cells?)[:\\s]+([\\d.]+)",
+        "unit": "thousand/uL",
+        "normal_range": [4.0, 11.0],
+        "range_note": "general reference"
+      },
+      "Platelet Count": {
+        "pattern": "(?i)Platelet(?:s| Count)?[:\\s]+([\\d.]+)",
+        "unit": "thousand/uL",
+        "normal_range": [150.0, 450.0],
+        "range_note": "general reference"
+      }
+    }
+  },
+  "Lipid Profile": {
+    "marker_keywords": ["Cholesterol", "Triglycerides", "HDL", "LDL"],
+    "parameters": {
+      "Total Cholesterol": {
+        "pattern": "(?i)Total Cholesterol[:\\s]+([\\d.]+)",
+        "unit": "mg/dL",
+        "normal_range": [0.0, 199.9],
+        "range_note": "< 200 is desirable"
+      },
+      "HDL": {
+        "pattern": "(?i)HDL(?: Cholesterol)?[:\\s]+([\\d.]+)",
+        "unit": "mg/dL",
+        "normal_range": [40.0, 100.0],
+        "range_note": "> 40 is desirable"
+      },
+      "LDL": {
+        "pattern": "(?i)LDL(?: Cholesterol)?[:\\s]+([\\d.]+)",
+        "unit": "mg/dL",
+        "normal_range": [0.0, 99.9],
+        "range_note": "< 100 is optimal"
+      },
+      "Triglycerides": {
+        "pattern": "(?i)Triglycerides?[:\\s]+([\\d.]+)",
+        "unit": "mg/dL",
+        "normal_range": [0.0, 149.9],
+        "range_note": "< 150 is normal"
+      }
+    }
+  }
+}

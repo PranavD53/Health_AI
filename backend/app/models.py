@@ -228,3 +228,65 @@ class Notification(Base):
 
     # Relationship
     user = relationship("User")
+
+from sqlalchemy import JSON
+
+class TriageCase(Base):
+    __tablename__ = "triage_cases"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assigned_doctor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    ai_severity = Column(String, nullable=False)
+    doctor_final_severity = Column(String, nullable=True)
+    status = Column(String, default="PENDING_REVIEW", nullable=False) # PENDING_REVIEW, EMERGENCY_ALERT, RESOLVED
+    symptom_category = Column(String, nullable=True)
+    doctor_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    patient = relationship("User", foreign_keys=[patient_id])
+    assigned_doctor = relationship("User", foreign_keys=[assigned_doctor_id])
+
+class TriageLog(Base):
+    __tablename__ = "triage_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    case_id = Column(Integer, ForeignKey("triage_cases.id"), nullable=True) # Optional link to case
+    patient_message = Column(Text, nullable=False)
+    ai_raw_response = Column(Text, nullable=True)
+    severity_assigned = Column(String, nullable=True)
+    emergency_triggered = Column(Boolean, default=False, nullable=False)
+    matched_keywords = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    case = relationship("TriageCase")
+
+class LabReportCase(Base):
+    __tablename__ = "lab_report_cases"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    assigned_doctor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    status = Column(String, default="PENDING_REVIEW", nullable=False) # PENDING_REVIEW, RESOLVED
+    test_type = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
+
+    patient = relationship("User", foreign_keys=[patient_id])
+    assigned_doctor = relationship("User", foreign_keys=[assigned_doctor_id])
+
+class LabReportLog(Base):
+    __tablename__ = "lab_report_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    case_id = Column(Integer, ForeignKey("lab_report_cases.id"), nullable=True)
+    file_reference = Column(String, nullable=True)
+    extraction_status = Column(String, nullable=False) # SUCCESS, LOW_CONFIDENCE, FAILED
+    detected_test_type = Column(String, nullable=True)
+    parsed_values = Column(JSON, nullable=True)
+    flags = Column(JSON, nullable=True)
+    llm_conclusion = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    case = relationship("LabReportCase")
