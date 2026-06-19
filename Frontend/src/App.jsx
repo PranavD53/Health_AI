@@ -41,7 +41,7 @@ function PatientRoute() {
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   
-  if (user.role !== 'patient' || parseInt(id) !== user.id) {
+  if (user.role !== 'patient' || id != user.id) {
     return <Navigate to={`/${user.role}/${user.id}`} replace />;
   }
   return <PatientDashboard />;
@@ -54,7 +54,7 @@ function DoctorRoute() {
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   
-  if (user.role !== 'doctor' || parseInt(id) !== user.doctor_profile_id) {
+  if (user.role !== 'doctor' || id != user.doctor_profile_id) {
     if (user.role === 'doctor') {
       return <Navigate to={`/doctor/${user.doctor_profile_id}`} replace />;
     }
@@ -70,7 +70,7 @@ function AdminRoute() {
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   
-  if (user.role !== 'admin' || parseInt(id) !== user.id) {
+  if (user.role !== 'admin' || id != user.id) {
     return <Navigate to={`/${user.role}/${user.id}`} replace />;
   }
   return <AdminDashboard />;

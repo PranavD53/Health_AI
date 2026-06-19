@@ -637,5 +637,39 @@ export const api = {
       headers: getHeaders()
     });
     return handleResponse(res);
+  },
+
+  // Video call subsystem endpoints
+  initiateCall: async (appointmentId, chatId) => {
+    const res = await apiFetch('/calls/initiate', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ appointment_id: appointmentId, chat_id: chatId })
+    });
+    return handleResponse(res);
+  },
+
+  acceptCall: async (callId) => {
+    const res = await apiFetch(`/calls/${callId}/accept`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  rejectCall: async (callId) => {
+    const res = await apiFetch(`/calls/${callId}/reject`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  endCall: async (callId) => {
+    const res = await apiFetch(`/calls/${callId}/end`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
   }
 };
