@@ -217,7 +217,7 @@ export default function DoctorSearch() {
     );
   }
 
-  const specialties = ['All', 'Cardiology', 'Dermatology', 'General Medicine', 'Neurology', 'Pediatrics'];
+  const specialties = ['All', ...new Set(doctors.map(doc => doc.specialization).filter(Boolean))];
 
   return (
     <div className="space-y-xl animate-in fade-in duration-300">

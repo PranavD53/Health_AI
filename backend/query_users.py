@@ -1,11 +1,13 @@
 import os
 import sys
+from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-# Load env before importing database components
-load_dotenv()
+# Load env before importing database components relative to this file
+env_path = Path(__file__).resolve().parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 # Add current directory to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))

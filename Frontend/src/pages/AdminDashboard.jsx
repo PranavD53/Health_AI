@@ -10,7 +10,8 @@ export default function AdminDashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [complaints, setComplaints] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
-  const [activeSubTab, setActiveSubTab] = useState('verifications'); // verifications, users, complaints, moderation
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [activeSubTab, setActiveSubTab] = useState('verifications'); // verifications, users, complaints, moderation, leaves
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -25,6 +26,13 @@ export default function AdminDashboard() {
 
       const fbList = await api.getAdminFeedbacks();
       setFeedbacks(fbList);
+
+      try {
+        const leaves = await api.getLeaveRequests();
+        setLeaveRequests(leaves);
+      } catch (e) {
+        console.error("Failed to load leaves: ", e);
+      }
     } catch (err) {
       console.error(err);
       setError("Failed to load administration controls.");
@@ -136,6 +144,30 @@ export default function AdminDashboard() {
       loadData();
     } catch (err) {
       setError("Failed to moderate review: " + err.message);
+    }
+  };
+
+  const handleApproveLeave = async (id) => {
+    setError('');
+    setSuccessMsg('');
+    try {
+      await api.approveLeaveRequest(id);
+      setSuccessMsg("Leave request approved successfully!");
+      loadData();
+    } catch (err) {
+      setError("Failed to approve leave: " + err.message);
+    }
+  };
+
+  const handleRejectLeave = async (id) => {
+    setError('');
+    setSuccessMsg('');
+    try {
+      await api.rejectLeaveRequest(id);
+      setSuccessMsg("Leave request rejected successfully.");
+      loadData();
+    } catch (err) {
+      setError("Failed to reject leave: " + err.message);
     }
   };
 
@@ -270,6 +302,15 @@ export default function AdminDashboard() {
           >
             <span className="material-symbols-outlined">rate_review</span>
             Review Moderation ({feedbacks.length || 0})
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab('leaves')}
+            className={`px-6 py-4 font-bold text-sm flex items-center gap-xs focus:outline-none transition-colors border-b-2 ${activeSubTab === 'leaves' ? 'border-primary text-primary' : 'border-transparent text-outline hover:text-on-surface'
+              }`}
+          >
+            <span className="material-symbols-outlined">calendar_today</span>
+            Doctor Leaves ({leaveRequests.filter(l => l.status === 'pending').length || 0})
           </button>
         </div>
 
@@ -573,6 +614,66 @@ export default function AdminDashboard() {
                                 </button>
                               )}
                             </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+          {/* 5. Doctor Leaves Tab */}
+          {activeSubTab === 'leaves' && (
+            <div className="space-y-md animate-in fade-in duration-200">
+              {leaveRequests.length === 0 ? (
+                <p className="text-center py-xl text-outline font-semibold">No doctor leave requests submitted.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border-collapse">
+                    <thead>
+                      <tr className="border-b border-outline-variant/30 text-outline">
+                        <th className="py-3 font-semibold">Doctor Name</th>
+                        <th className="py-3 font-semibold">Specialization</th>
+                        <th className="py-3 font-semibold">Dates Requested</th>
+                        <th className="py-3 font-semibold">Reason</th>
+                        <th className="py-3 font-semibold">Status</th>
+                        <th className="py-3 font-semibold text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-outline-variant/10">
+                      {leaveRequests.map(lr => (
+                        <tr key={lr.id} className="align-middle">
+                          <td className="py-3 font-bold text-on-surface">{lr.doctor_name}</td>
+                          <td className="py-3 text-secondary font-semibold">{lr.specialization}</td>
+                          <td className="py-3 font-semibold text-on-surface">{lr.start_date} to {lr.end_date}</td>
+                          <td className="py-3 italic max-w-xs truncate">{lr.reason || 'No reason provided'}</td>
+                          <td className="py-3">
+                            <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold text-center inline-block capitalize ${
+                              lr.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
+                              lr.status === 'rejected' ? 'bg-error-container text-on-error-container' :
+                              'bg-surface-container text-outline animate-pulse'
+                            }`}>
+                              {lr.status}
+                            </span>
+                          </td>
+                          <td className="py-3 text-right">
+                            {lr.status === 'pending' && (
+                              <div className="flex justify-end gap-sm">
+                                <button
+                                  onClick={() => handleApproveLeave(lr.id)}
+                                  className="px-2.5 py-1 bg-success hover:bg-success/90 text-white text-xs font-bold rounded-lg transition-colors shadow-sm focus:outline-none"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => handleRejectLeave(lr.id)}
+                                  className="px-2.5 py-1 bg-error hover:bg-error/90 text-on-error text-xs font-bold rounded-lg transition-colors shadow-sm focus:outline-none"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))}

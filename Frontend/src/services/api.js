@@ -217,9 +217,15 @@ export const api = {
     return handleResponse(res);
   },
 
-  // Emergency SOS endpoints
-  triggerSOS: async (patientId = null) => {
-    const url = patientId ? `/emergency/sos?patient_id=${patientId}` : '/emergency/sos';
+  triggerSOS: async (patientId = null, latitude = null, longitude = null) => {
+    let url = '/emergency/sos';
+    const params = [];
+    if (patientId) params.push(`patient_id=${patientId}`);
+    if (latitude !== null) params.push(`latitude=${latitude}`);
+    if (longitude !== null) params.push(`longitude=${longitude}`);
+    if (params.length > 0) {
+      url += '?' + params.join('&');
+    }
     const res = await apiFetch(url, {
       method: 'POST',
       headers: getHeaders()
@@ -379,6 +385,21 @@ export const api = {
       }
     }
     return result;
+  },
+
+  transcribeAudio: async (audioBlob, groqKey = '') => {
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'voice.webm');
+    const headers = getHeaders(true);
+    if (groqKey) {
+      headers['groq-key'] = groqKey;
+    }
+    const res = await apiFetch('/tars/transcribe', {
+      method: 'POST',
+      headers: headers,
+      body: formData
+    });
+    return handleResponse(res);
   },
 
   getAIConfig: async () => {
@@ -722,6 +743,97 @@ export const api = {
     const res = await apiFetch(`/palettes/activate/${id}`, {
       method: 'POST',
       headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  scanRecordForFraud: async (recordId) => {
+    const res = await apiFetch(`/records/${recordId}/anti-fraud`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  requestLeave: async (payload) => {
+    const res = await apiFetch('/doctors/leave-request', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return handleResponse(res);
+  },
+
+  getLeaveRequests: async () => {
+    const res = await apiFetch('/doctors/leave-requests', {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  approveLeaveRequest: async (id) => {
+    const res = await apiFetch(`/doctors/leave-request/${id}/approve`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  rejectLeaveRequest: async (id) => {
+    const res = await apiFetch(`/doctors/leave-request/${id}/reject`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  triggerSurgeryReplacement: async (doctorId) => {
+    const res = await apiFetch(`/doctors/${doctorId}/trigger-surgery-replacement`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  getReminders: async () => {
+    const res = await apiFetch('/reminders', {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  createReminder: async (payload) => {
+    const res = await apiFetch('/reminders', {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(payload)
+    });
+    return handleResponse(res);
+  },
+
+  deleteReminder: async (id) => {
+    const res = await apiFetch(`/reminders/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  toggleReminder: async (id) => {
+    const res = await apiFetch(`/reminders/${id}/toggle`, {
+      method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  updateAppointmentPriority: async (id, priority) => {
+    const res = await apiFetch(`/appointment/${id}/priority`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ priority })
     });
     return handleResponse(res);
   }

@@ -226,6 +226,8 @@ async def register_doctor(
     license_number: str = Form(...),
     license_document: UploadFile = File(...),
     profile_picture: Optional[UploadFile] = File(None),
+    latitude: Optional[float] = Form(None),
+    longitude: Optional[float] = Form(None),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -235,23 +237,21 @@ async def register_doctor(
         if existing:
             raise HTTPException(status_code=400, detail="Doctor profile already exists for this user")
 
-        # Handle license document saving (using correct backend/uploads path)
-        # Save license document
+        # Handle license document saving (in-memory)
+        import base64
         doc_ext = license_document.filename.split(".")[-1]
         doc_filename = f"license_{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}.{doc_ext}"
-        doc_path = os.path.join(UPLOADS_DIR, doc_filename)
-        with open(doc_path, "wb") as f:
-            f.write(await license_document.read())
+        doc_bytes = await license_document.read()
         
-        # Save profile picture if provided
+        # Save profile picture if provided (in-memory)
         pic_relative_path = None
+        pic_encoded = None
         if profile_picture:
             pic_ext = profile_picture.filename.split(".")[-1]
             pic_filename = f"pic_{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}.{pic_ext}"
-            pic_path = os.path.join(UPLOADS_DIR, pic_filename)
-            with open(pic_path, "wb") as f:
-                f.write(await profile_picture.read())
+            pic_bytes = await profile_picture.read()
             pic_relative_path = f"/uploads/{pic_filename}"
+            pic_encoded = base64.b64encode(pic_bytes).decode("utf-8")
 
         # Ensure doctor name starts with "Dr." prefix
         name_stripped = name.strip()
@@ -271,8 +271,12 @@ async def register_doctor(
             address=address,
             available=False, # Must be verified/approved by admin first
             profile_picture=pic_relative_path,
+            profile_picture_data=pic_encoded,
             license_document_path=f"/uploads/{doc_filename}",
-            license_number=license_number
+            license_document_data=base64.b64encode(doc_bytes).decode("utf-8"),
+            license_number=license_number,
+            latitude=latitude,
+            longitude=longitude
         )
         db.add(new_doc)
         db.commit()
@@ -312,6 +316,8 @@ async def update_doctor_profile(
     license_number: Optional[str] = Form(None),
     license_document: Optional[UploadFile] = File(None),
     profile_picture: Optional[UploadFile] = File(None),
+    latitude: Optional[float] = Form(None),
+    longitude: Optional[float] = Form(None),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -335,15 +341,19 @@ async def update_doctor_profile(
             doctor.address = address
         if license_number is not None:
             doctor.license_number = license_number
+        if latitude is not None:
+            doctor.latitude = latitude
+        if longitude is not None:
+            doctor.longitude = longitude
 
-        # Update license document if provided
+        # Update license document if provided (in-memory)
         if license_document:
+            import base64
             doc_ext = license_document.filename.split(".")[-1]
             doc_filename = f"license_{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}.{doc_ext}"
-            doc_path = os.path.join(UPLOADS_DIR, doc_filename)
-            with open(doc_path, "wb") as f:
-                f.write(await license_document.read())
+            doc_bytes = await license_document.read()
             doctor.license_document_path = f"/uploads/{doc_filename}"
+            doctor.license_document_data = base64.b64encode(doc_bytes).decode("utf-8")
             
             # Since the license has changed, reset verification status to pending!
             verification = db.query(models.DoctorVerification).filter(models.DoctorVerification.doctor_id == doctor.id).first()
@@ -356,14 +366,14 @@ async def update_doctor_profile(
             
             doctor.available = False  # Deactivate doctor until verified again!
 
-        # Update profile picture if provided
+        # Update profile picture if provided (in-memory)
         if profile_picture:
+            import base64
             pic_ext = profile_picture.filename.split(".")[-1]
             pic_filename = f"pic_{current_user.id}_{int(datetime.datetime.utcnow().timestamp())}.{pic_ext}"
-            pic_path = os.path.join(UPLOADS_DIR, pic_filename)
-            with open(pic_path, "wb") as f:
-                f.write(await profile_picture.read())
+            pic_bytes = await profile_picture.read()
             doctor.profile_picture = f"/uploads/{pic_filename}"
+            doctor.profile_picture_data = base64.b64encode(pic_bytes).decode("utf-8")
 
         db.commit()
         db.refresh(doctor)
@@ -379,7 +389,9 @@ async def update_doctor_profile(
                 "available": doctor.available,
                 "profile_picture": doctor.profile_picture,
                 "license_document_path": doctor.license_document_path,
-                "license_number": doctor.license_number
+                "license_number": doctor.license_number,
+                "latitude": doctor.latitude,
+                "longitude": doctor.longitude
             }
         }
     except HTTPException:
@@ -387,3 +399,188 @@ async def update_doctor_profile(
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- Leave Requests ---
+class LeaveRequestCreate(BaseModel):
+    start_date: str # YYYY-MM-DD
+    end_date: str # YYYY-MM-DD
+    reason: Optional[str] = None
+
+@router.post("/leave-request")
+def create_leave_request(
+    data: LeaveRequestCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    doctor = db.query(models.Doctor).filter(models.Doctor.user_id == current_user.id).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor profile not found")
+        
+    new_request = models.LeaveRequest(
+        doctor_id=doctor.id,
+        start_date=data.start_date,
+        end_date=data.end_date,
+        reason=data.reason,
+        status="pending"
+    )
+    db.add(new_request)
+    db.commit()
+    db.refresh(new_request)
+    
+    log_action(db, current_user.id, "LEAVE_REQUEST_SUBMITTED", f"Doctor {doctor.name} requested leave from {data.start_date} to {data.end_date}")
+    return {"status": "success", "message": "Leave request submitted successfully", "request_id": new_request.id}
+
+@router.get("/leave-requests")
+def get_leave_requests(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Check if admin
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only administrators can view leave requests")
+        
+    requests = db.query(models.LeaveRequest).all()
+    res = []
+    for r in requests:
+        res.append({
+            "id": r.id,
+            "doctor_id": r.doctor_id,
+            "doctor_name": r.doctor.name,
+            "specialization": r.doctor.specialization,
+            "start_date": r.start_date,
+            "end_date": r.end_date,
+            "reason": r.reason,
+            "status": r.status,
+            "created_at": r.created_at
+        })
+    return res
+
+@router.post("/leave-request/{id}/approve")
+def approve_leave_request(
+    id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only administrators can approve leave requests")
+        
+    req = db.query(models.LeaveRequest).filter(models.LeaveRequest.id == id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+        
+    req.status = "approved"
+    
+    # Set doctor as unavailable
+    doctor = db.query(models.Doctor).filter(models.Doctor.id == req.doctor_id).first()
+    if doctor:
+        doctor.available = False
+        
+    # Notify doctor
+    doctor_notif = models.Notification(
+        user_id=doctor.user_id,
+        message=f"Your leave request from {req.start_date} to {req.end_date} has been APPROVED by the administrator.",
+        notification_type="general"
+    )
+    db.add(doctor_notif)
+    
+    db.commit()
+    log_action(db, current_user.id, "LEAVE_REQUEST_APPROVED", f"Leave request {id} approved for doctor {doctor.name if doctor else 'Unknown'}")
+    return {"status": "success", "message": "Leave request approved successfully"}
+
+@router.post("/leave-request/{id}/reject")
+def reject_leave_request(
+    id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only administrators can reject leave requests")
+        
+    req = db.query(models.LeaveRequest).filter(models.LeaveRequest.id == id).first()
+    if not req:
+        raise HTTPException(status_code=404, detail="Leave request not found")
+        
+    req.status = "rejected"
+    
+    # Notify doctor
+    doctor = db.query(models.Doctor).filter(models.Doctor.id == req.doctor_id).first()
+    if doctor:
+        doctor_notif = models.Notification(
+            user_id=doctor.user_id,
+            message=f"Your leave request from {req.start_date} to {req.end_date} has been REJECTED by the administrator.",
+            notification_type="general"
+        )
+        db.add(doctor_notif)
+        
+    db.commit()
+    log_action(db, current_user.id, "LEAVE_REQUEST_REJECTED", f"Leave request {id} rejected for doctor {doctor.name if doctor else 'Unknown'}")
+    return {"status": "success", "message": "Leave request rejected successfully"}
+
+# --- Urgent Surgery Replacement ---
+@router.post("/{doctor_id}/trigger-surgery-replacement")
+def trigger_surgery_replacement(
+    doctor_id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    doctor = db.query(models.Doctor).filter(models.Doctor.id == doctor_id).first()
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+        
+    # Check permissions (doctor themselves or admin)
+    if current_user.role != "admin" and doctor.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Unauthorized to trigger surgery replacement for this doctor")
+        
+    # Fetch all booked appointments of this doctor
+    appointments = db.query(models.Appointment).filter(
+        models.Appointment.doctor_id == doctor_id,
+        models.Appointment.status == "booked"
+    ).all()
+    
+    # Find other doctors in the same department
+    other_doctors = db.query(models.Doctor).filter(
+        models.Doctor.specialization == doctor.specialization,
+        models.Doctor.id != doctor_id,
+        models.Doctor.available == True
+    ).all()
+    
+    reassigned_count = 0
+    not_reassigned_count = 0
+    
+    for appt in appointments:
+        if other_doctors:
+            new_doc = other_doctors[reassigned_count % len(other_doctors)]
+            old_doc_name = doctor.name
+            appt.doctor_id = new_doc.id
+            
+            # Create notifications
+            patient_notif = models.Notification(
+                user_id=appt.patient_id,
+                message=f"Your appointment on {appt.date} at {appt.time} has been reassigned to {new_doc.name} because {old_doc_name} has an urgent surgery.",
+                notification_type="general"
+            )
+            new_doc_notif = models.Notification(
+                user_id=new_doc.user_id,
+                message=f"You have been assigned a new appointment on {appt.date} at {appt.time} (reassigned from {old_doc_name} due to urgent surgery).",
+                notification_type="general"
+            )
+            db.add(patient_notif)
+            db.add(new_doc_notif)
+            reassigned_count += 1
+        else:
+            appt.status = "pending_reschedule"
+            patient_notif = models.Notification(
+                user_id=appt.patient_id,
+                message=f"Your appointment with {doctor.name} on {appt.date} at {appt.time} is pending reschedule as the doctor has an urgent surgery and no replacement is available.",
+                notification_type="general"
+            )
+            db.add(patient_notif)
+            not_reassigned_count += 1
+            
+    db.commit()
+    log_action(db, current_user.id, "SURGERY_REPLACEMENT_TRIGGERED", f"Doctor {doctor.name} triggered surgery replacement. Reassigned: {reassigned_count}, Rescheduled: {not_reassigned_count}")
+    return {
+        "status": "success",
+        "reassigned": reassigned_count,
+        "pending_reschedule": not_reassigned_count
+    }

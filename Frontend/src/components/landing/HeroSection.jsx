@@ -42,60 +42,37 @@ export default function HeroSection() {
         return;
       }
 
-      if (isMobile) {
-        // Mobile timeline: simple fade in
-        const tl = gsap.timeline();
-        tl.fromTo(headlineRef.current, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' })
-          .fromTo(subtextRef.current, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }, '-=0.5')
-          .fromTo(ctaRef.current, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' }, '-=0.4')
-          .fromTo(mockupRef.current, { opacity: 0, y: 30, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: 'power2.out' }, '-=0.3');
-        return;
-      }
-
-      // Desktop Timeline: Pinned entrance
-      const tl = gsap.timeline({
-        scrollTrigger: {
-          trigger: containerRef.current,
-          start: 'top top',
-          end: '+=100%',
-          pin: pinWrapperRef.current,
-          scrub: 0.5,
-          anticipatePin: 1
-        }
-      });
-
+      // Simple, beautiful entrance animation on mount for all viewports
+      const tl = gsap.timeline();
       tl.fromTo(headlineRef.current, 
-        { opacity: 0, y: 50 }, 
-        { opacity: 1, y: 0, duration: 1.5, ease: 'power2.out' }
-      );
-
-      tl.fromTo(subtextRef.current,
-        { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, duration: 1.5, ease: 'power2.out' },
-        '-=0.8'
-      );
-
-      tl.fromTo(ctaRef.current,
+        { opacity: 0, y: 30 }, 
+        { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' }
+      )
+      .fromTo(subtextRef.current,
         { opacity: 0, y: 20 },
-        { opacity: 1, y: 0, duration: 1.2, ease: 'power2.out' },
-        '-=1.0'
-      );
-
-      tl.fromTo(mockupRef.current,
-        { opacity: 0, y: 60, scale: 0.95 },
-        { opacity: 1, y: 0, scale: 1, duration: 2.0, ease: 'power2.out' },
-        '-=1.2'
+        { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' },
+        '-=0.4'
+      )
+      .fromTo(ctaRef.current,
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' },
+        '-=0.3'
+      )
+      .fromTo(mockupRef.current,
+        { opacity: 0, y: 40, scale: 0.96 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: 'power2.out' },
+        '-=0.3'
       );
     }, containerRef);
 
     return () => {
       ctx.revert();
     };
-  }, [isMobile, prefersReduced]);
+  }, [prefersReduced]);
 
   return (
-    <div ref={containerRef} className={`relative z-10 w-full ${isMobile || prefersReduced ? '' : 'min-h-[180vh]'}`}>
-      <div ref={pinWrapperRef} className="w-full min-h-screen flex flex-col justify-center items-center px-6 pt-28 pb-16 lg:py-0">
+    <div ref={containerRef} className="relative z-10 w-full">
+      <div className="w-full min-h-screen flex flex-col justify-center items-center px-6 pt-28 pb-16 lg:py-0">
         <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           
           {/* Left Column: Typography */}

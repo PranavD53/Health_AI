@@ -1,5 +1,11 @@
 import os
 import sys
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load env before database import
+env_path = Path(__file__).resolve().parent / '.env'
+load_dotenv(dotenv_path=env_path)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

@@ -72,14 +72,25 @@ def _column_migrations(db_url: str) -> list[tuple[str, str, str]]:
         # doctors
         ("doctors", "address", "TEXT"),
         ("doctors", "profile_picture", "VARCHAR"),
+        ("doctors", "profile_picture_data", "TEXT"),
         ("doctors", "license_document_path", "VARCHAR"),
+        ("doctors", "license_document_data", "TEXT"),
         ("doctors", "license_number", "VARCHAR"),
         ("doctors", "user_id", user_id_type),
         # medical_records
         ("medical_records", "fraud_status", "VARCHAR DEFAULT 'VERIFIED (Authentic)'"),
+        ("medical_records", "file_data", "TEXT"),
         # private chat (added after initial release)
         ("private_messages", "attachment_path", "VARCHAR"),
         ("private_messages", "attachment_name", "VARCHAR"),
+        # appointments
+        ("appointments", "priority", "VARCHAR DEFAULT 'Normal'"),
+        # emergency alerts coordinates
+        ("emergency_alerts", "latitude", "FLOAT"),
+        ("emergency_alerts", "longitude", "FLOAT"),
+        # doctors coordinates
+        ("doctors", "latitude", "FLOAT"),
+        ("doctors", "longitude", "FLOAT"),
     ]
 
 

@@ -260,7 +260,7 @@ export default function DoctorDashboard() {
         {/* Appointments List */}
         <div className="lg:col-span-2 space-y-lg">
           <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card">
-            <h3 className="text-title-md font-bold text-primary mb-md flex items-center justify-between">
+            <h3 className="text-title-md font-bold text-primary mb-md flex flex-col sm:flex-row sm:items-center justify-between gap-sm">
               <span className="flex items-center gap-xs">
                 <span className="material-symbols-outlined text-secondary font-bold">calendar_month</span>
                 Upcoming Consultations
@@ -270,14 +270,39 @@ export default function DoctorDashboard() {
                   </span>
                 )}
               </span>
-              {filterType !== 'all' && (
-                <button 
-                  onClick={() => setFilterType('all')} 
-                  className="text-[10px] text-primary hover:underline font-bold flex items-center gap-2xs focus:outline-none"
+              <div className="flex items-center gap-sm">
+                <button
+                  onClick={async () => {
+                    const docId = dashboardData?.id;
+                    if (!docId) {
+                      alert("Error loading doctor profile ID.");
+                      return;
+                    }
+                    if (window.confirm("URGENT: Are you performing an urgent surgery? This will automatically reassign all your upcoming booked appointments to other available specialists in your department.")) {
+                      try {
+                        const result = await api.triggerSurgeryReplacement(docId);
+                        alert(`Reassignment process finished successfully! Reassigned appointments: ${result.reassigned_count || 0}.`);
+                        loadData();
+                      } catch (err) {
+                        alert("Reassignment failed: " + err.message);
+                      }
+                    }
+                  }}
+                  className="flex items-center gap-xs bg-error hover:bg-error/95 text-on-error text-[10px] font-bold px-3 py-1.5 rounded-lg shadow transition active:scale-95 focus:outline-none"
+                  title="Single one-stop button to reassign all your visits due to urgent surgery"
                 >
-                  Clear Filter
+                  <span className="material-symbols-outlined text-[14px]">medical_services</span>
+                  Urgent Surgery: Reassign
                 </button>
-              )}
+                {filterType !== 'all' && (
+                  <button 
+                    onClick={() => setFilterType('all')} 
+                    className="text-[10px] text-primary hover:underline font-bold flex items-center gap-2xs focus:outline-none"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
             </h3>
 
             {getFilteredAppointments().length === 0 ? (
@@ -293,8 +318,19 @@ export default function DoctorDashboard() {
                 {getFilteredAppointments().map(appt => (
                   <div key={appt.id} className="p-md border border-outline-variant/50 rounded-xl bg-surface-container-lowest flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
                     <div>
-                      <h4 className="font-bold text-on-surface">Patient: {appt.patient_name}</h4>
-                      <div className="flex gap-md text-xs text-on-surface-variant font-medium mt-sm">
+                      <h4 className="font-bold text-on-surface flex items-center gap-sm">
+                        Patient: {appt.patient_name}
+                        <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase border ${
+                          appt.priority === 'High' 
+                            ? 'bg-error-container text-on-error-container border-error/20' 
+                            : appt.priority === 'Low' 
+                            ? 'bg-surface-container-high text-outline border-outline-variant/30' 
+                            : 'bg-secondary-container text-on-secondary-container border-secondary/20'
+                        }`}>
+                          {appt.priority || 'Normal'}
+                        </span>
+                      </h4>
+                      <div className="flex flex-wrap gap-md text-xs text-on-surface-variant font-medium mt-sm items-center">
                         <span className="flex items-center gap-xs">
                           <span className="material-symbols-outlined text-[16px] text-secondary">calendar_month</span>
                           {appt.date}
@@ -303,6 +339,25 @@ export default function DoctorDashboard() {
                           <span className="material-symbols-outlined text-[16px] text-secondary">schedule</span>
                           {appt.time}
                         </span>
+                        <div className="flex items-center gap-xs ml-sm">
+                          <span className="text-[10px] text-outline">Priority:</span>
+                          <select
+                            value={appt.priority || 'Normal'}
+                            onChange={async (e) => {
+                              try {
+                                await api.updateAppointmentPriority(appt.id, e.target.value);
+                                loadData();
+                              } catch (err) {
+                                alert("Failed to update risk level: " + err.message);
+                              }
+                            }}
+                            className="text-[10px] border border-outline-variant rounded bg-surface py-0.5 px-1 font-bold text-on-surface focus:outline-none cursor-pointer"
+                          >
+                            <option value="High">High</option>
+                            <option value="Normal">Normal</option>
+                            <option value="Low">Low</option>
+                          </select>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-sm">
@@ -325,29 +380,98 @@ export default function DoctorDashboard() {
           </div>
         </div>
 
-        {/* Patients Summary Directory */}
-        <div ref={patientsSectionRef} className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg flex flex-col h-full interactive-card">
-          <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
-            <span className="material-symbols-outlined text-secondary">group</span>
-            Patients Directory
-          </h3>
+        {/* Right Sidebar: Patients Directory & Leave Request Submissions */}
+        <div className="space-y-lg">
+          {/* Patients Summary Directory */}
+          <div ref={patientsSectionRef} className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg flex flex-col interactive-card">
+            <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
+              <span className="material-symbols-outlined text-secondary">group</span>
+              Patients Directory
+            </h3>
 
-          <div className="flex-1 space-y-md overflow-y-auto max-h-[400px]">
-            {dashboardData?.patient_summaries?.map(p => (
-              <div 
-                key={p.user_id} 
-                onClick={() => handlePatientClick(p.user_id)}
-                className="p-md border border-outline-variant/30 rounded-xl hover:border-secondary cursor-pointer hover:bg-surface-container-high/40 active:scale-[0.99] transition-all"
-                title={`Chat with ${p.name}`}
-              >
-                <h4 className="font-bold text-on-surface text-sm">{p.name}</h4>
-                <p className="text-xs text-on-surface-variant mt-xs">
-                  Gender: {p.gender || 'Not specified'} | Age: {p.age || 'Not specified'}
-                </p>
+            <div className="space-y-md overflow-y-auto max-h-[300px]">
+              {dashboardData?.patient_summaries?.map(p => (
+                <div 
+                  key={p.user_id} 
+                  onClick={() => handlePatientClick(p.user_id)}
+                  className="p-md border border-outline-variant/30 rounded-xl hover:border-secondary cursor-pointer hover:bg-surface-container-high/40 active:scale-[0.99] transition-all"
+                  title={`Chat with ${p.name}`}
+                >
+                  <h4 className="font-bold text-on-surface text-sm">{p.name}</h4>
+                  <p className="text-xs text-on-surface-variant mt-xs">
+                    Gender: {p.gender || 'Not specified'} | Age: {p.age || 'Not specified'}
+                  </p>
+                </div>
+              ))}
+              {dashboardData?.patient_summaries?.length === 0 && (
+                <p className="text-center text-xs text-outline py-xl">No patients registered in the directory.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Leave Request Card */}
+          <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card space-y-md">
+            <h3 className="text-title-md font-bold text-primary flex items-center gap-xs border-b border-outline-variant/20 pb-2">
+              <span className="material-symbols-outlined text-secondary">calendar_today</span>
+              Submit Leave Request
+            </h3>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const start = e.target.start_date.value;
+              const end = e.target.end_date.value;
+              const reason = e.target.reason.value;
+              try {
+                await api.requestLeave({ start_date: start, end_date: end, reason });
+                alert("Leave request submitted successfully for administrator approval!");
+                e.target.reset();
+                loadData();
+              } catch (err) {
+                alert("Failed to submit leave request: " + err.message);
+              }
+            }} className="space-y-sm text-xs">
+              <div className="grid grid-cols-2 gap-sm">
+                <div className="space-y-xs">
+                  <label className="font-bold text-outline uppercase block">Start Date</label>
+                  <input required type="date" name="start_date" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                </div>
+                <div className="space-y-xs">
+                  <label className="font-bold text-outline uppercase block">End Date</label>
+                  <input required type="date" name="end_date" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                </div>
               </div>
-            ))}
-            {dashboardData?.patient_summaries?.length === 0 && (
-              <p className="text-center text-xs text-outline py-xl">No patients registered in the directory.</p>
+              <div className="space-y-xs">
+                <label className="font-bold text-outline uppercase block">Reason</label>
+                <textarea required name="reason" rows="2" placeholder="e.g. Attending conference, urgent medical leave" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+              </div>
+              <button type="submit" className="w-full bg-primary hover:bg-primary/95 text-white py-2 rounded font-bold shadow-md transition active:scale-[0.98]">
+                Submit Request
+              </button>
+            </form>
+
+            {/* Leave requests logs */}
+            {dashboardData?.leave_requests && dashboardData.leave_requests.length > 0 && (
+              <div className="pt-2 border-t border-outline-variant/30 space-y-xs">
+                <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">Leave Requests Log</span>
+                <div className="space-y-2 max-h-[150px] overflow-y-auto pr-xs">
+                  {dashboardData.leave_requests.map(req => (
+                    <div key={req.id} className="p-2 border border-outline-variant/20 rounded bg-surface-container-low flex justify-between items-center text-[10px]">
+                      <div>
+                        <span className="font-bold text-on-surface">{req.start_date} to {req.end_date}</span>
+                        <p className="text-outline italic truncate max-w-[130px]">{req.reason}</p>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded font-bold uppercase text-[8px] ${
+                        req.status === 'approved' 
+                          ? 'bg-emerald-100 text-emerald-800' 
+                          : req.status === 'rejected' 
+                          ? 'bg-error-container text-on-error-container' 
+                          : 'bg-surface-container text-outline'
+                      }`}>
+                        {req.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>

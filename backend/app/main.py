@@ -55,6 +55,9 @@ app.add_middleware(
 # --- Startup Event to Initialize and Seed DB ---
 @app.on_event("startup")
 def startup_db_setup():
+    if os.getenv("TESTING") in ("True", "true"):
+        print("Skipping production startup DB setup during testing.")
+        return
     ensure_schema()
     # Seed the doctors table
     db = next(get_db())
@@ -150,6 +153,8 @@ def seed_demo_users(db: Session):
     db.commit()
 
 # --- Include Routers ---
+from app.routes import voice_socket
+app.include_router(voice_socket.router)
 app.include_router(auth.router)
 app.include_router(profile.router)
 app.include_router(symptoms.router)
@@ -161,6 +166,100 @@ app.include_router(chats.router)
 app.include_router(calls.router)
 app.include_router(feedback.router)
 app.include_router(palettes.router)
+
+
+from fastapi import UploadFile, File
+
+@app.post("/tars/transcribe")
+async def transcribe_audio(
+    file: UploadFile = File(...),
+    groq_key: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    import httpx
+    # Use key from header or environment
+    key = groq_key or os.getenv("GROQ_API_KEY", "")
+    if not key or key.startswith("your_groq_api_key"):
+        raise HTTPException(status_code=400, detail="Groq API key not configured")
+        
+    try:
+        content_bytes = await file.read()
+        filename = file.filename or "voice.webm"
+        
+        # Call Groq Whisper API
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/audio/transcriptions",
+                headers={
+                    "Authorization": f"Bearer {key}"
+                },
+                files={
+                    "file": (filename, content_bytes, file.content_type or "audio/webm")
+                },
+                data={
+                    "model": "whisper-large-v3"
+                },
+                timeout=30.0
+            )
+            
+            if response.status_code == 200:
+                res_json = response.json()
+                return {"text": res_json.get("text", "")}
+            else:
+                raise HTTPException(status_code=response.status_code, detail=f"Whisper API error: {response.text}")
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=500, detail=f"Error transcribing audio: {str(e)}")
+
+
+@app.get("/uploads/{filename}")
+def serve_db_upload(filename: str, db: Session = Depends(get_db)):
+    # Query database for MedicalRecord
+    record = db.query(models.MedicalRecord).filter(
+        (models.MedicalRecord.file_name == filename) |
+        models.MedicalRecord.file_path.like(f"%/uploads/{filename}")
+    ).first()
+    
+    import base64
+    from fastapi.responses import Response
+    
+    if record and record.file_data:
+        try:
+            content_bytes = base64.b64decode(record.file_data)
+            return Response(content=content_bytes, media_type=record.file_type or "application/octet-stream")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to decode file: {str(e)}")
+            
+    # If not found in MedicalRecord, check if it's a Doctor profile picture or license document
+    doctor = db.query(models.Doctor).filter(
+        (models.Doctor.profile_picture.like(f"%/uploads/{filename}")) |
+        (models.Doctor.license_document_path.like(f"%/uploads/{filename}"))
+    ).first()
+    
+    if doctor:
+        try:
+            # Check if it matches the profile picture
+            if doctor.profile_picture and filename in doctor.profile_picture:
+                data = doctor.profile_picture_data
+                mime = "image/png" if filename.lower().endswith(".png") else ("image/jpeg" if filename.lower().endswith((".jpg", ".jpeg")) else "application/octet-stream")
+            else:
+                data = doctor.license_document_data
+                mime = "application/pdf" if filename.lower().endswith(".pdf") else "application/octet-stream"
+            
+            if data:
+                content_bytes = base64.b64decode(data)
+                return Response(content=content_bytes, media_type=mime)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to decode doctor file: {str(e)}")
+            
+    # Fall back to checking if the file is on disk in UPLOADS_DIR
+    local_path = os.path.join(UPLOADS_DIR, filename)
+    if os.path.exists(local_path):
+        from fastapi.responses import FileResponse
+        return FileResponse(local_path)
+        
+    raise HTTPException(status_code=404, detail="File not found")
 
 
 if os.path.isdir(FRONTEND_DIR):
@@ -295,6 +394,13 @@ class PatientSummaryInfo(BaseModel):
     existing_conditions: str
     last_visit: str
 
+class DoctorLeaveRequestInfo(BaseModel):
+    id: int
+    start_date: str
+    end_date: str
+    reason: Optional[str] = None
+    status: str
+
 class DoctorDashboardResponse(BaseModel):
     name: str
     specialization: str
@@ -308,6 +414,7 @@ class DoctorDashboardResponse(BaseModel):
     total_patients: int
     today_appointments: List[DoctorAppointmentInfo]
     pending_appointments: int
+    leave_requests: Optional[List[DoctorLeaveRequestInfo]] = []
 
 class VerificationQueueItem(BaseModel):
     id: int
@@ -510,6 +617,18 @@ def get_doctor_dashboard(
         if feedbacks:
             avg_rating = round(sum(f.rating_doctor for f in feedbacks) / len(feedbacks), 1)
 
+        # Query doctor leaves
+        leaves = db.query(models.LeaveRequest).filter(models.LeaveRequest.doctor_id == doctor.id).order_by(models.LeaveRequest.created_at.desc()).all()
+        leave_logs = []
+        for lr in leaves:
+            leave_logs.append({
+                "id": lr.id,
+                "start_date": lr.start_date,
+                "end_date": lr.end_date,
+                "reason": lr.reason,
+                "status": lr.status
+            })
+
         return {
             "name": doctor.name,
             "specialization": doctor.specialization,
@@ -522,7 +641,8 @@ def get_doctor_dashboard(
             "patient_summaries": patient_summaries,
             "total_patients": len(patient_summaries),
             "today_appointments": today_appointments,
-            "pending_appointments": pending_appointments
+            "pending_appointments": pending_appointments,
+            "leave_requests": leave_logs
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1060,7 +1180,8 @@ async def global_ai_assistant(
             "Detect the user's input language and writing style (e.g., English, Hindi, Telugu, Spanish, Hinglish, Tinglish, etc.) from their query. "
             "Respond naturally in the EXACT SAME language, writing script, and style. "
             "If the user uses a transliterated language (like Hinglish or Tinglish), respond in that transliterated style. "
-            "Ensure you do not translate to English unless requested; maintain alignment with the user's language."
+            "Ensure you do not translate to English unless requested; maintain alignment with the user's language. "
+            "At the end of every response after executing an action or resolving a query, ask the user in their language if they need any other help, keeping it brief and friendly."
         )
         
         try:
@@ -1122,6 +1243,21 @@ async def global_ai_assistant(
                 f"- Logged-in User Email: {current_user.email}\n"
                 f"- Role: {current_user.role}\n"
             )
+
+            # Fetch and inject user's medical records
+            if current_user.role == "patient":
+                medical_records = db.query(models.MedicalRecord).filter(
+                    models.MedicalRecord.user_id == current_user.id
+                ).order_by(models.MedicalRecord.uploaded_at.desc()).all()
+                
+                records_list = []
+                for rec in medical_records:
+                    records_list.append(f"- Record: {rec.file_name} (Type: {rec.file_type}, ID: {rec.id}, Status: {rec.fraud_status})")
+                
+                if records_list:
+                    user_context += "YOUR UPLOADED MEDICAL RECORDS & PRESCRIPTIONS:\n" + "\n".join(records_list) + "\n"
+                else:
+                    user_context += "YOUR UPLOADED MEDICAL RECORDS & PRESCRIPTIONS: You have no uploaded medical records or prescriptions.\n"
         
             patient_appts = []
             doctor_appts = []
@@ -1193,6 +1329,20 @@ async def global_ai_assistant(
                         user_context += "YOUR UPCOMING CONSULTATIONS:\n" + "\n".join(consults_list) + "\n"
                     else:
                         user_context += "YOUR UPCOMING CONSULTATIONS: You have no upcoming consultations scheduled.\n"
+
+                    # Inject patient medical records for the doctor to analyze
+                    patient_ids = list(set(appt.patient_id for appt in doctor_appts))
+                    if patient_ids:
+                        patient_records = db.query(models.MedicalRecord).filter(
+                            models.MedicalRecord.user_id.in_(patient_ids)
+                        ).all()
+                        doc_records_list = []
+                        for rec in patient_records:
+                            p_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == rec.user_id).first()
+                            p_name = p_profile.name if p_profile else "Unknown Patient"
+                            doc_records_list.append(f"- Record for patient {p_name} (user_id: {rec.user_id}): {rec.file_name} (Type: {rec.file_type}, ID: {rec.id})")
+                        if doc_records_list:
+                            user_context += "PATIENT MEDICAL RECORDS AVAILABLE TO YOU:\n" + "\n".join(doc_records_list) + "\n"
                 else:
                     user_context += "YOUR UPCOMING CONSULTATIONS: No doctor profile found.\n"
 
@@ -1718,47 +1868,60 @@ async def global_ai_assistant(
                 try:
                     parsed_action = json.loads(action_match.group(1))
                     if parsed_action.get("type") == "book_appointment":
-                        # Check recent conversation history user messages for doctor, date, and time
-                        user_texts = " ".join([m.content.lower() for m in history_msgs if m.role == "user" and m.content])
-                        user_texts += " " + input_data.message.lower()
-                    
-                        doc_keywords = ["smith", "johnson", "brown", "prince", "wright", "cardiology", "dermatology", "medicine", "neurology", "pediatrics", "doctor", "specialist", "डॉक्टर", "विशेषज्ञ", "డాక్టర్", "వైద్యుడు"]
-                        date_keywords = ["tomorrow", "today", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec", "202", "date", "/", "कल", "आज", "तारीख", "दिनांक", "రేపు", "ఈ రోజు", "తేదీ"]
-                        time_keywords = ["am", "pm", "morning", "afternoon", "evening", "o'clock", ":", "time", "बजे", "समय", "सुबह", "शाम", "दोपहर", "గంటల", "సమయం"]
-                    
-                        has_doctor = any(d in user_texts for d in doc_keywords)
-                        has_date = any(d in user_texts for d in date_keywords)
-                        has_time = any(t in user_texts for t in time_keywords)
-                    
-                        if not (has_doctor and has_date and has_time):
+                        action = parsed_action
+                        reply = reply.replace(action_match.group(0), "").strip()
+                    elif parsed_action.get("type") == "create_prescription":
+                        params = parsed_action.get("parameters", {})
+                        p_name = params.get("patient_name")
+                        diagnosis = params.get("diagnosis")
+                        medicines = params.get("medicines", [])
+                        instructions = params.get("instructions", "")
+                        
+                        from sqlalchemy import or_, and_
+                        # 1. Look up patient profile by name
+                        p_profile = db.query(models.PatientProfile).filter(
+                            models.PatientProfile.name.ilike(f"%{p_name}%")
+                        ).first()
+                        
+                        if not p_profile:
+                            reply = f"I'm sorry, I couldn't find a patient profile matching '{p_name}'. Please verify the patient's name."
                             action = None
-                            user_query = input_data.message.lower()
-                            user_query_words = set(user_query.split())
-                        
-                            has_hi_char = any(ord(c) >= 0x0900 and ord(c) <= 0x097F for c in user_query)
-                            has_te_char = any(ord(c) >= 0x0C00 and ord(c) <= 0x0C7F for c in user_query)
-                        
-                            is_hinglish = any(w in user_query_words for w in hinglish_words)
-                            is_tinglish = any(w in user_query_words for w in tinglish_words)
-                        
-                            if has_te_char:
-                                reply = "అపాయింట్‌మెంట్ బుక్ చేయడానికి, నాకు మరికొన్ని వివరాలు కావాలి. మీరు ఏ వైద్యుడిని సంప్రదించాలనుకుంటున్నారు, మరియు ఏ తేదీ మరియు సమయంలో?"
-                            elif has_hi_char:
-                                reply = "अपॉइंटमेंट बुक करने के लिए, मुझे कुछ और विवरण चाहिए। आप किस डॉक्टर से मिलना चाहते हैं, और किस तारीख और समय पर?"
-                            elif is_tinglish:
-                                reply = "Appointment book cheyyడానికి naku konchem details kavali. Meeku ey doctor kavali, ey date and time lo consult chestharu?"
-                            elif is_hinglish:
-                                reply = "Appointment book karne ke liye mujhe thode aur details chahiye. Aap kis doctor se milna chahte hain, aur kis date aur time par?"
-                            else:
-                                if pref_lang == "te":
-                                    reply = "అపాయింట్‌మెంట్ బుక్ చేయడానికి, నాకు మరికొన్ని వివరాలు కావాలి. మీరు ఏ వైద్యుడిని సంప్రదించాలనుకుంటున్నారు, మరియు ఏ తేదీ మరియు సమయంలో?"
-                                elif pref_lang == "hi":
-                                    reply = "अपॉइंटमेंट बुक करने के लिए, मुझे कुछ और विवरण चाहिए। आप किस डॉक्टर से मिलना चाहते हैं, और किस तारीख और समय पर?"
-                                else:
-                                    reply = "To book your appointment, I need a few more details. Which doctor or specialization would you like to consult, and on what date and time?"
                         else:
-                            action = parsed_action
-                            reply = reply.replace(action_match.group(0), "").strip()
+                            recipient_id = p_profile.user_id
+                            
+                            # Find or create PrivateConversation between doctor and patient
+                            conv_db = db.query(models.PrivateConversation).filter(
+                                or_(
+                                    and_(models.PrivateConversation.user1_id == current_user.id, models.PrivateConversation.user2_id == recipient_id),
+                                    and_(models.PrivateConversation.user1_id == recipient_id, models.PrivateConversation.user2_id == current_user.id)
+                                )
+                            ).first()
+                            if not conv_db:
+                                conv_db = models.PrivateConversation(
+                                    user1_id=current_user.id,
+                                    user2_id=recipient_id
+                                )
+                                db.add(conv_db)
+                                db.commit()
+                                db.refresh(conv_db)
+                            
+                            try:
+                                from app.routes.chats import create_prescription_internal
+                                create_prescription_internal(
+                                    db=db,
+                                    conversation_id=conv_db.id,
+                                    current_user=current_user,
+                                    patient_name=p_profile.name,
+                                    diagnosis=diagnosis,
+                                    medicines=medicines,
+                                    instructions=instructions
+                                )
+                                reply = f"I have successfully created and issued the clinical prescription for patient **{p_profile.name}** under diagnosis: *{diagnosis}*."
+                                action = parsed_action
+                                reply = reply.replace(action_match.group(0), "").strip()
+                            except Exception as ex:
+                                reply = f"I encountered an error while issuing the prescription: {str(ex)}"
+                                action = None
                     else:
                         action = parsed_action
                         reply = reply.replace(action_match.group(0), "").strip()
@@ -2080,7 +2243,9 @@ class ComplaintResponse(BaseModel):
         from_attributes = True
 
 @app.post("/emergency/sos", response_model=EmergencyAlertResponse)
-def trigger_sos(
+async def trigger_sos(
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -2093,13 +2258,64 @@ def trigger_sos(
             patient_id=current_user.id,
             patient_name=patient_name,
             patient_address=patient_address,
+            latitude=latitude,
+            longitude=longitude,
             status="active"
         )
         db.add(alert)
         db.commit()
         db.refresh(alert)
         
-        log_action(db, current_user.id, "EMERGENCY_SOS_TRIGGERED", f"SOS triggered by {patient_name}. Address: {patient_address}")
+        alert_details = ""
+        # Alert doctors within 100km radius if patient coords are present
+        if latitude is not None and longitude is not None:
+            import math
+            def get_distance_km(lat1, lon1, lat2, lon2):
+                R = 6371.0
+                dlat = math.radians(lat2 - lat1)
+                dlon = math.radians(lon2 - lon1)
+                a = math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon/2)**2
+                c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+                return R * c
+
+            # Query all registered doctors with coordinates
+            doctors = db.query(models.Doctor).filter(
+                models.Doctor.latitude != None,
+                models.Doctor.longitude != None
+            ).all()
+
+            notified_docs = []
+            from app.websocket_manager import manager
+
+            for doc in doctors:
+                dist = get_distance_km(latitude, longitude, doc.latitude, doc.longitude)
+                if dist <= 100.0:
+                    notified_docs.append(f"{doc.name} ({dist:.1f} km away)")
+                    # Save DB Notification for doctor user
+                    if doc.user_id:
+                        notif = models.Notification(
+                            user_id=doc.user_id,
+                            message=f"CRITICAL SOS EMERGENCY: Patient {patient_name} has triggered an alert at ({latitude}, {longitude}) within {dist:.1f} km of your clinic.",
+                            notification_type="general",
+                            related_id=alert.id
+                        )
+                        db.add(notif)
+                        # Send real-time socket alert
+                        await manager.send_personal_json({
+                            "event": "new_alert",
+                            "message": f"CRITICAL SOS: {patient_name} triggered emergency SOS within {dist:.1f} km of you!"
+                        }, doc.user_id)
+
+            if notified_docs:
+                alert_details = f" Alerted doctors within 100km radius: " + ", ".join(notified_docs)
+                # Broadcast alert event to trigger verification on admin/doctor dashboard WS
+                await manager.broadcast_json({"event": "new_alert"})
+            else:
+                alert_details = " No doctors found within 100km radius."
+            
+            db.commit()
+
+        log_action(db, current_user.id, "EMERGENCY_SOS_TRIGGERED", f"SOS triggered by {patient_name}. Address: {patient_address}.{alert_details}")
         return alert
     except Exception as e:
         db.rollback()
@@ -2206,6 +2422,169 @@ def resolve_complaint(
         db.commit()
         log_action(db, current_user.id, "COMPLAINT_RESOLVED", f"Complaint ID {id} resolved by admin")
         return {"status": "success", "message": "Complaint marked as resolved"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Medicine Reminders ---
+class MedicineReminderCreate(BaseModel):
+    medicine_name: str
+    dosage: str
+    time: str
+    days: Optional[str] = "Daily"
+    method: str # app, email, sms
+    contact_info: Optional[str] = None
+
+class MedicineReminderResponse(BaseModel):
+    id: int
+    medicine_name: str
+    dosage: str
+    time: str
+    days: Optional[str]
+    method: str
+    contact_info: Optional[str]
+    is_active: bool
+    created_at: datetime.datetime
+
+    class Config:
+        from_attributes = True
+
+@app.get("/reminders", response_model=List[MedicineReminderResponse])
+def get_reminders(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        reminders = db.query(models.MedicineReminder).filter(models.MedicineReminder.user_id == current_user.id).all()
+        return reminders
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/reminders", response_model=MedicineReminderResponse)
+def create_reminder(
+    data: MedicineReminderCreate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Default contact info to email if none provided and method is email
+        contact = data.contact_info
+        if not contact:
+            contact = current_user.email
+
+        reminder = models.MedicineReminder(
+            user_id=current_user.id,
+            medicine_name=data.medicine_name,
+            dosage=data.dosage,
+            time=data.time,
+            days=data.days,
+            method=data.method,
+            contact_info=contact,
+            is_active=True
+        )
+        db.add(reminder)
+        db.commit()
+        db.refresh(reminder)
+
+        # Trigger Brevo initial confirmation if method is email
+        if data.method == "email":
+            try:
+                from app.routes.auth import send_via_brevo
+                html_body = f"""
+                <h3>Medicine Reminder Scheduled</h3>
+                <p>Hello,</p>
+                <p>You have scheduled a medicine reminder for <strong>{data.medicine_name}</strong> ({data.dosage}) to be taken daily at <strong>{data.time}</strong>.</p>
+                <p>We will alert you at the scheduled time.</p>
+                <p>Best regards,<br>HealthAI Assistant</p>
+                """
+                send_via_brevo(contact, "Medicine Reminder Scheduled - HealthAI", html_body)
+                print(f"[Brevo] Scheduled reminder email sent to {contact}")
+            except Exception as email_err:
+                print(f"[Brevo] Failed to send scheduled reminder email: {email_err}")
+
+        elif data.method == "sms":
+            # Log simulated SMS send
+            print(f"[SMS ALERT] Simulated SMS sent to {contact}: Reminder set for {data.medicine_name} at {data.time}")
+
+        log_action(db, current_user.id, "CREATE_REMINDER", f"Reminder set for {data.medicine_name} at {data.time} via {data.method}")
+        return reminder
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/reminders/{id}")
+def delete_reminder(
+    id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        reminder = db.query(models.MedicineReminder).filter(
+            models.MedicineReminder.id == id,
+            models.MedicineReminder.user_id == current_user.id
+        ).first()
+        if not reminder:
+            raise HTTPException(status_code=404, detail="Reminder not found")
+        db.delete(reminder)
+        db.commit()
+        log_action(db, current_user.id, "DELETE_REMINDER", f"Deleted reminder ID {id}")
+        return {"status": "success", "message": "Reminder deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/reminders/{id}/toggle")
+def toggle_reminder(
+    id: int,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        reminder = db.query(models.MedicineReminder).filter(
+            models.MedicineReminder.id == id,
+            models.MedicineReminder.user_id == current_user.id
+        ).first()
+        if not reminder:
+            raise HTTPException(status_code=404, detail="Reminder not found")
+        reminder.is_active = not reminder.is_active
+        db.commit()
+        db.refresh(reminder)
+        log_action(db, current_user.id, "TOGGLE_REMINDER", f"Toggled reminder ID {id} to {reminder.is_active}")
+        return {"status": "success", "message": f"Reminder status updated to {reminder.is_active}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+class AppointmentPriorityUpdate(BaseModel):
+    priority: str
+
+@app.post("/appointment/{id}/priority")
+def update_appointment_priority(
+    id: int,
+    data: AppointmentPriorityUpdate,
+    current_user: models.User = Depends(require_role(["doctor", "admin"])),
+    db: Session = Depends(get_db)
+):
+    try:
+        appt = db.query(models.Appointment).filter(models.Appointment.id == id).first()
+        if not appt:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        if current_user.role == "doctor":
+            doctor = db.query(models.Doctor).filter(models.Doctor.user_id == current_user.id).first()
+            if not doctor or appt.doctor_id != doctor.id:
+                raise HTTPException(status_code=403, detail="Unauthorized to modify this appointment priority")
+                
+        appt.priority = data.priority
+        db.commit()
+        log_action(db, current_user.id, "UPDATE_APPOINTMENT_PRIORITY", f"Set appointment ID {id} priority to {data.priority}")
+        return {"status": "success", "message": f"Appointment priority updated to {data.priority}"}
     except HTTPException:
         raise
     except Exception as e:

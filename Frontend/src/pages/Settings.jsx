@@ -23,6 +23,7 @@ export default function Settings() {
   
   // Editable fields for doctor
   const [specialization, setSpecialization] = useState('General Medicine');
+  const [customSpecialization, setCustomSpecialization] = useState('');
   const [experience, setExperience] = useState('');
   const [location, setLocation] = useState('');
   const [contact, setContact] = useState('');
@@ -30,6 +31,9 @@ export default function Settings() {
   const [licenseDocument, setLicenseDocument] = useState(null);
   const [profilePicture, setProfilePicture] = useState(null);
   const [existingLicensePath, setExistingLicensePath] = useState('');
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   // Admin Request States
   const [adminRequestLoading, setAdminRequestLoading] = useState(false);
@@ -140,13 +144,22 @@ export default function Settings() {
         const doc = docs.find(d => d.user_id === user.id);
         if (doc) {
           setName(doc.name || '');
-          setSpecialization(doc.specialization || 'General Medicine');
+          const knownSpecs = ["Cardiology", "Dermatology", "General Medicine", "Neurology", "Pediatrics"];
+          if (doc.specialization && knownSpecs.includes(doc.specialization)) {
+            setSpecialization(doc.specialization);
+            setCustomSpecialization('');
+          } else {
+            setSpecialization('Other');
+            setCustomSpecialization(doc.specialization || '');
+          }
           setExperience(doc.experience_years || '');
           setLocation(doc.location || '');
           setAddress(doc.address || '');
           setContact(doc.contact || '');
           setLicenseNumber(doc.license_number || '');
           setExistingLicensePath(doc.license_document_path || '');
+          setLatitude(doc.latitude !== undefined && doc.latitude !== null ? doc.latitude.toString() : '');
+          setLongitude(doc.longitude !== undefined && doc.longitude !== null ? doc.longitude.toString() : '');
         }
       } else if (user.role === 'admin') {
         try {
@@ -208,7 +221,7 @@ export default function Settings() {
       } else if (user.role === 'doctor') {
         const formData = new FormData();
         formData.append('name', name);
-        formData.append('specialization', specialization);
+        formData.append('specialization', specialization === 'Other' ? customSpecialization : specialization);
         formData.append('location', location);
         formData.append('experience_years', experience);
         formData.append('contact', contact || user.email);
@@ -219,6 +232,12 @@ export default function Settings() {
         }
         if (profilePicture) {
           formData.append('profile_picture', profilePicture);
+        }
+        if (latitude) {
+          formData.append('latitude', latitude);
+        }
+        if (longitude) {
+          formData.append('longitude', longitude);
         }
         
         await api.updateDoctorProfile(formData);
@@ -438,6 +457,7 @@ export default function Settings() {
                     <option value="General Medicine">General Medicine</option>
                     <option value="Neurology">Neurology</option>
                     <option value="Pediatrics">Pediatrics</option>
+                    <option value="Other">Other (Specify below)</option>
                   </select>
                 </div>
                 
@@ -453,6 +473,20 @@ export default function Settings() {
                 </div>
               </div>
 
+              {specialization === 'Other' && (
+                <div className="space-y-xs animate-in slide-in-from-top-4 duration-150">
+                  <label className="text-xs font-bold text-primary ml-unit">Specify Specialization *</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={customSpecialization}
+                    onChange={(e) => setCustomSpecialization(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:border-secondary text-sm"
+                    placeholder="e.g. Oncology, Psychiatry"
+                  />
+                </div>
+              )}
+
               <div className="space-y-xs">
                 <label className="text-xs font-bold text-primary ml-unit">Clinic Full Address</label>
                 <textarea 
@@ -462,6 +496,73 @@ export default function Settings() {
                   onChange={(e) => setAddress(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:border-secondary text-sm"
                 />
+              </div>
+
+              {/* Clinic Coordinates selector */}
+              <div className="space-y-xs border border-outline-variant/60 p-3 rounded-lg bg-surface-container-low">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-primary flex items-center gap-xs">
+                    <span className="material-symbols-outlined text-[16px] text-secondary">pin_drop</span>
+                    Clinic GPS Location (For emergency SOS routing)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!navigator.geolocation) {
+                        alert("Geolocation not supported by browser.");
+                        return;
+                      }
+                      setGpsLoading(true);
+                      navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                          setLatitude(position.coords.latitude.toFixed(6));
+                          setLongitude(position.coords.longitude.toFixed(6));
+                          setGpsLoading(false);
+                        },
+                        (err) => {
+                          console.error(err);
+                          alert("Could not detect GPS location automatically. Please enter coordinates manually.");
+                          setGpsLoading(false);
+                        }
+                      );
+                    }}
+                    disabled={gpsLoading}
+                    className="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-1 rounded hover:bg-secondary-container/80 transition flex items-center gap-xs font-bold focus:outline-none"
+                  >
+                    {gpsLoading ? (
+                      <span className="w-3.5 h-3.5 border border-primary border-t-transparent rounded-full animate-spin"></span>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[12px]">my_location</span>
+                        Get GPS Location
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-md pt-2">
+                  <div className="space-y-xs">
+                    <label className="text-[10px] font-bold text-outline uppercase">Latitude</label>
+                    <input 
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 12.9716"
+                      value={latitude}
+                      onChange={(e) => setLatitude(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded border border-outline-variant bg-surface text-xs outline-none focus:border-secondary"
+                    />
+                  </div>
+                  <div className="space-y-xs">
+                    <label className="text-[10px] font-bold text-outline uppercase">Longitude</label>
+                    <input 
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 77.5946"
+                      value={longitude}
+                      onChange={(e) => setLongitude(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded border border-outline-variant bg-surface text-xs outline-none focus:border-secondary"
+                    />
+                  </div>
+                </div>
               </div>
 
               {/* Upload Documents and Photos */}

@@ -29,6 +29,7 @@ class User(Base):
     doctor_profile = relationship("Doctor", back_populates="user", uselist=False, cascade="all, delete-orphan")
     feedbacks = relationship("Feedback", back_populates="patient", foreign_keys="[Feedback.patient_id]", cascade="all, delete-orphan")
     color_palettes = relationship("UserColorPalette", back_populates="user", cascade="all, delete-orphan")
+    medicine_reminders = relationship("MedicineReminder", back_populates="user", cascade="all, delete-orphan")
 
     @property
     def doctor_profile_id(self):
@@ -104,14 +105,19 @@ class Doctor(Base):
     contact = Column(String, nullable=False)
     address = Column(Text, nullable=True)
     profile_picture = Column(String, nullable=True)
+    profile_picture_data = Column(Text, nullable=True)
     license_document_path = Column(String, nullable=True)
+    license_document_data = Column(Text, nullable=True)
     license_number = Column(String, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="doctor_profile")
     appointments = relationship("Appointment", back_populates="doctor", cascade="all, delete-orphan")
     verification = relationship("DoctorVerification", back_populates="doctor", uselist=False, cascade="all, delete-orphan")
     feedbacks = relationship("Feedback", back_populates="doctor", foreign_keys="[Feedback.doctor_id]", cascade="all, delete-orphan")
+    leave_requests = relationship("LeaveRequest", back_populates="doctor", cascade="all, delete-orphan")
 
 class Appointment(Base):
     __tablename__ = "appointments"
@@ -122,6 +128,7 @@ class Appointment(Base):
     date = Column(String, nullable=False) # YYYY-MM-DD
     time = Column(String, nullable=False) # HH:MM
     status = Column(String, default="booked", nullable=False) # booked, cancelled, completed
+    priority = Column(String, default="Normal", nullable=False) # High, Normal, Low
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
 
     # Relationships
@@ -137,6 +144,7 @@ class MedicalRecord(Base):
     file_name = Column(String, nullable=False)
     file_path = Column(String, nullable=False)
     file_type = Column(String, nullable=False)
+    file_data = Column(Text, nullable=True)
     uploaded_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
     fraud_status = Column(String, default="VERIFIED (Authentic)", nullable=False)
 
@@ -182,6 +190,8 @@ class EmergencyAlert(Base):
     patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     patient_name = Column(String, nullable=False)
     patient_address = Column(Text, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     status = Column(String, default="active", nullable=False) # active, resolved
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
 
@@ -320,3 +330,32 @@ class UserColorPalette(Base):
 
     # Relationships
     user = relationship("User", back_populates="color_palettes")
+
+class LeaveRequest(Base):
+    __tablename__ = "leave_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    doctor_id = Column(Integer, ForeignKey("doctors.id", ondelete="CASCADE"), nullable=False)
+    start_date = Column(String, nullable=False) # YYYY-MM-DD
+    end_date = Column(String, nullable=False) # YYYY-MM-DD
+    reason = Column(Text, nullable=True)
+    status = Column(String, default="pending", nullable=False) # pending, approved, rejected
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    doctor = relationship("Doctor", back_populates="leave_requests")
+
+class MedicineReminder(Base):
+    __tablename__ = "medicine_reminders"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    medicine_name = Column(String, nullable=False)
+    dosage = Column(String, nullable=False)
+    time = Column(String, nullable=False) # HH:MM
+    days = Column(String, default="Daily", nullable=True)
+    method = Column(String, default="app", nullable=False) # app, email, sms
+    contact_info = Column(String, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="medicine_reminders")

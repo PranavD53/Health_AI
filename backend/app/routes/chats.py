@@ -313,13 +313,18 @@ async def send_message(
         filepath = os.path.join(UPLOADS_DIR, filename)
         
         file_content = await file.read()
-        with open(filepath, "wb") as f:
-            f.write(file_content)
+        
+        # Safe fallback write to local filesystem (ignoring errors in stateless environments)
+        try:
+            with open(filepath, "wb") as f:
+                f.write(file_content)
+        except Exception as local_write_err:
+            print(f"Skipped local filesystem upload cache write: {local_write_err}")
             
         attachment_path = f"/uploads/{filename}"
         attachment_name = file.filename
 
-        # Also store as a Medical Record for the patient
+        # Also store as a Medical Record for database persistence
         patient_id = None
         if current_user.role == "patient":
             patient_id = current_user.id
@@ -329,36 +334,40 @@ async def send_message(
             if other_user and other_user.role == "patient":
                 patient_id = other_user_id
 
-        if patient_id:
-            _, ext = os.path.splitext(file.filename)
-            ext = ext.lower()
-            allowed_extensions = [".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".doc", ".docx"]
-            if ext in allowed_extensions:
-                content_lower = file_content.lower() if file_content else b""
-                filename_lower = file.filename.lower()
-                is_tampered = False
-                fraud_reason = "None"
-                
-                if any(w in filename_lower for w in ["tampered", "fake", "forged", "altered", "manipulated", "mock_fraud"]):
-                    is_tampered = True
-                    fraud_reason = "Suspicious file name metadata signature matching fraud database."
-                elif b"photoshop" in content_lower or b"gimp" in content_lower or b"tampered" in content_lower or b"altered" in content_lower:
-                    is_tampered = True
-                    fraud_reason = "Image metadata contains editing software signature tags."
-                elif b"fake medical" in content_lower or b"sample specimen" in content_lower:
-                    is_tampered = True
-                    fraud_reason = "Document content matches known fake medical report templates."
+        # Determine target user and fraud status
+        target_user_id = patient_id if patient_id else current_user.id
+        _, ext = os.path.splitext(file.filename)
+        ext = ext.lower()
+        allowed_extensions = [".pdf", ".png", ".jpg", ".jpeg", ".tiff", ".doc", ".docx"]
+        
+        fraud_status = "VERIFIED (Authentic)"
+        if ext in allowed_extensions:
+            content_lower = file_content.lower() if file_content else b""
+            filename_lower = file.filename.lower()
+            is_tampered = False
+            
+            if any(w in filename_lower for w in ["tampered", "fake", "forged", "altered", "manipulated", "mock_fraud"]):
+                is_tampered = True
+            elif b"photoshop" in content_lower or b"gimp" in content_lower or b"tampered" in content_lower or b"altered" in content_lower:
+                is_tampered = True
+            elif b"fake medical" in content_lower or b"sample specimen" in content_lower:
+                is_tampered = True
 
-                fraud_status = "FLAGGED (Tampering Detected)" if is_tampered else "VERIFIED (Authentic)"
-                
-                new_record = models.MedicalRecord(
-                    user_id=patient_id,
-                    file_name=file.filename,
-                    file_path=attachment_path,
-                    file_type=file.content_type or ext,
-                    fraud_status=fraud_status
-                )
-                db.add(new_record)
+            if is_tampered:
+                fraud_status = "FLAGGED (Tampering Detected)"
+
+        # Save record with base64 data to DB
+        import base64
+        encoded_data = base64.b64encode(file_content).decode("utf-8") if file_content else ""
+        new_record = models.MedicalRecord(
+            user_id=target_user_id,
+            file_name=file.filename,
+            file_path=attachment_path,
+            file_type=file.content_type or ext,
+            file_data=encoded_data,
+            fraud_status=fraud_status
+        )
+        db.add(new_record)
 
         
     new_msg = models.PrivateMessage(
@@ -422,12 +431,14 @@ async def send_message(
     return new_msg
 
 
-@router.post("/conversations/{conversation_id}/prescription", response_model=PrivateMessageResponse)
-def send_prescription(
+def create_prescription_internal(
+    db: Session,
     conversation_id: int,
-    req: PrescriptionRequest,
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    current_user: models.User,
+    patient_name: str,
+    diagnosis: str,
+    medicines: list,
+    instructions: str
 ):
     # Verify user is a doctor or admin
     if current_user.role not in ["doctor", "admin"]:
@@ -477,28 +488,33 @@ def send_prescription(
 
     issued_at = datetime.datetime.now()
 
-    # Save styled PDF to uploads directory
+    # Generate styled PDF in-memory
+    import io
+    import base64
     filename = f"Prescription_{int(datetime.datetime.utcnow().timestamp())}.pdf"
-    filepath = os.path.join(UPLOADS_DIR, filename)
-
+    
+    pdf_buffer = io.BytesIO()
     generate_prescription_pdf(
-        filepath,
+        pdf_buffer,
         doctor_name=doctor_name,
         doctor_specialization=doctor_specialization,
         license_number=license_number,
-        patient_name=req.patient_name,
+        patient_name=patient_name,
         patient_details=patient_details,
-        diagnosis=req.diagnosis,
-        medicines=req.medicines,
-        instructions=req.instructions,
+        diagnosis=diagnosis,
+        medicines=medicines,
+        instructions=instructions,
         issued_at=issued_at,
     )
+    pdf_buffer.seek(0)
+    pdf_content = pdf_buffer.read()
+    encoded_pdf = base64.b64encode(pdf_content).decode("utf-8") if pdf_content else ""
 
     attachment_path = f"/uploads/{filename}"
     attachment_name = filename
     
     # Create private message
-    msg_content = f"Clinical prescription issued by {doctor_name} for patient {req.patient_name}."
+    msg_content = f"Clinical prescription issued by {doctor_name} for patient {patient_name}."
     new_msg = models.PrivateMessage(
         conversation_id=conversation_id,
         sender_id=current_user.id,
@@ -514,6 +530,7 @@ def send_prescription(
         file_name=filename,
         file_path=attachment_path,
         file_type="application/pdf",
+        file_data=encoded_pdf,
         fraud_status="VERIFIED (Authentic)"
     )
     db.add(new_record)
@@ -521,8 +538,7 @@ def send_prescription(
     db.flush()
     
     # Create notification for recipient
-    recipient_id = conv.user2_id if conv.user1_id == current_user.id else conv.user1_id
-    notif_msg = f"New Prescription from {doctor_name} for {req.patient_name}"
+    notif_msg = f"New Prescription from {doctor_name} for {patient_name}"
     notif = models.Notification(
         user_id=recipient_id,
         message=notif_msg,
@@ -534,6 +550,24 @@ def send_prescription(
     db.refresh(new_msg)
     
     return new_msg
+
+
+@router.post("/conversations/{conversation_id}/prescription", response_model=PrivateMessageResponse)
+def send_prescription(
+    conversation_id: int,
+    req: PrescriptionRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return create_prescription_internal(
+        db=db,
+        conversation_id=conversation_id,
+        current_user=current_user,
+        patient_name=req.patient_name,
+        diagnosis=req.diagnosis,
+        medicines=req.medicines,
+        instructions=req.instructions
+    )
 
 
 @router.delete("/conversations/{conversation_id}")

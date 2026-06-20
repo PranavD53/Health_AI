@@ -25,6 +25,7 @@ export default function Register() {
   // Doctor profile fields
   const [doctorName, setDoctorName] = useState('');
   const [specialization, setSpecialization] = useState('General Medicine');
+  const [customSpecialization, setCustomSpecialization] = useState('');
   const [location, setLocation] = useState('');
   const [experience, setExperience] = useState('');
   const [contact, setContact] = useState('');
@@ -32,6 +33,9 @@ export default function Register() {
   const [licenseNumber, setLicenseNumber] = useState('');
   const [licenseDocument, setLicenseDocument] = useState(null);
   const [profilePicture, setProfilePicture] = useState(null);
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -83,7 +87,7 @@ export default function Register() {
       // 3. Prepare Multipart Form Data
       const formData = new FormData();
       formData.append('name', doctorName);
-      formData.append('specialization', specialization);
+      formData.append('specialization', specialization === 'Other' ? customSpecialization : specialization);
       formData.append('location', location);
       formData.append('experience_years', experience);
       formData.append('contact', contact || email);
@@ -92,6 +96,12 @@ export default function Register() {
       formData.append('license_document', licenseDocument);
       if (profilePicture) {
         formData.append('profile_picture', profilePicture);
+      }
+      if (latitude) {
+        formData.append('latitude', latitude);
+      }
+      if (longitude) {
+        formData.append('longitude', longitude);
       }
 
       // 4. Register doctor profile
@@ -371,6 +381,7 @@ export default function Register() {
                     <option value="General Medicine">General Medicine</option>
                     <option value="Neurology">Neurology</option>
                     <option value="Pediatrics">Pediatrics</option>
+                    <option value="Other">Other (Specify below)</option>
                   </select>
                 </div>
                 <div className="space-y-xs">
@@ -385,6 +396,20 @@ export default function Register() {
                   />
                 </div>
               </div>
+
+              {specialization === 'Other' && (
+                <div className="space-y-xs animate-in slide-in-from-top-4 duration-150">
+                  <label className="text-label-md font-label-md text-on-surface ml-unit">Specify Specialization *</label>
+                  <input 
+                    required
+                    type="text" 
+                    value={customSpecialization}
+                    onChange={(e) => setCustomSpecialization(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
+                    placeholder="e.g. Oncology, Psychiatry"
+                  />
+                </div>
+              )}
 
               <div className="space-y-xs">
                 <label className="text-label-md font-label-md text-on-surface ml-unit">Clinic Location Room/Building</label>
@@ -408,6 +433,73 @@ export default function Register() {
                   className="w-full px-4 py-2 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
                   placeholder="e.g. 123 Health Blvd, Metro City"
                 />
+              </div>
+
+              {/* Clinic Coordinates selector */}
+              <div className="space-y-xs border border-outline-variant/60 p-3 rounded-lg bg-surface-container-low">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-bold text-primary flex items-center gap-xs">
+                    <span className="material-symbols-outlined text-[16px] text-secondary">pin_drop</span>
+                    Clinic GPS Location (For emergency SOS routing)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!navigator.geolocation) {
+                        alert("Geolocation not supported by browser.");
+                        return;
+                      }
+                      setGpsLoading(true);
+                      navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                          setLatitude(position.coords.latitude.toFixed(6));
+                          setLongitude(position.coords.longitude.toFixed(6));
+                          setGpsLoading(false);
+                        },
+                        (err) => {
+                          console.error(err);
+                          alert("Could not detect GPS location automatically. Please enter coordinates manually.");
+                          setGpsLoading(false);
+                        }
+                      );
+                    }}
+                    disabled={gpsLoading}
+                    className="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-1 rounded hover:bg-secondary-container/80 transition flex items-center gap-xs font-bold focus:outline-none"
+                  >
+                    {gpsLoading ? (
+                      <span className="w-3.5 h-3.5 border border-primary border-t-transparent rounded-full animate-spin"></span>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[12px]">my_location</span>
+                        Get GPS Location
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-md pt-2">
+                  <div className="space-y-xs">
+                    <label className="text-[10px] font-bold text-outline uppercase">Latitude</label>
+                    <input 
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 12.9716"
+                      value={latitude}
+                      onChange={(e) => setLatitude(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded border border-outline-variant bg-surface text-xs outline-none focus:border-secondary"
+                    />
+                  </div>
+                  <div className="space-y-xs">
+                    <label className="text-[10px] font-bold text-outline uppercase">Longitude</label>
+                    <input 
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 77.5946"
+                      value={longitude}
+                      onChange={(e) => setLongitude(e.target.value)}
+                      className="w-full px-3 py-1.5 rounded border border-outline-variant bg-surface text-xs outline-none focus:border-secondary"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-xs">

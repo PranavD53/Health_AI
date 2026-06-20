@@ -6,23 +6,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-os.environ["SECRET_KEY"] = "test_secret_key_12345"
-os.environ["GROQ_API_KEY"] = "gsk_mockkeyforlocaltesting"
-os.environ["UPLOADS_DIR"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_uploads")
+import os
+os.environ["TESTING"] = "True"
+os.environ["SECRET_KEY"] = os.environ.get("SECRET_KEY", "test_secret_key_12345")
+os.environ["GROQ_API_KEY"] = os.environ.get("GROQ_API_KEY", "gsk_mockkeyforlocaltesting")
+os.environ["UPLOADS_DIR"] = os.environ.get("UPLOADS_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_uploads"))
 
 from app.main import app
-from app.database import Base, get_db
+from app.database import Base, get_db, engine, SessionLocal as TestingSessionLocal
 from app import models
 from app.config import UPLOADS_DIR
-
-# Create test database engine
-engine = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # Override get_db
 def override_get_db():
@@ -37,9 +30,33 @@ client = TestClient(app)
 
 CREATED_TEST_FILES = set()
 
+def _cleanup_db(engine, Base):
+    from sqlalchemy.orm import close_all_sessions
+    try:
+        close_all_sessions()
+    except Exception:
+        pass
+    if "sqlite" in str(engine.url):
+        try:
+            Base.metadata.drop_all(bind=engine)
+        except Exception:
+            pass
+    else:
+        from sqlalchemy import text
+        tables = [t.name for t in Base.metadata.sorted_tables]
+        if tables:
+            tables_str = ", ".join(f'"{t}"' for t in tables)
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(f"TRUNCATE TABLE {tables_str} RESTART IDENTITY CASCADE"))
+            except Exception as e:
+                print(f"Cleanup truncate skipped: {e}")
+
+
 def setup_module():
     app.dependency_overrides[get_db] = override_get_db
     Base.metadata.create_all(bind=engine)
+    _cleanup_db(engine, Base)
     db = TestingSessionLocal()
     try:
         from app.routes.doctors import seed_doctors
@@ -56,10 +73,9 @@ def setup_module():
 
 def teardown_module():
     global engine
-    try:
-        Base.metadata.drop_all(bind=engine)
-    except Exception as e:
-        print(f"Warning dropping metadata: {e}")
+    if get_db in app.dependency_overrides:
+        del app.dependency_overrides[get_db]
+    _cleanup_db(engine, Base)
     engine.dispose()
     if os.path.exists("test_healthcare_new.db"):
         try:
@@ -162,16 +178,16 @@ def test_new_endpoints():
         assert presc_resp.json()["attachment_path"].endswith(".pdf")
         assert "Clinical prescription" in presc_resp.json()["content"]
         
-        # Verify PDF exists on disk and contains expected clinical content
+        # Verify PDF can be fetched via endpoint and contains expected clinical content
         filename = presc_resp.json()["attachment_name"]
-        presc_filepath = os.path.join(UPLOADS_DIR, filename)
-        assert os.path.exists(presc_filepath)
-        with open(presc_filepath, "rb") as f:
-            pdf_bytes = f.read()
-            assert pdf_bytes.startswith(b"%PDF")
+        download_resp = client.get(f"/uploads/{filename}")
+        assert download_resp.status_code == 200
+        pdf_bytes = download_resp.content
+        assert pdf_bytes.startswith(b"%PDF")
         try:
+            import io
             from pypdf import PdfReader
-            reader = PdfReader(presc_filepath)
+            reader = PdfReader(io.BytesIO(pdf_bytes))
             pdf_text = "\n".join(page.extract_text() or "" for page in reader.pages)
             assert "Dr. Evan Wright" in pdf_text or "Evan Wright" in pdf_text
             assert "Oseltamivir" in pdf_text
@@ -179,15 +195,13 @@ def test_new_endpoints():
             assert "Digital Signature ID" in pdf_text
         except ImportError:
             pass
-        print("[OK] Online Prescription successfully created, saved to disk, and attached to chat")
+        print("[OK] Online Prescription successfully created and verified in-memory")
 
         # 5. Test POST /records/{id}/analyze (AI Insights)
-        # First write a fake medical record to disk
+        import base64
         record_filename = "test_record_report.txt"
-        record_filepath = os.path.join(UPLOADS_DIR, record_filename)
-        CREATED_TEST_FILES.add(record_filepath)
-        with open(record_filepath, "w", encoding="utf-8") as f:
-            f.write("Patient: Test Patient\nBlood Report: WBC 14.5 K/uL (Abnormal High), Hemoglobin 14.2 g/dL\nSymptom: Fever and persistent cough.")
+        record_content = "Patient: Test Patient\nBlood Report: WBC 14.5 K/uL (Abnormal High), Hemoglobin 14.2 g/dL\nSymptom: Fever and persistent cough."
+        encoded_content = base64.b64encode(record_content.encode("utf-8")).decode("utf-8")
             
         db = TestingSessionLocal()
         try:
@@ -197,6 +211,7 @@ def test_new_endpoints():
                 file_name=record_filename,
                 file_path=f"/uploads/{record_filename}",
                 file_type="text/plain",
+                file_data=encoded_content,
                 fraud_status="VERIFIED (Authentic)"
             )
             db.add(new_record)
@@ -228,6 +243,15 @@ def test_new_endpoints():
             assert analyze_resp.json()["insights"] == "Elevated white blood cell count indicates infection."
             
         print("[OK] AI Medical Record Analysis mock-test passed successfully")
+
+        # 5.5. Test POST /records/{id}/anti-fraud (Anti-Fraud Scan)
+        print("Testing Anti-Fraud Scan Endpoint...")
+        anti_fraud_resp = client.post(f"/records/{record_id}/anti-fraud", headers=patient_headers)
+        assert anti_fraud_resp.status_code == 200, anti_fraud_resp.text
+        assert "fraud_status" in anti_fraud_resp.json()
+        assert "reason" in anti_fraud_resp.json()
+        assert anti_fraud_resp.json()["fraud_status"] == "VERIFIED (Authentic)"
+        print("[OK] Anti-Fraud Scan endpoint test passed successfully")
 
         # 6. Test that prescription generated is in patient's records
         print("Verifying prescription recorded in medical records...")

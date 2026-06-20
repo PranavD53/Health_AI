@@ -4,20 +4,253 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 
+class PCMAudioPlayer {
+  constructor(sampleRate = 16000, onEnded = null) {
+    this.sampleRate = sampleRate;
+    this.onEnded = onEnded;
+    this.audioCtx = null;
+    this.nextPlayTime = 0;
+    this.activeSources = [];
+  }
+
+  playChunk(arrayBuffer) {
+    if (!this.audioCtx) {
+      this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      this.nextPlayTime = this.audioCtx.currentTime;
+    }
+
+    const int16Data = new Int16Array(arrayBuffer);
+    const float32Data = new Float32Array(int16Data.length);
+    for (let i = 0; i < int16Data.length; i++) {
+      float32Data[i] = int16Data[i] / 32768.0;
+    }
+
+    const audioBuffer = this.audioCtx.createBuffer(1, float32Data.length, this.sampleRate);
+    audioBuffer.getChannelData(0).set(float32Data);
+
+    const source = this.audioCtx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(this.audioCtx.destination);
+
+    const currentTime = this.audioCtx.currentTime;
+    if (this.nextPlayTime < currentTime) {
+      this.nextPlayTime = currentTime;
+    }
+    
+    source.start(this.nextPlayTime);
+    this.nextPlayTime += audioBuffer.duration;
+    this.activeSources.push(source);
+
+    source.onended = () => {
+      this.activeSources = this.activeSources.filter(src => src !== source);
+      if (this.activeSources.length === 0 && this.onEnded) {
+        this.onEnded();
+      }
+    };
+  }
+
+  stop() {
+    this.activeSources.forEach(source => {
+      try { source.stop(); } catch (e) {}
+    });
+    this.activeSources = [];
+    if (this.audioCtx) {
+      try { this.audioCtx.close(); } catch (e) {}
+      this.audioCtx = null;
+      this.nextPlayTime = 0;
+    }
+  }
+}
+
+function floatTo16BitPCM(input) {
+  let output = new Int16Array(input.length);
+  for (let i = 0; i < input.length; i++) {
+    let s = Math.max(-1, Math.min(1, input[i]));
+    output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return output.buffer;
+}
+
 export default function GlobalAssistant() {
   const { user } = useAuth();
   const { t, currentLanguage, setCurrentLanguage } = useLanguage();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [waitingForStandbyChoice, setWaitingForStandbyChoice] = useState(false);
   const consecutiveSilencesRef = useRef(0);
+  const mediaRecorderRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const streamRef = useRef(null);
+  const voiceChunksRef = useRef([]);
+  const animationFrameRef = useRef(null);
+  const speechQueueRef = useRef([]);
+  const isProcessingQueueRef = useRef(false);
+  const voiceSocketRef = useRef(null);
+  const vadWorkerRef = useRef(null);
+  const pcmPlayerRef = useRef(null);
   
   const [tarsVoiceEnabled, setTarsVoiceEnabled] = useState(() => {
     return localStorage.getItem('tars_voice_enabled') !== 'false';
   });
 
   const [isInCall, setIsInCall] = useState(() => localStorage.getItem('is_in_call') === 'true');
+
+  // Track if we are currently in an active voice dialog session (hands-free back-and-forth)
+  const [voiceSessionActive, setVoiceSessionActive] = useState(false);
+  const hasGreetedRef = useRef(false);
+  
+  // TARS Custom API Keys State
+  const groqKey = localStorage.getItem('tars_groq_key') || '';
+  const hfKey = localStorage.getItem('tars_hf_key') || '';
+
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: 'Hello! I am TARS, your multilingual AI assistant. I can speak and listen in English, Hindi (हिन्दी), Telugu (తెలుగు), Hinglish, and Tinglish. Say "TARS wake up" or click the mic to begin, or type a request to navigate through the application.' }
+  ]);
+  const [inputValue, setInputValue] = useState('');
+  const [language, setLanguage] = useState('en-US'); // en-US, hi-IN, te-IN
+  const [isListening, setIsListening] = useState(false);
+  const [backgroundListening, setBackgroundListening] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (currentLanguage === 'hi') {
+      setLanguage('hi-IN');
+    } else if (currentLanguage === 'te') {
+      setLanguage('te-IN');
+    } else {
+      setLanguage('en-US');
+    }
+  }, [currentLanguage]);
+
+  const connectVoiceWebSocket = () => {
+    if (voiceSocketRef.current && (voiceSocketRef.current.readyState === WebSocket.CONNECTING || voiceSocketRef.current.readyState === WebSocket.OPEN)) {
+      voiceSocketRef.current.send(JSON.stringify({ type: 'speech_start' }));
+      setIsListening(true);
+      return;
+    }
+
+    const token = localStorage.getItem('access_token');
+    const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const wsUrl = `${wsScheme}://${window.location.host}/ws/tars/voice?token=${token}`;
+
+    const socket = new WebSocket(wsUrl);
+    voiceSocketRef.current = socket;
+    socket.binaryType = 'arraybuffer';
+
+    socket.onopen = () => {
+      socket.send(JSON.stringify({ type: 'speech_start' }));
+      setIsListening(true);
+    };
+
+    socket.onmessage = (event) => {
+      if (typeof event.data === 'string') {
+        if (event.data.startsWith('data: ')) {
+          const line = event.data;
+          if (line === 'data: [DONE]') return;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.type === 'chunk') {
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMsg = newMessages[newMessages.length - 1];
+                if (lastMsg && lastMsg.role === 'assistant') {
+                  lastMsg.content += data.content;
+                }
+                return newMessages;
+              });
+            } else if (data.type === 'action') {
+              if (data.action) {
+                handleAction(data.action, data.reply);
+              }
+            }
+          } catch (e) {
+            console.error("Error parsing socket text data:", e);
+          }
+          return;
+        }
+
+        const control = JSON.parse(event.data);
+        if (control.type === 'transcription') {
+          setMessages(prev => [
+            ...prev,
+            { role: 'user', content: control.text },
+            { role: 'assistant', content: '' }
+          ]);
+          setLoading(false);
+        } else if (control.type === 'audio_start') {
+          setIsSpeaking(true);
+        } else if (control.type === 'audio_end') {
+          // Completed chunk
+        } else if (control.type === 'error') {
+          console.error("Socket error:", control.message);
+          setLoading(false);
+        }
+      } else {
+        if (pcmPlayerRef.current) {
+          pcmPlayerRef.current.playChunk(event.data);
+        }
+      }
+    };
+
+    socket.onerror = (err) => {
+      console.error("Voice socket error:", err);
+    };
+
+    socket.onclose = () => {
+      console.log("Voice socket closed");
+    };
+  };
+
+  useEffect(() => {
+    vadWorkerRef.current = new Worker('/vadWorker.js');
+    
+    vadWorkerRef.current.onmessage = (e) => {
+      const { type, chunk } = e.data;
+      if (type === 'speech_start') {
+        connectVoiceWebSocket();
+      } else if (type === 'speech_stop') {
+        if (voiceSocketRef.current && voiceSocketRef.current.readyState === WebSocket.OPEN) {
+          voiceSocketRef.current.send(JSON.stringify({ 
+            type: 'speech_stop', 
+            groq_key: localStorage.getItem('tars_groq_key') || '', 
+            hf_key: localStorage.getItem('tars_hf_key') || '' 
+          }));
+          stopListening();
+          setLoading(true);
+        }
+      } else if (type === 'audio_chunk') {
+        if (voiceSocketRef.current && voiceSocketRef.current.readyState === WebSocket.OPEN) {
+          const int16PCM = floatTo16BitPCM(new Float32Array(chunk));
+          voiceSocketRef.current.send(int16PCM);
+        }
+      }
+    };
+
+    return () => {
+      if (vadWorkerRef.current) {
+        vadWorkerRef.current.terminate();
+      }
+      if (voiceSocketRef.current) {
+        voiceSocketRef.current.close();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    pcmPlayerRef.current = new PCMAudioPlayer(16000, () => {
+      setIsSpeaking(false);
+      if (voiceSessionActive) {
+        setTimeout(() => {
+          startListening();
+        }, 300);
+      }
+    });
+    return () => {
+      if (pcmPlayerRef.current) {
+        pcmPlayerRef.current.stop();
+      }
+    };
+  }, [voiceSessionActive]);
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -43,33 +276,6 @@ export default function GlobalAssistant() {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
-  // Track if we are currently in an active voice dialog session (hands-free back-and-forth)
-  const [voiceSessionActive, setVoiceSessionActive] = useState(false);
-  const hasGreetedRef = useRef(false);
-  
-  // TARS Custom API Keys State
-  const [groqKey, setGroqKey] = useState(() => localStorage.getItem('tars_groq_key') || '');
-  const [hfKey, setHfKey] = useState(() => localStorage.getItem('tars_hf_key') || '');
-  const [showSettings, setShowSettings] = useState(false);
-
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hello! I am TARS, your multilingual AI assistant. I can speak and listen in English, Hindi (हिन्दी), Telugu (తెలుగు), Hinglish, and Tinglish. Say "TARS wake up" or click the mic to begin, or type a request to navigate through the application.' }
-  ]);
-  const [inputValue, setInputValue] = useState('');
-  const [language, setLanguage] = useState('en-US'); // en-US, hi-IN, te-IN
-
-  useEffect(() => {
-    if (currentLanguage === 'hi') {
-      setLanguage('hi-IN');
-    } else if (currentLanguage === 'te') {
-      setLanguage('te-IN');
-    } else {
-      setLanguage('en-US');
-    }
-  }, [currentLanguage]);
-  const [isListening, setIsListening] = useState(false);
-  const [backgroundListening, setBackgroundListening] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   // Load voices for speechSynthesis
   useEffect(() => {
@@ -103,7 +309,6 @@ export default function GlobalAssistant() {
   
   const messagesEndRef = useRef(null);
   const bgRecognitionRef = useRef(null);
-  const activeRecognitionRef = useRef(null);
   const utteranceRef = useRef(null);
 
   const handleSendRef = useRef(null);
@@ -120,13 +325,7 @@ export default function GlobalAssistant() {
     startListeningRef.current = startListening;
   });
 
-  useEffect(() => {
-    localStorage.setItem('tars_groq_key', groqKey);
-  }, [groqKey]);
-
-  useEffect(() => {
-    localStorage.setItem('tars_hf_key', hfKey);
-  }, [hfKey]);
+  // Custom API key sync removed
 
   // Rising chime on activation: C5 -> E5 -> G5 -> C6
   const playActivationSound = () => {
@@ -204,47 +403,7 @@ export default function GlobalAssistant() {
     return sleepPhrases.some(phrase => t.includes(phrase) || phrase === t);
   };
 
-  // Classifies user's standby response
-  const classifyStandbyChoice = (text) => {
-    const t = text.toLowerCase().trim();
-    const standbySignals = [
-      "standby", "stand by", "no", "nahi", "oddu", "stop", "sleep", "bye", "goodbye",
-      "go to standby", "go quiet", "that's enough", "bas karo", "turn off", "deactivate",
-      "quiet", "silent", "chup"
-    ];
-    const activeSignals = [
-      "remain active", "active", "yes", "ha", "haan", "avunu", "keep active", "continue",
-      "stay active", "stay on", "chalu rakho", "melukoni undu"
-    ];
-    if (standbySignals.some(s => t === s || t.includes(s))) {
-      return 'standby';
-    }
-    if (activeSignals.some(s => t === s || t.includes(s))) {
-      return 'active';
-    }
-    return 'other';
-  };
 
-  // Prompts user with standby options
-  const askStandbyChoice = () => {
-    setWaitingForStandbyChoice(true);
-    const uiLang = localStorage.getItem('app_lang') || 'en';
-    let question = "Would you like me to remain active or return to standby?";
-    if (uiLang === 'hi') {
-      question = "क्या आप चाहते हैं कि मैं सक्रिय रहूँ या स्टैंडबाय पर वापस जाऊँ?";
-    } else if (uiLang === 'te') {
-      question = "నేను సక్రియంగా ఉండాలా లేక స్టాండ్-బైకి వెళ్ళాలా?";
-    }
-    
-    setMessages(prev => [...prev, { role: 'assistant', content: question }]);
-    speakMessage(question, () => {
-      if (voiceSessionActive) {
-        setTimeout(() => {
-          startListening();
-        }, 300);
-      }
-    });
-  };
 
   // Automatic response language script detector
   const detectLanguageOfText = (str) => {
@@ -257,15 +416,33 @@ export default function GlobalAssistant() {
     return 'en';
   };
 
-  // Speaks using exactly one sweet female voice per language, with human-paced rate
-  const speakMessage = (text, callback = null) => {
+  const processSpeechQueue = () => {
     if (isInCall) {
-      if (callback) callback();
+      speechQueueRef.current = [];
+      isProcessingQueueRef.current = false;
+      setIsSpeaking(false);
       return;
     }
+
+    if (speechQueueRef.current.length === 0) {
+      isProcessingQueueRef.current = false;
+      setIsSpeaking(false);
+      return;
+    }
+
+    isProcessingQueueRef.current = true;
+    setIsSpeaking(true);
+
+    const nextItem = speechQueueRef.current.shift();
+    if (!nextItem) {
+      isProcessingQueueRef.current = false;
+      setIsSpeaking(false);
+      return;
+    }
+
+    const { text, callback } = nextItem;
+
     if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(true);
       const utterance = new SpeechSynthesisUtterance(text);
       utteranceRef.current = utterance; // Keep a reference to prevent garbage collection
       const voices = window.speechSynthesis.getVoices();
@@ -310,12 +487,23 @@ export default function GlobalAssistant() {
       
       const handleEnd = () => {
         utteranceRef.current = null;
-        setIsSpeaking(false);
-        if (callback) callback();
+        if (callback) {
+          try {
+            callback();
+          } catch (e) {
+            console.error("Callback error in speech queue:", e);
+          }
+        }
+        setTimeout(() => {
+          processSpeechQueue();
+        }, 100);
       };
       
       utterance.onend = handleEnd;
-      utterance.onerror = handleEnd; // fallback to continue even on error
+      utterance.onerror = (e) => {
+        console.warn("SpeechSynthesisUtterance error:", e);
+        handleEnd();
+      };
       
       window.speechSynthesis.speak(utterance);
     } else {
@@ -324,9 +512,68 @@ export default function GlobalAssistant() {
     }
   };
 
+  // Speaks using exactly one sweet female voice per language, with human-paced rate
+  const speakMessage = (text, callback = null) => {
+    if (isInCall) {
+      if (callback) callback();
+      return;
+    }
+
+    if (!('speechSynthesis' in window)) {
+      setIsSpeaking(false);
+      if (callback) callback();
+      return;
+    }
+
+    // Split text into sentences using lookbehind pattern (safe in all modern browsers)
+    const sentences = text
+      .split(/(?<=[.?!।])\s+/)
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+
+    if (sentences.length === 0) {
+      if (callback) {
+        if (speechQueueRef.current.length === 0 && !isProcessingQueueRef.current) {
+          callback();
+        } else {
+          // Attach callback to the last item in the queue so it executes after all queued speech is finished
+          const lastItem = speechQueueRef.current[speechQueueRef.current.length - 1];
+          if (lastItem) {
+            const oldCb = lastItem.callback;
+            lastItem.callback = () => {
+              if (oldCb) oldCb();
+              callback();
+            };
+          } else {
+            callback();
+          }
+        }
+      }
+      return;
+    }
+
+    // Queue all sentences. The callback will be attached only to the last sentence of this group.
+    sentences.forEach((sentence, idx) => {
+      const isLast = idx === sentences.length - 1;
+      speechQueueRef.current.push({
+        text: sentence,
+        callback: isLast ? callback : null
+      });
+    });
+
+    if (!isProcessingQueueRef.current) {
+      processSpeechQueue();
+    }
+  };
+
   const cancelSpeech = () => {
+    speechQueueRef.current = [];
+    isProcessingQueueRef.current = false;
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+    }
+    if (pcmPlayerRef.current) {
+      pcmPlayerRef.current.stop();
     }
     utteranceRef.current = null;
     setIsSpeaking(false);
@@ -337,9 +584,7 @@ export default function GlobalAssistant() {
     if (!tarsVoiceEnabled) {
       cancelSpeech();
       setVoiceSessionActive(false);
-      if (activeRecognitionRef.current) {
-        try { activeRecognitionRef.current.stop(); } catch(e){}
-      }
+      stopListening();
     }
   }, [tarsVoiceEnabled]);
 
@@ -358,12 +603,16 @@ export default function GlobalAssistant() {
         return;
       }
       
+      if (!user) {
+        cancelSpeech();
+        speakMessage("Hello! Please login or register to access fully voice-automated TARS assistance.");
+        return;
+      }
+
       if (isListening || isSpeaking || voiceSessionActive) {
         cancelSpeech();
         setVoiceSessionActive(false);
-        if (activeRecognitionRef.current) {
-          try { activeRecognitionRef.current.stop(); } catch (e) {}
-        }
+        stopListening();
         playDeactivationSound();
         return;
       }
@@ -391,11 +640,11 @@ export default function GlobalAssistant() {
     return () => {
       window.removeEventListener('tars_global_mic_click', handleGlobalMicClick);
     };
-  }, [tarsVoiceEnabled, isListening, isSpeaking, voiceSessionActive]);
+  }, [user, tarsVoiceEnabled, isListening, isSpeaking, voiceSessionActive]);
 
   // Background Standby listener logic (runs globally, halts when speaking, active listening, or in session)
   useEffect(() => {
-    if (!user || !tarsVoiceEnabled || isListening || isSpeaking || voiceSessionActive || isInCall) {
+    if (!tarsVoiceEnabled || isListening || isSpeaking || voiceSessionActive || isInCall) {
       if (bgRecognitionRef.current) {
         try {
           bgRecognitionRef.current.stop();
@@ -423,9 +672,9 @@ export default function GlobalAssistant() {
 
     bgRec.onend = () => {
       setBackgroundListening(false);
-      if (user && tarsVoiceEnabled && !isListening && !isSpeaking && !voiceSessionActive && bgRecognitionRef.current === bgRec) {
+      if (tarsVoiceEnabled && !isListening && !isSpeaking && !voiceSessionActive && bgRecognitionRef.current === bgRec) {
         setTimeout(() => {
-          if (user && tarsVoiceEnabled && !isListening && !isSpeaking && !voiceSessionActive && bgRecognitionRef.current === bgRec) {
+          if (tarsVoiceEnabled && !isListening && !isSpeaking && !voiceSessionActive && bgRecognitionRef.current === bgRec) {
             try {
               bgRec.start();
             } catch (e) {
@@ -455,6 +704,12 @@ export default function GlobalAssistant() {
         try {
           bgRec.stop();
         } catch (e) {}
+
+        if (!user) {
+          playActivationSound();
+          speakMessage("Hello! Please login or register to access fully voice-automated TARS assistance.");
+          return;
+        }
 
         let processedText = transcript
           .replace(/\b(tars|tarz|stars|star|torch|task|tour|tar|cars|bars)\b/gi, '')
@@ -506,14 +761,27 @@ export default function GlobalAssistant() {
     };
   }, [user, tarsVoiceEnabled, isListening, isSpeaking, voiceSessionActive, language, isInCall]);
 
-  const startListening = () => {
+  function stopListening() {
+    if (streamRef.current) {
+      if (streamRef.current.processorNode) {
+        try { streamRef.current.processorNode.disconnect(); } catch (e) {}
+      }
+      if (streamRef.current.sourceNode) {
+        try { streamRef.current.sourceNode.disconnect(); } catch (e) {}
+      }
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (audioContextRef.current) {
+      try { audioContextRef.current.close(); } catch (e) {}
+      audioContextRef.current = null;
+    }
+    setIsListening(false);
+  }
+
+  const startListening = async () => {
     if (isInCall) {
       alert("Voice assistant is disabled during an active video call.");
-      return;
-    }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("Speech recognition is not supported in this browser. Please use Google Chrome or Microsoft Edge.");
       return;
     }
     
@@ -524,115 +792,48 @@ export default function GlobalAssistant() {
     }
 
     cancelSpeech();
+    setIsListening(true);
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = language;
-    recognition.interimResults = true;
-    recognition.continuous = true;
-    recognition.maxAlternatives = 1;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
 
-    let resultReceived = false;
-    let silenceTimer = null;
-    let finalTranscript = "";
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      audioContextRef.current = audioContext;
 
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-    
-    recognition.onend = () => {
-      setIsListening(false);
-      if (silenceTimer) clearTimeout(silenceTimer);
+      const source = audioContext.createMediaStreamSource(stream);
+      const processor = audioContext.createScriptProcessor(2048, 1, 1);
       
-      const textToSend = finalTranscript.trim();
-      if (textToSend.length > 0) {
-        consecutiveSilencesRef.current = 0;
-        // Check for voice deactivation command
-        if (isDeactivationCommand(textToSend)) {
-          playDeactivationSound();
-          const uiLang = localStorage.getItem('app_lang') || 'en';
-          let goodbye = "Goodbye.";
-          if (uiLang === 'hi') goodbye = "अलविदा।";
-          else if (uiLang === 'te') goodbye = "సెలవు.";
-          speakMessage(goodbye);
-          setVoiceSessionActive(false);
-          setInputValue('');
-          return;
+      processor.onaudioprocess = (e) => {
+        const inputData = e.inputBuffer.getChannelData(0);
+        if (vadWorkerRef.current) {
+          const bufferCopy = new Float32Array(inputData).buffer;
+          vadWorkerRef.current.postMessage({ type: 'process', data: bufferCopy }, [bufferCopy]);
         }
-        handleSend(textToSend);
-      } else {
-        consecutiveSilencesRef.current += 1;
-        if (consecutiveSilencesRef.current >= 2) {
-          consecutiveSilencesRef.current = 0;
-          playDeactivationSound();
-          const uiLang = localStorage.getItem('app_lang') || 'en';
-          let standbyMsg = "Going quiet now.";
-          if (uiLang === 'hi') standbyMsg = "अब मैं शांत हो रहा हूँ।";
-          else if (uiLang === 'te') standbyMsg = "ఇక నేను నిశ్శబ్దంగా ఉంటాను.";
-          speakMessage(standbyMsg);
-          setVoiceSessionActive(false);
-        } else {
-          if (voiceSessionActive) {
-            try {
-              recognition.start();
-            } catch (err) {
-              console.error("Failed to auto-restart recognition on end:", err);
-              setVoiceSessionActive(false);
-              playDeactivationSound();
-            }
+      };
+
+      source.connect(processor);
+      processor.connect(audioContext.destination);
+      
+      streamRef.current.processorNode = processor;
+      streamRef.current.sourceNode = source;
+
+      if (vadWorkerRef.current) {
+        vadWorkerRef.current.postMessage({
+          type: 'init',
+          data: {
+            sampleRate: audioContext.sampleRate,
+            energyThreshold: 0.015,
+            silenceTimeoutMs: 1500,
+            minSpeechDurationMs: 200
           }
-        }
+        });
       }
-    };
 
-    recognition.onerror = (e) => {
-      console.error("Active recognition error:", e);
-      if (e.error === 'no-speech') {
-        // Don't stop the session for no-speech, let onend handle restarting
-        return;
-      }
+    } catch (err) {
+      console.error("Microphone access failed", err);
       setIsListening(false);
-      if (silenceTimer) clearTimeout(silenceTimer);
-      
-      const textToSend = finalTranscript.trim();
-      if (textToSend.length > 0) {
-        handleSend(textToSend);
-      } else {
-        if (e.error !== 'aborted' && voiceSessionActive) {
-          playDeactivationSound();
-          setVoiceSessionActive(false);
-        }
-      }
-    };
-
-    recognition.onresult = (event) => {
-      let localFinal = "";
-      let localInterim = "";
-      for (let i = 0; i < event.results.length; ++i) {
-        const segment = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          localFinal += segment;
-        } else {
-          localInterim += segment;
-        }
-      }
-      finalTranscript = localFinal;
-      const currentText = (localFinal + localInterim).trim();
-      if (currentText) {
-        setInputValue(currentText);
-        resultReceived = true;
-      }
-
-      // Reset silence timer: stop listening after 3.0 seconds of silence
-      if (silenceTimer) clearTimeout(silenceTimer);
-      silenceTimer = setTimeout(() => {
-        try {
-          recognition.stop();
-        } catch (err) {}
-      }, 3000);
-    };
-
-    activeRecognitionRef.current = recognition;
-    recognition.start();
+    }
   };
 
   const handleSend = async (textToSend = null) => {
@@ -641,44 +842,19 @@ export default function GlobalAssistant() {
 
     setInputValue('');
 
-    if (waitingForStandbyChoice) {
-      setWaitingForStandbyChoice(false);
-      const choice = classifyStandbyChoice(text);
-      if (choice === 'active') {
-        consecutiveSilencesRef.current = 0;
-        const uiLang = localStorage.getItem('app_lang') || 'en';
-        let resumeMsg = "Understood. How else can I assist you?";
-        if (uiLang === 'hi') resumeMsg = "समझ गया। मैं आपकी और कैसे सहायता कर सकता हूँ?";
-        else if (uiLang === 'te') resumeMsg = "అర్థమైంది. నేను మీకు ఇంకా ఎలా సహాయపడగలను?";
-        
-        setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: resumeMsg }]);
-        if (voiceSessionActive) {
-          speakMessage(resumeMsg, () => {
-            setTimeout(() => {
-              startListening();
-            }, 300);
-          });
-        }
-        return;
-      } else if (choice === 'standby') {
-        consecutiveSilencesRef.current = 0;
-        const uiLang = localStorage.getItem('app_lang') || 'en';
-        let standbyMsg = "Okay, returning to standby mode.";
-        if (uiLang === 'hi') standbyMsg = "ठीक है, स्टैंडबाय मोड पर वापस जा रहा हूँ।";
-        else if (uiLang === 'te') standbyMsg = "సరే, స్టాండ్-బై మోడ్‌కి తిరిగి వెళ్తున్నాను.";
-        
-        setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: standbyMsg }]);
-        playDeactivationSound();
-        setVoiceSessionActive(false);
-        if (voiceSessionActive) {
-          speakMessage(standbyMsg);
-        }
-        return;
-      }
+    if (isDeactivationCommand(text)) {
+      playDeactivationSound();
+      const goodbye = "Goodbye.";
+      setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: goodbye }]);
+      speakMessage(goodbye);
+      setVoiceSessionActive(false);
+      return;
     }
 
     setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: '' }]);
     setLoading(true);
+
+    let spokenIndex = 0;
 
     try {
       const data = await api.sendAssistantMessage(text, groqKey, hfKey, language, (chunkText) => {
@@ -687,6 +863,20 @@ export default function GlobalAssistant() {
           newMessages[newMessages.length - 1].content = chunkText;
           return newMessages;
         });
+
+        // Speak completed sentences during streaming
+        if (voiceSessionActive) {
+          const pendingText = chunkText.slice(spokenIndex);
+          let match;
+          const sentenceRegex = /[^.?!।\n]+[.?!।\n]+/g;
+          while ((match = sentenceRegex.exec(pendingText)) !== null) {
+            const sentence = match[0].trim();
+            if (sentence) {
+              speakMessage(sentence);
+            }
+            spokenIndex += match[0].length;
+          }
+        }
       });
       
       setMessages(prev => {
@@ -699,8 +889,11 @@ export default function GlobalAssistant() {
         await handleAction(data.action, data.reply);
       } else {
         if (voiceSessionActive) {
-          speakMessage(data.reply, () => {
-            askStandbyChoice();
+          const remainingText = data.reply.slice(spokenIndex).trim();
+          speakMessage(remainingText || "", () => {
+            setTimeout(() => {
+              startListening();
+            }, 300);
           });
         }
       }
@@ -709,14 +902,12 @@ export default function GlobalAssistant() {
       const errorMsg = `Error: ${err.message}`;
       setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
       
-      const uiLang = localStorage.getItem('app_lang') || 'en';
-      let speechError = "Sorry, I encountered an error. Please try again.";
-      if (uiLang === 'hi') speechError = "क्षमा करें, मुझे कोई त्रुटि मिली। कृपया पुनः प्रयास करें।";
-      else if (uiLang === 'te') speechError = "క్షమించండి, ఒక లోపం సంభవించింది. దయచేసి మళ్ళీ ప్రయత్నించండి.";
-      
+      const speechError = "Sorry, I encountered an error. Please try again.";
       if (voiceSessionActive) {
         speakMessage(speechError, () => {
-          askStandbyChoice();
+          setTimeout(() => {
+            startListening();
+          }, 300);
         });
       }
     } finally {
@@ -731,7 +922,7 @@ export default function GlobalAssistant() {
     const resumeVoice = () => {
       if (voiceSessionActive) {
         setTimeout(() => {
-          askStandbyChoice();
+          startListening();
         }, 300);
       }
     };
@@ -746,7 +937,7 @@ export default function GlobalAssistant() {
 
     try {
       if (type === 'find_doctors') {
-        if (user.role === 'doctor' || user.role === 'admin') {
+        if (user && (user.role === 'doctor' || user.role === 'admin')) {
           const errorMsg = user.role === 'doctor' 
             ? "You cannot book or browse appointments as a doctor. You manage consultations from your dashboard workspace." 
             : "You cannot book or browse appointments as an administrator.";
@@ -771,7 +962,7 @@ export default function GlobalAssistant() {
         navigate('/chat');
         speakAndResume(assistantReply || "Opening chat panel.");
       } else if (type === 'book_appointment') {
-        if (user.role === 'doctor' || user.role === 'admin') {
+        if (user && (user.role === 'doctor' || user.role === 'admin')) {
           const errorMsg = user.role === 'doctor' 
             ? "You cannot book an appointment as a doctor. You manage consultations from your dashboard workspace." 
             : "You cannot book an appointment as an administrator.";
@@ -809,6 +1000,44 @@ export default function GlobalAssistant() {
         const data = await api.analyzeSymptom(sym, dur, sev);
         setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
         speakAndResume(data.reply);
+      } else if (type === 'analyze_record') {
+        const recordId = parameters.record_id;
+        if (!recordId) {
+          throw new Error("Missing record ID for analysis.");
+        }
+        const data = await api.analyzeRecord(recordId);
+        const fullContent = `${data.insights}\n\nMedications Found:\n${data.medications}\n\n[Disclaimer: ${data.disclaimer}]`;
+        setMessages(prev => [...prev, { role: 'assistant', content: fullContent }]);
+        speakAndResume(data.insights || "Analysis complete.");
+      } else if (type === 'create_prescription') {
+        speakAndResume(assistantReply || "Prescription successfully issued.");
+        setTimeout(() => {
+          navigate('/chat');
+        }, 1500);
+      } else if (type === 'anti_fraud_scan') {
+        const recordId = parameters.record_id;
+        if (!recordId) {
+          throw new Error("Missing record ID for anti-fraud scan.");
+        }
+        const data = await api.scanRecordForFraud(recordId);
+        const resultMsg = `Anti-fraud scan complete for ${data.file_name}. Status: ${data.fraud_status}. Reason: ${data.reason}`;
+        setMessages(prev => [...prev, { role: 'assistant', content: resultMsg }]);
+        window.dispatchEvent(new CustomEvent('anti_fraud_complete', { detail: { recordId } }));
+        speakAndResume(`Anti-fraud scan complete. Status is ${data.fraud_status}.`);
+      } else if (type === 'set_reminder') {
+        const payload = {
+          medicine_name: parameters.medicine_name || 'Medicine',
+          dosage: parameters.dosage || '1 pill',
+          time: parameters.time || '08:00',
+          days: parameters.days || 'Daily',
+          method: parameters.method || 'app',
+          contact_info: parameters.contact_info || null
+        };
+        const data = await api.createReminder(payload);
+        const successMsg = `Reminder successfully set for ${data.medicine_name} (${data.dosage}) at ${data.time} via ${data.method}!`;
+        setMessages(prev => [...prev, { role: 'assistant', content: successMsg }]);
+        window.dispatchEvent(new Event('reminders_updated'));
+        speakAndResume(successMsg);
       }
     } catch (err) {
       console.error(err);
@@ -821,14 +1050,8 @@ export default function GlobalAssistant() {
   const handleInputFocusOrChange = () => {
     cancelSpeech();
     setVoiceSessionActive(false);
-    if (activeRecognitionRef.current) {
-      try {
-        activeRecognitionRef.current.stop();
-      } catch (e) {}
-    }
+    stopListening();
   };
-
-  if (!user) return null;
 
   // Compute HUD state for TARS voice assistant
   let hudIcon = 'forum';
@@ -884,36 +1107,6 @@ export default function GlobalAssistant() {
               </div>
               
               <div className="flex items-center gap-sm">
-                {/* Language Selection */}
-                <select 
-                  value={language}
-                  onChange={(e) => {
-                    const newLang = e.target.value;
-                    setLanguage(newLang);
-                    if (newLang === 'hi-IN') {
-                      setCurrentLanguage('hi');
-                    } else if (newLang === 'te-IN') {
-                      setCurrentLanguage('te');
-                    } else {
-                      setCurrentLanguage('en');
-                    }
-                  }}
-                  className="text-[10px] border border-outline-variant rounded-xl p-1 bg-white focus:outline-none font-semibold text-primary"
-                >
-                  <option value="en-US">English</option>
-                  <option value="hi-IN">Hindi (हिन्दी)</option>
-                  <option value="te-IN">Telugu (తెలుగు)</option>
-                </select>
-                
-                {/* Tars Settings Toggle */}
-                <button
-                  onClick={() => setShowSettings(!showSettings)}
-                  className={`p-1 rounded-full transition-colors focus:outline-none ${showSettings ? 'text-primary bg-primary/10' : 'text-outline hover:bg-surface-container-high'}`}
-                  title="Configure TARS API Keys"
-                >
-                  <span className="material-symbols-outlined text-[18px]">settings</span>
-                </button>
-
                 {/* Close button removed as launcher button below toggles open/close */}
               </div>
             </div>
@@ -948,49 +1141,6 @@ export default function GlobalAssistant() {
             </div>
           </div>
 
-          {showSettings ? (
-            /* Configure Keys Panel */
-            <div className="flex-1 p-4 overflow-y-auto bg-surface-container-lowest flex flex-col justify-between animate-in fade-in duration-200">
-              <div className="space-y-md">
-                <h4 className="font-bold text-sm text-primary flex items-center gap-xs">
-                  <span className="material-symbols-outlined text-secondary text-md">key</span>
-                  TARS Custom Keys Configuration
-                </h4>
-                <p className="text-xs text-on-surface-variant leading-relaxed">
-                  Want to use your own API keys? Paste a free Groq API Key or Hugging Face Token to get lightning-fast, highly intelligent responses.
-                </p>
-                <div className="space-y-sm">
-                  <div className="flex flex-col gap-xs">
-                    <label className="text-[10px] font-bold text-outline uppercase tracking-wider">Groq API Key</label>
-                    <input 
-                      type="password"
-                      placeholder="Paste Groq Key (gsk_...)"
-                      value={groqKey}
-                      onChange={(e) => setGroqKey(e.target.value)}
-                      className="py-1.5 px-3 border border-outline-variant rounded-lg bg-surface text-xs text-on-surface focus:outline-none focus:border-secondary"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-xs">
-                    <label className="text-[10px] font-bold text-outline uppercase tracking-wider">Hugging Face Token</label>
-                    <input 
-                      type="password"
-                      placeholder="Paste Hugging Face Token (hf_...)"
-                      value={hfKey}
-                      onChange={(e) => setHfKey(e.target.value)}
-                      className="py-1.5 px-3 border border-outline-variant rounded-lg bg-surface text-xs text-on-surface focus:outline-none focus:border-secondary"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <button 
-                onClick={() => setShowSettings(false)}
-                className="w-full py-2 bg-primary text-white font-bold rounded-lg text-xs hover:bg-primary/95 transition-all shadow-md focus:outline-none active:scale-[0.98]"
-              >
-                Save & Close
-              </button>
-            </div>
-          ) : (
             /* Messages List */
             <>
               <div className="flex-1 p-4 overflow-y-auto space-y-md bg-surface-container-lowest">
@@ -1086,21 +1236,23 @@ export default function GlobalAssistant() {
                 </button>
               </div>
             </>
-          )}
         </div>
       )}
 
       {/* Launcher Button with dynamic TARS HUD */}
       <button 
         onClick={() => {
+          if (!user) {
+            cancelSpeech();
+            speakMessage("Hello! Please login or register to access fully voice-automated TARS assistance.");
+            return;
+          }
           const nextOpen = !isOpen;
           setIsOpen(nextOpen);
           if (!nextOpen) {
             cancelSpeech();
             setVoiceSessionActive(false);
-            if (activeRecognitionRef.current) {
-              try { activeRecognitionRef.current.stop(); } catch (e) {}
-            }
+            stopListening();
           }
         }}
         className={`w-14 h-14 ${hudBg} text-white rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-all duration-300 focus:outline-none relative`}

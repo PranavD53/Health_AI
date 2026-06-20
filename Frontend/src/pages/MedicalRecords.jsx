@@ -16,6 +16,29 @@ export default function MedicalRecords() {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [analysisError, setAnalysisError] = useState('');
+  const [scanningIds, setScanningIds] = useState({});
+
+  const handleAntiFraudScan = async (e, recordId) => {
+    e.stopPropagation();
+    setScanningIds(prev => ({ ...prev, [recordId]: true }));
+    try {
+      const res = await api.scanRecordForFraud(recordId);
+      
+      const scanStatus = res.fraud_status || 'VERIFIED (Authentic)';
+      const speakText = scanStatus.includes('FLAGGED')
+        ? `Alert. TARS scan complete. The document has been flagged for potential tampering due to: ${res.reason || 'suspicious metadata'}.`
+        : `TARS scan complete. The document has been verified as authentic.`;
+      
+      window.dispatchEvent(new CustomEvent('tars_speak', { detail: { text: speakText } }));
+      
+      await loadRecords();
+    } catch (err) {
+      console.error(err);
+      alert("Anti-fraud scan failed: " + err.message);
+    } finally {
+      setScanningIds(prev => ({ ...prev, [recordId]: false }));
+    }
+  };
 
   const loadRecords = async () => {
     try {
@@ -189,6 +212,22 @@ export default function MedicalRecords() {
                     </div>
                     
                     <div className="flex flex-wrap items-center gap-xs">
+                      <button
+                        onClick={(e) => handleAntiFraudScan(e, record.id)}
+                        disabled={scanningIds[record.id] || record.fraud_status?.includes('VERIFIED')}
+                        className={`px-3.5 py-1.5 font-bold text-xs rounded-lg transition-all flex items-center gap-xs shadow-sm focus:outline-none ${
+                          record.fraud_status?.includes('VERIFIED')
+                            ? 'bg-neutral-200 text-neutral-500 cursor-not-allowed border border-neutral-300'
+                            : 'bg-amber-600 hover:bg-amber-700 text-white hover:shadow-md'
+                        }`}
+                        title={record.fraud_status?.includes('VERIFIED') ? "Document verified" : "Run Anti-Fraud Security Scan"}
+                      >
+                        <span className={`material-symbols-outlined text-[16px] ${scanningIds[record.id] ? 'animate-spin' : ''}`}>
+                          {scanningIds[record.id] ? 'autorenew' : record.fraud_status?.includes('VERIFIED') ? 'verified' : 'shield_heart'}
+                        </span>
+                        {scanningIds[record.id] ? 'Scanning...' : record.fraud_status?.includes('VERIFIED') ? 'Verified' : 'Run Anti-Fraud'}
+                      </button>
+
                       {record.fraud_status?.includes('VERIFIED') && (
                         <button
                           onClick={(e) => {
@@ -316,6 +355,42 @@ export default function MedicalRecords() {
                 </div>
               ) : analysisResult ? (
                 <div className="space-y-lg text-left">
+                  {/* Image and YOLO Overlay (if applicable) */}
+                  {selectedRecord && /\.(png|jpe?g|gif|tiff|webp)$/i.test(selectedRecord.file_name) && (
+                    <div className="space-y-xs flex flex-col items-center">
+                      <h4 className="text-xs font-bold text-primary flex items-center gap-2xs uppercase tracking-wider self-start w-full">
+                        <span className="material-symbols-outlined text-md">image</span>
+                        Diagnostic Scan YOLO Analysis
+                      </h4>
+                      <div className="relative inline-block overflow-hidden rounded-xl border border-outline-variant bg-slate-900 max-w-full">
+                        <img 
+                          src={resolveMediaUrl(selectedRecord.file_path)} 
+                          alt={selectedRecord.file_name} 
+                          className="block max-w-full h-auto max-h-[300px] object-contain mx-auto" 
+                        />
+                        {analysisResult.yolo_results && analysisResult.yolo_results.map((det, idx) => {
+                          const [xmin, ymin, xmax, ymax] = det.box;
+                          return (
+                            <div
+                              key={idx}
+                              className="absolute border-2 border-red-500 rounded-sm pointer-events-none animate-pulse"
+                              style={{
+                                left: `${xmin}%`,
+                                top: `${ymin}%`,
+                                width: `${xmax - xmin}%`,
+                                height: `${ymax - ymin}%`,
+                              }}
+                            >
+                              <span className="absolute top-0 left-0 bg-red-500 text-white font-bold text-[9px] px-1 py-0.5 whitespace-nowrap shadow-md">
+                                {det.label} ({Math.round(det.confidence * 100)}%)
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Clinical Insights */}
                   <div className="space-y-xs">
                     <h4 className="text-xs font-bold text-primary flex items-center gap-2xs uppercase tracking-wider">

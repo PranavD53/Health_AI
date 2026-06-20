@@ -40,7 +40,9 @@ class SymptomAnalysisResponse(BaseModel):
 # --- Emergency Detection Config ---
 EMERGENCY_KEYWORDS = [
     "chest pain", "can't breathe", "stroke", 
-    "unconscious", "bleeding", "suicide", "heart attack", "difficulty breathing"
+    "unconscious", "loss of consciousness", "bleeding", "heavy bleeding", "suicide", "heart attack", 
+    "difficulty breathing", "extreme difficulty breathing", "slurred speech", "facial drooping",
+    "seizure", "seizures", "acute seizures", "anaphylactic", "anaphylaxis", "allergic reaction"
 ]
 
 def scan_for_emergency(text: str) -> bool:

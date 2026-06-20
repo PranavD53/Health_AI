@@ -5,23 +5,37 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-# Set test environment database
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-os.environ["SECRET_KEY"] = "test_secret_key_12345"
-os.environ["UPLOADS_DIR"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_uploads")
+import os
+os.environ["TESTING"] = "True"
+os.environ["SECRET_KEY"] = os.environ.get("SECRET_KEY", "test_secret_key_12345")
+os.environ["UPLOADS_DIR"] = os.environ.get("UPLOADS_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_uploads"))
 
 from app.main import app
-from app.database import Base, get_db
+from app.database import Base, get_db, engine, SessionLocal as TestingSessionLocal
 from app import models
 from app.config import UPLOADS_DIR
 
-# Create test database engine
-engine = create_engine(
-    "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def _cleanup_db(engine, Base):
+    from sqlalchemy.orm import close_all_sessions
+    try:
+        close_all_sessions()
+    except Exception:
+        pass
+    if "sqlite" in str(engine.url):
+        try:
+            Base.metadata.drop_all(bind=engine)
+        except Exception:
+            pass
+    else:
+        from sqlalchemy import text
+        tables = [t.name for t in Base.metadata.sorted_tables]
+        if tables:
+            tables_str = ", ".join(f'"{t}"' for t in tables)
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(f"TRUNCATE TABLE {tables_str} RESTART IDENTITY CASCADE"))
+            except Exception as e:
+                print(f"Cleanup truncate skipped: {e}")
 
 # Override get_db dependency to point to the test database
 def override_get_db():
@@ -37,6 +51,7 @@ def setup_module():
     app.dependency_overrides[get_db] = override_get_db
     # Create tables
     Base.metadata.create_all(bind=engine)
+    _cleanup_db(engine, Base)
     # Seed doctors table in testing DB
     from app.routes.doctors import seed_doctors
     from app.main import seed_demo_users
@@ -50,11 +65,7 @@ def setup_module():
 def teardown_module():
     if get_db in app.dependency_overrides:
         del app.dependency_overrides[get_db]
-    # Drop tables
-    try:
-        Base.metadata.drop_all(bind=engine)
-    except Exception as e:
-        print(f"Warning dropping tables: {e}")
+    _cleanup_db(engine, Base)
     engine.dispose()
 
 def test_feedback_system():
@@ -90,9 +101,10 @@ def test_feedback_system():
         doctors_resp = client.get("/doctors", headers=patient_headers)
         assert doctors_resp.status_code == 200
         doctors_list = doctors_resp.json()
-        assert len(doctors_list) > 0
-        doctor_id = doctors_list[0]["id"]
-        doctor_user_id = doctors_list[0]["user_id"]
+        # Find the doctor that has an associated user (Dr. Alice Smith is seeded with a user)
+        doctor_data = next((d for d in doctors_list if d.get("user_id") is not None), doctors_list[0])
+        doctor_id = doctor_data["id"]
+        doctor_user_id = doctor_data["user_id"]
         
         # Book Appointment
         book_resp = client.post("/appointment/book", headers=patient_headers, json={

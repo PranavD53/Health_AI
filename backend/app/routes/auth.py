@@ -68,16 +68,23 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 # --- Helpers ---
+_HASH_CACHE = {}
+
 def get_password_hash(password: str) -> str:
+    if password in _HASH_CACHE:
+        return _HASH_CACHE[password]
     pwd_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(pwd_bytes, salt)
-    return hashed.decode('utf-8')
+    res = hashed.decode('utf-8')
+    _HASH_CACHE[password] = res
+    return res
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     pwd_bytes = plain_password.encode('utf-8')
     hashed_bytes = hashed_password.encode('utf-8')
     return bcrypt.checkpw(pwd_bytes, hashed_bytes)
+
 
 def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] = None):
     to_encode = data.copy()
@@ -151,6 +158,9 @@ def require_role(allowed_roles: list[str]):
     return role_dependency
 
 def send_via_brevo(to_email: str, subject: str, html_content: str, text_content: Optional[str] = None, sender_name: str = "Health AI Assistant"):
+    if os.getenv("TESTING") in ("True", "true"):
+        print(f"[TESTING] Mocking Brevo email send to {to_email}")
+        return {"message": "Mock email sent successfully", "messageId": "mock-id-123"}
     token = os.getenv("BREVO_API_KEY")
     if token:
         token = token.strip().strip("\"'")
@@ -675,9 +685,31 @@ def delete_user(
         # Delete related PatientProfile
         db.query(models.PatientProfile).filter(models.PatientProfile.user_id == user_id).delete(synchronize_session=False)
         
+        # Delete related MedicineReminders
+        db.query(models.MedicineReminder).filter(models.MedicineReminder.user_id == user_id).delete(synchronize_session=False)
+        
+        # Delete related Notifications
+        db.query(models.Notification).filter(models.Notification.user_id == user_id).delete(synchronize_session=False)
+
+        # Delete related call records, participants, logs
+        db.query(models.CallParticipants).filter(models.CallParticipants.user_id == user_id).delete(synchronize_session=False)
+        db.query(models.VideoCallAuditLog).filter(models.VideoCallAuditLog.actor_id == user_id).delete(synchronize_session=False)
+        db.query(models.CallRecord).filter(
+            (models.CallRecord.patient_id == user_id) | 
+            (models.CallRecord.doctor_id == user_id) | 
+            (models.CallRecord.created_by == user_id)
+        ).delete(synchronize_session=False)
+
+        # Delete feedbacks
+        db.query(models.Feedback).filter(
+            (models.Feedback.patient_id == user_id) | 
+            (models.Feedback.doctor_id == user_id)
+        ).delete(synchronize_session=False)
+
         # Find doctor profile if any
         doc = db.query(models.Doctor).filter(models.Doctor.user_id == user_id).first()
         if doc:
+            db.query(models.LeaveRequest).filter(models.LeaveRequest.doctor_id == doc.id).delete(synchronize_session=False)
             db.query(models.Appointment).filter(models.Appointment.doctor_id == doc.id).delete(synchronize_session=False)
             db.query(models.DoctorVerification).filter(models.DoctorVerification.doctor_id == doc.id).delete(synchronize_session=False)
             db.delete(doc)
