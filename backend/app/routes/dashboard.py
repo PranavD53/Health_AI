@@ -131,12 +131,16 @@ async def get_dashboard(
         today_str = datetime.date.today().strftime("%Y-%m-%d")
 
         # Query all appointments for this user to adjust them dynamically
-        all_appts = db.query(models.Appointment).filter(
+        from sqlalchemy.orm import joinedload
+        all_appts = db.query(models.Appointment).options(
+            joinedload(models.Appointment.doctor)
+        ).filter(
             models.Appointment.patient_id == current_user.id
         ).all()
         
         # Expunge so we do not write back to DB
         for appt in all_appts:
+            _ = appt.doctor  # Force-load lazy relationship in-memory
             try:
                 db.expunge(appt)
             except Exception:

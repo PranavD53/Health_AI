@@ -393,3 +393,20 @@ body {
   background: radial-gradient(circle, rgba(129, 140, 248, 0.1) 0%, transparent 65%);
   filter: blur(60px);
 }
+
+/* Ensure all clickable elements display the pointer cursor */
+button,
+a,
+select,
+option,
+input[type="button"],
+input[type="submit"],
+[role="button"],
+.cursor-pointer,
+.interactive-card,
+.feature-card,
+.hero-feature-card,
+.nav-link,
+[onclick] {
+  cursor: pointer !important;
+}

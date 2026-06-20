@@ -185,9 +185,12 @@ def get_my_appointments(
     db: Session = Depends(get_db)
 ):
     try:
+        from sqlalchemy.orm import joinedload
         if current_user.role == "patient":
             # Patients see their own appointments
-            appointments = db.query(models.Appointment).filter(
+            appointments = db.query(models.Appointment).options(
+                joinedload(models.Appointment.doctor)
+            ).filter(
                 models.Appointment.patient_id == current_user.id
             ).all()
         elif current_user.role == "doctor":
@@ -196,12 +199,16 @@ def get_my_appointments(
             if not doctor:
                 # If no matching doctor record, they have no appointments
                 return []
-            appointments = db.query(models.Appointment).filter(
+            appointments = db.query(models.Appointment).options(
+                joinedload(models.Appointment.doctor)
+            ).filter(
                 models.Appointment.doctor_id == doctor.id
             ).all()
         elif current_user.role in ["admin", "caregiver"]:
             # Admins and Caregivers see all appointments
-            appointments = db.query(models.Appointment).all()
+            appointments = db.query(models.Appointment).options(
+                joinedload(models.Appointment.doctor)
+            ).all()
         else:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -210,6 +217,7 @@ def get_my_appointments(
 
         # Expunge and adjust timestamps in-place safely
         for appt in appointments:
+            _ = appt.doctor  # Force-load lazy relationship in-memory
             try:
                 db.expunge(appt)
             except Exception:

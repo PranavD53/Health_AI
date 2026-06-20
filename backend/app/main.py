@@ -1129,11 +1129,15 @@ async def global_ai_assistant(
         
             if current_user.role == "patient":
                 # Query patient's upcoming appointments
-                patient_appts = db.query(models.Appointment).filter(
+                from sqlalchemy.orm import joinedload
+                patient_appts = db.query(models.Appointment).options(
+                    joinedload(models.Appointment.doctor)
+                ).filter(
                     models.Appointment.patient_id == current_user.id,
                     models.Appointment.status == "booked"
                 ).all()
                 for appt in patient_appts:
+                    _ = appt.doctor  # Force-load lazy relationship in-memory
                     try:
                         db.expunge(appt)
                     except Exception:
@@ -1161,11 +1165,15 @@ async def global_ai_assistant(
                     doctor = db.query(models.Doctor).filter(models.Doctor.contact == current_user.email).first()
             
                 if doctor:
-                    doctor_appts = db.query(models.Appointment).filter(
+                    from sqlalchemy.orm import joinedload
+                    doctor_appts = db.query(models.Appointment).options(
+                        joinedload(models.Appointment.doctor)
+                    ).filter(
                         models.Appointment.doctor_id == doctor.id,
                         models.Appointment.status == "booked"
                     ).all()
                     for appt in doctor_appts:
+                        _ = appt.doctor  # Force-load lazy relationship in-memory
                         try:
                             db.expunge(appt)
                         except Exception:
