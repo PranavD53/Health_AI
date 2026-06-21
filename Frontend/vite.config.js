@@ -14,7 +14,7 @@ export default defineConfig({
       '/ai': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/chats': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/appointment': { target: 'http://127.0.0.1:8000', changeOrigin: true },
-      '/records/': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/records': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/uploads': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/notifications': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/audit': { target: 'http://127.0.0.1:8000', changeOrigin: true },
@@ -24,6 +24,8 @@ export default defineConfig({
       '/doctor/dashboard': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/calls': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/feedback': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/reminders': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/tars': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/ws': { target: 'ws://127.0.0.1:8000', ws: true, changeOrigin: true },
     }
   },

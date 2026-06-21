@@ -49,6 +49,8 @@ class PatientProfile(Base):
     existing_conditions = Column(Text, nullable=True)
     address = Column(Text, nullable=True)
     profile_picture = Column(String, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
 
     # Relationships

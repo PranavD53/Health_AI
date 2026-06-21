@@ -72,7 +72,7 @@ function floatTo16BitPCM(input) {
 }
 
 export default function GlobalAssistant() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { t, currentLanguage, setCurrentLanguage } = useLanguage();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -100,6 +100,7 @@ export default function GlobalAssistant() {
   const hasGreetedRef = useRef(false);
   
   // TARS Custom API Keys State
+  const geminiKey = localStorage.getItem('tars_gemini_key') || '';
   const groqKey = localStorage.getItem('tars_groq_key') || '';
   const hfKey = localStorage.getItem('tars_hf_key') || '';
 
@@ -309,6 +310,7 @@ export default function GlobalAssistant() {
   
   const messagesEndRef = useRef(null);
   const bgRecognitionRef = useRef(null);
+  const activeRecognitionRef = useRef(null);
   const utteranceRef = useRef(null);
 
   const handleSendRef = useRef(null);
@@ -318,7 +320,7 @@ export default function GlobalAssistant() {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, showSettings]);
+  }, [messages]);
 
   useEffect(() => {
     handleSendRef.current = handleSend;
@@ -762,24 +764,16 @@ export default function GlobalAssistant() {
   }, [user, tarsVoiceEnabled, isListening, isSpeaking, voiceSessionActive, language, isInCall]);
 
   function stopListening() {
-    if (streamRef.current) {
-      if (streamRef.current.processorNode) {
-        try { streamRef.current.processorNode.disconnect(); } catch (e) {}
-      }
-      if (streamRef.current.sourceNode) {
-        try { streamRef.current.sourceNode.disconnect(); } catch (e) {}
-      }
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    if (audioContextRef.current) {
-      try { audioContextRef.current.close(); } catch (e) {}
-      audioContextRef.current = null;
+    if (activeRecognitionRef.current) {
+      try {
+        activeRecognitionRef.current.stop();
+      } catch (e) {}
+      activeRecognitionRef.current = null;
     }
     setIsListening(false);
   }
 
-  const startListening = async () => {
+  const startListening = () => {
     if (isInCall) {
       alert("Voice assistant is disabled during an active video call.");
       return;
@@ -794,44 +788,45 @@ export default function GlobalAssistant() {
     cancelSpeech();
     setIsListening(true);
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.warn("SpeechRecognition not supported in this browser.");
+      setIsListening(false);
+      return;
+    }
 
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-      audioContextRef.current = audioContext;
+    const activeRec = new SpeechRecognition();
+    activeRec.continuous = false;
+    activeRec.interimResults = false;
+    activeRec.lang = language;
 
-      const source = audioContext.createMediaStreamSource(stream);
-      const processor = audioContext.createScriptProcessor(2048, 1, 1);
-      
-      processor.onaudioprocess = (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
-        if (vadWorkerRef.current) {
-          const bufferCopy = new Float32Array(inputData).buffer;
-          vadWorkerRef.current.postMessage({ type: 'process', data: bufferCopy }, [bufferCopy]);
-        }
-      };
+    activeRec.onstart = () => {
+      console.log("Active SpeechRecognition started...");
+    };
 
-      source.connect(processor);
-      processor.connect(audioContext.destination);
-      
-      streamRef.current.processorNode = processor;
-      streamRef.current.sourceNode = source;
+    activeRec.onend = () => {
+      console.log("Active SpeechRecognition ended.");
+      setIsListening(false);
+    };
 
-      if (vadWorkerRef.current) {
-        vadWorkerRef.current.postMessage({
-          type: 'init',
-          data: {
-            sampleRate: audioContext.sampleRate,
-            energyThreshold: 0.015,
-            silenceTimeoutMs: 1500,
-            minSpeechDurationMs: 200
-          }
-        });
+    activeRec.onerror = (e) => {
+      console.error("Active SpeechRecognition error:", e);
+      setIsListening(false);
+    };
+
+    activeRec.onresult = (event) => {
+      const transcript = event.results[0][0].transcript.trim();
+      console.log("Active SpeechRecognition heard:", transcript);
+      if (transcript.length > 0) {
+        handleSend(transcript);
       }
+    };
 
-    } catch (err) {
-      console.error("Microphone access failed", err);
+    activeRecognitionRef.current = activeRec;
+    try {
+      activeRec.start();
+    } catch (e) {
+      console.error("Failed to start active SpeechRecognition:", e);
       setIsListening(false);
     }
   };
@@ -857,7 +852,7 @@ export default function GlobalAssistant() {
     let spokenIndex = 0;
 
     try {
-      const data = await api.sendAssistantMessage(text, groqKey, hfKey, language, (chunkText) => {
+      const data = await api.sendAssistantMessage(text, geminiKey, groqKey, hfKey, language, (chunkText) => {
         setMessages(prev => {
           const newMessages = [...prev];
           newMessages[newMessages.length - 1].content = chunkText;
@@ -917,12 +912,14 @@ export default function GlobalAssistant() {
 
   const handleAction = async (action, assistantReply = '') => {
     const { type, parameters } = action;
-    setMessages(prev => [...prev, { role: 'system', content: `Executing system action: ${type.replace('_', ' ')}...` }]);
+    setMessages(prev => [...prev, { role: 'system', content: `Executing system action: ${type}...` }]);
 
     const resumeVoice = () => {
       if (voiceSessionActive) {
         setTimeout(() => {
-          startListening();
+          if (startListeningRef.current) {
+            startListeningRef.current();
+          }
         }, 300);
       }
     };
@@ -936,32 +933,16 @@ export default function GlobalAssistant() {
     };
 
     try {
-      if (type === 'find_doctors') {
-        if (user && (user.role === 'doctor' || user.role === 'admin')) {
-          const errorMsg = user.role === 'doctor' 
-            ? "You cannot book or browse appointments as a doctor. You manage consultations from your dashboard workspace." 
-            : "You cannot book or browse appointments as an administrator.";
-          setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
-          speakAndResume(errorMsg);
-          return;
-        } else {
-          const spec = parameters.specialization || '';
+      if (type === 'openPage') {
+        const page = parameters.page_name || 'dashboard';
+        const spec = parameters.specialization || parameters.speciality || '';
+        if (page === 'appointments' || page === 'doctors') {
           navigate(`/appointments?search=${spec}`);
-          speakAndResume(assistantReply || "Finding doctors for you.");
+        } else {
+          navigate(`/${page}`);
         }
-      } else if (type === 'view_records') {
-        navigate('/records');
-        speakAndResume(assistantReply || "Opening medical records.");
-      } else if (type === 'view_dashboard') {
-        navigate('/dashboard');
-        speakAndResume(assistantReply || "Going to your dashboard.");
-      } else if (type === 'view_settings') {
-        navigate('/settings');
-        speakAndResume(assistantReply || "Opening settings.");
-      } else if (type === 'view_chat') {
-        navigate('/chat');
-        speakAndResume(assistantReply || "Opening chat panel.");
-      } else if (type === 'book_appointment') {
+        speakAndResume(assistantReply || `Opening ${page} page.`);
+      } else if (type === 'createAppointment') {
         if (user && (user.role === 'doctor' || user.role === 'admin')) {
           const errorMsg = user.role === 'doctor' 
             ? "You cannot book an appointment as a doctor. You manage consultations from your dashboard workspace." 
@@ -986,45 +967,77 @@ export default function GlobalAssistant() {
         const successMsg = `Appointment successfully booked for ${date} at ${time}!`;
         setMessages(prev => [...prev, { role: 'assistant', content: successMsg }]);
         speakAndResume(successMsg);
-      } else if (type === 'lodge_complaint') {
-        const msg = parameters.message || 'General Complaint';
-        await api.submitComplaint(msg);
-        const successMsg = "Your complaint has been successfully filed with the admin panel. Our support team will resolve this shortly.";
-        setMessages(prev => [...prev, { role: 'assistant', content: successMsg }]);
-        speakAndResume(successMsg);
-      } else if (type === 'analyze_symptom') {
-        const sym = parameters.symptoms || '';
-        const dur = parameters.duration || '1 day';
-        const sev = parameters.severity || 'mild';
-        
-        const data = await api.analyzeSymptom(sym, dur, sev);
-        setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
-        speakAndResume(data.reply);
-      } else if (type === 'analyze_record') {
-        const recordId = parameters.record_id;
-        if (!recordId) {
-          throw new Error("Missing record ID for analysis.");
+      } else if (type === 'fetchPrescription') {
+        const list = parameters.prescriptions || [];
+        if (list.length > 0) {
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: `Here are the prescriptions found:`,
+              uiCard: 'prescriptions',
+              data: list
+            }
+          ]);
         }
-        const data = await api.analyzeRecord(recordId);
-        const fullContent = `${data.insights}\n\nMedications Found:\n${data.medications}\n\n[Disclaimer: ${data.disclaimer}]`;
-        setMessages(prev => [...prev, { role: 'assistant', content: fullContent }]);
-        speakAndResume(data.insights || "Analysis complete.");
-      } else if (type === 'create_prescription') {
-        speakAndResume(assistantReply || "Prescription successfully issued.");
-        setTimeout(() => {
-          navigate('/chat');
-        }, 1500);
-      } else if (type === 'anti_fraud_scan') {
-        const recordId = parameters.record_id;
-        if (!recordId) {
-          throw new Error("Missing record ID for anti-fraud scan.");
+        speakAndResume(assistantReply || `Prescriptions fetched successfully.`);
+      } else if (type === 'updatePatient') {
+        const addr = parameters.address || '';
+        let lat = parameters.latitude;
+        let lng = parameters.longitude;
+
+        const performUpdate = async (finalLat, finalLng) => {
+          const payload = { address: addr };
+          if (finalLat && finalLng) {
+            payload.latitude = finalLat;
+            payload.longitude = finalLng;
+          }
+          await api.updateProfile(payload);
+          const successMsg = `Patient profile successfully updated with address "${addr || 'current position'}" and location (${finalLat || 'N/A'}, ${finalLng || 'N/A'}).`;
+          setMessages(prev => [...prev, { role: 'assistant', content: successMsg }]);
+          speakAndResume(successMsg);
+        };
+
+        if (!lat || !lng) {
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              async (position) => {
+                const browserLat = position.coords.latitude;
+                const browserLng = position.coords.longitude;
+                await performUpdate(browserLat, browserLng);
+              },
+              async (error) => {
+                console.warn("Browser geolocation failed, updating address only", error);
+                await performUpdate(null, null);
+              },
+              { enableHighAccuracy: true, timeout: 5000 }
+            );
+            return;
+          }
         }
-        const data = await api.scanRecordForFraud(recordId);
-        const resultMsg = `Anti-fraud scan complete for ${data.file_name}. Status: ${data.fraud_status}. Reason: ${data.reason}`;
-        setMessages(prev => [...prev, { role: 'assistant', content: resultMsg }]);
-        window.dispatchEvent(new CustomEvent('anti_fraud_complete', { detail: { recordId } }));
-        speakAndResume(`Anti-fraud scan complete. Status is ${data.fraud_status}.`);
-      } else if (type === 'set_reminder') {
+        await performUpdate(lat, lng);
+      } else if (type === 'triggerSOS' || type === 'trigger_sos') {
+        speakAndResume(assistantReply || "Triggering emergency SOS.");
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            async (position) => {
+              const lat = position.coords.latitude;
+              const lng = position.coords.longitude;
+              await api.triggerSOS(null, lat, lng);
+            },
+            async (error) => {
+              console.warn("Geolocation failed or denied, sending SOS without coordinates.", error);
+              await api.triggerSOS(null, null, null);
+            },
+            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+          );
+        } else {
+          await api.triggerSOS(null, null, null);
+        }
+      } else if (type === 'logout') {
+        speakAndResume(assistantReply || "Logging out.");
+        logout();
+      } else if (type === 'setReminder' || type === 'set_reminder') {
         const payload = {
           medicine_name: parameters.medicine_name || 'Medicine',
           dosage: parameters.dosage || '1 pill',
@@ -1038,6 +1051,11 @@ export default function GlobalAssistant() {
         setMessages(prev => [...prev, { role: 'assistant', content: successMsg }]);
         window.dispatchEvent(new Event('reminders_updated'));
         speakAndResume(successMsg);
+      } else if (type === 'createPrescription' || type === 'create_prescription') {
+        speakAndResume(assistantReply || "Prescription successfully issued.");
+        setTimeout(() => {
+          navigate('/chat');
+        }, 1500);
       }
     } catch (err) {
       console.error(err);
@@ -1161,6 +1179,23 @@ export default function GlobalAssistant() {
                       }`}
                     >
                       {msg.content.replace(/\[ACTION:[\s\S]*?\]/g, '')}
+                      {msg.uiCard === 'prescriptions' && msg.data && (
+                        <div className="mt-2 space-y-xs w-full">
+                          {msg.data.map((p, idx) => (
+                            <a
+                              key={idx}
+                              href={p.file_path}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-xs p-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg font-bold border border-primary/20 transition-all text-[11px] no-underline"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">download</span>
+                              <span className="truncate flex-1">{p.file_name}</span>
+                              <span className="text-[9px] text-outline font-normal">{p.uploaded_at.split(' ')[0]}</span>
+                            </a>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

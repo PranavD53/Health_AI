@@ -13,6 +13,7 @@ export default function DoctorDashboard() {
   const [activeSOS, setActiveSOS] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [reminders, setReminders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -73,6 +74,15 @@ export default function DoctorDashboard() {
     }
   };
 
+  const loadReminders = async () => {
+    try {
+      const data = await api.getReminders();
+      setReminders(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error("Failed to load reminders: ", e);
+    }
+  };
+
   const handleCompleteAppointment = async (apptId) => {
     if (window.confirm("Are you sure you want to mark this consultation as completed?")) {
       try {
@@ -88,6 +98,17 @@ export default function DoctorDashboard() {
 
   useEffect(() => {
     loadData();
+    loadReminders();
+  }, []);
+
+  useEffect(() => {
+    const handleRemindersUpdated = () => {
+      loadReminders();
+    };
+    window.addEventListener('reminders_updated', handleRemindersUpdated);
+    return () => {
+      window.removeEventListener('reminders_updated', handleRemindersUpdated);
+    };
   }, []);
 
   useEffect(() => {
@@ -163,6 +184,23 @@ export default function DoctorDashboard() {
                     <span className="material-symbols-outlined text-[16px] text-error">home_pin</span>
                     Address: {alert.patient_address}
                   </p>
+                  {alert.latitude !== null && alert.longitude !== null && alert.latitude !== undefined && alert.longitude !== undefined && (
+                    <div className="mt-xs mb-xs space-y-xs">
+                      <p className="text-xs text-on-surface font-medium flex items-center gap-xs">
+                        <span className="material-symbols-outlined text-[16px] text-primary">location_on</span>
+                        GPS: {Number(alert.latitude).toFixed(6)}, {Number(alert.longitude).toFixed(6)}
+                      </p>
+                      <a 
+                        href={`https://www.google.com/maps/search/?api=1&query=${alert.latitude},${alert.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline font-bold flex items-center gap-xs"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">map</span>
+                        Navigate on Google Maps
+                      </a>
+                    </div>
+                  )}
                   <p className="text-[10px] text-outline">
                     Triggered at: {new Date(alert.created_at).toLocaleTimeString()}
                   </p>
@@ -407,6 +445,139 @@ export default function DoctorDashboard() {
                 <p className="text-center text-xs text-outline py-xl">No patients registered in the directory.</p>
               )}
             </div>
+          </div>
+
+          {/* Consultation Reminders Card */}
+          <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card space-y-md">
+            <h3 className="text-title-md font-bold text-primary flex items-center gap-xs border-b border-outline-variant/20 pb-2">
+              <span className="material-symbols-outlined text-secondary">notifications_active</span>
+              Consultation Reminders
+            </h3>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const medicine_name = e.target.medicine_name.value;
+              const dosage = e.target.dosage.value;
+              const time = e.target.time.value;
+              const method = e.target.method.value;
+              const contact_info = e.target.contact_info.value;
+              try {
+                await api.createReminder({
+                  medicine_name,
+                  dosage,
+                  time,
+                  method,
+                  contact_info,
+                  days: "Daily"
+                });
+                alert("Consultation reminder successfully set!");
+                e.target.reset();
+                loadReminders();
+              } catch (err) {
+                alert("Failed to create reminder: " + err.message);
+              }
+            }} className="space-y-sm text-xs">
+              <div className="space-y-xs">
+                <label className="font-bold text-outline uppercase block">Consultation / Patient Name</label>
+                <input required type="text" name="medicine_name" placeholder="e.g. Patient: John Doe" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-sm">
+                <div className="space-y-xs">
+                  <label className="font-bold text-outline uppercase block">Preparation / Notes</label>
+                  <input required type="text" name="dosage" placeholder="e.g. Review heart logs" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                </div>
+                <div className="space-y-xs">
+                  <label className="font-bold text-outline uppercase block">Time</label>
+                  <input required type="time" name="time" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-sm">
+                <div className="space-y-xs">
+                  <label className="font-bold text-outline uppercase block">Notify Via</label>
+                  <select name="method" defaultValue="app" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none font-bold">
+                    <option value="app">In-App Notification</option>
+                    <option value="email">Email Alert</option>
+                    <option value="sms">SMS Alert</option>
+                  </select>
+                </div>
+                <div className="space-y-xs">
+                  <label className="font-bold text-outline uppercase block">Contact Info (Optional)</label>
+                  <input type="text" name="contact_info" placeholder="Email / Mobile" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                </div>
+              </div>
+              <button type="submit" className="w-full bg-primary hover:bg-primary/95 text-white py-2 rounded font-bold shadow-md transition active:scale-[0.98]">
+                Add Reminder
+              </button>
+            </form>
+
+            {/* Reminders List */}
+            {reminders.length === 0 ? (
+              <p className="text-center text-xs text-outline py-2">No consultation reminders configured.</p>
+            ) : (
+              <div className="pt-2 border-t border-outline-variant/30 space-y-2">
+                <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">Your Schedule Log</span>
+                <div className="space-y-2 max-h-[180px] overflow-y-auto pr-xs">
+                  {reminders.map(rem => (
+                    <div key={rem.id} className={`p-2 border rounded-xl bg-surface-container-low flex justify-between items-center transition-all ${
+                      rem.is_active ? 'border-outline-variant/40' : 'border-outline-variant/10 opacity-60'
+                    }`}>
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-xs">
+                          <span className={`material-symbols-outlined text-[14px] ${rem.is_active ? 'text-secondary' : 'text-outline'}`}>
+                            {rem.method === 'email' ? 'mail' : rem.method === 'sms' ? 'sms' : 'notifications'}
+                          </span>
+                          <span className={`font-bold text-xs ${rem.is_active ? 'text-on-surface' : 'text-outline line-through'}`}>
+                            {rem.medicine_name}
+                          </span>
+                        </div>
+                        <p className="text-[9px] text-on-surface-variant">
+                          Notes: {rem.dosage} | Time: {rem.time}
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center gap-sm">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await api.toggleReminder(rem.id);
+                              loadReminders();
+                            } catch (err) {
+                              alert("Failed to toggle status: " + err.message);
+                            }
+                          }}
+                          className={`p-1 rounded-lg transition-colors focus:outline-none ${
+                            rem.is_active ? 'text-success hover:bg-success/10' : 'text-outline hover:bg-outline-variant/10'
+                          }`}
+                          title={rem.is_active ? "Pause Reminder" : "Resume Reminder"}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">
+                            {rem.is_active ? 'pause' : 'play_arrow'}
+                          </span>
+                        </button>
+                        
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (window.confirm("Delete this reminder?")) {
+                              try {
+                                await api.deleteReminder(rem.id);
+                                loadReminders();
+                              } catch (err) {
+                                alert("Failed to delete: " + err.message);
+                              }
+                            }
+                          }}
+                          className="p-1 text-outline hover:text-error hover:bg-error/10 rounded-lg transition-colors focus:outline-none"
+                          title="Delete Reminder"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Leave Request Card */}

@@ -14,43 +14,32 @@ SYSTEM_CAPABILITIES = {
     "roles": {
         "patient": {
             "permissions": [
-                "find_doctors",
-                "book_appointment",
-                "cancel_appointment",
-                "view_records",
-                "analyze_record",
-                "view_dashboard",
-                "view_settings",
-                "view_chat",
-                "lodge_complaint"
+                "openPage",
+                "createAppointment",
+                "fetchPrescription",
+                "updatePatient",
+                "triggerSOS",
+                "logout",
+                "setReminder"
             ]
         },
         "doctor": {
             "permissions": [
-                "view_dashboard",
-                "view_settings",
-                "view_chat",
-                "view_records",
-                "analyze_record",
-                "create_prescription",
-                "trigger_sos",
-                "resolve_sos",
-                "switch_role",
-                "change_theme"
+                "openPage",
+                "fetchPrescription",
+                "triggerSOS",
+                "logout",
+                "createPrescription",
+                "setReminder"
             ]
         },
         "admin": {
             "permissions": [
-                "view_dashboard",
-                "view_settings",
-                "view_chat",
-                "verify_doctor",
-                "trigger_sos",
-                "resolve_sos",
-                "switch_role",
-                "change_theme",
-                "view_records",
-                "analyze_record"
+                "openPage",
+                "fetchPrescription",
+                "triggerSOS",
+                "logout",
+                "setReminder"
             ]
         }
     },
@@ -226,6 +215,33 @@ SYSTEM_CAPABILITIES = {
                     "message": {"type": "string"}
                 },
                 "required": ["message"]
+            },
+            "requires_confirmation": False
+        },
+        "set_reminder": {
+            "description": "Set or schedule a medicine reminder.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "medicine_name": {"type": "string"},
+                    "dosage": {"type": "string"},
+                    "time": {"type": "string", "pattern": "^\\d{2}:\\d{2}$"},
+                    "days": {"type": "string"},
+                    "method": {"type": "string", "enum": ["app", "email", "sms"]},
+                    "contact_info": {"type": "string"}
+                },
+                "required": ["medicine_name", "dosage", "time"]
+            },
+            "requires_confirmation": False
+        },
+        "anti_fraud_scan": {
+            "description": "Run an anti-fraud security scan on a medical record to verify its authenticity.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "record_id": {"type": "integer"}
+                },
+                "required": ["record_id"]
             },
             "requires_confirmation": False
         }

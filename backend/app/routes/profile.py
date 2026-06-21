@@ -20,6 +20,8 @@ class ProfileCreate(BaseModel):
     allergies: Optional[str] = None
     existing_conditions: Optional[str] = None
     address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class ProfileUpdate(BaseModel):
     name: Optional[str] = None
@@ -30,6 +32,8 @@ class ProfileUpdate(BaseModel):
     allergies: Optional[str] = None
     existing_conditions: Optional[str] = None
     address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 class ProfileResponse(BaseModel):
     id: int
@@ -42,6 +46,8 @@ class ProfileResponse(BaseModel):
     allergies: Optional[str]
     existing_conditions: Optional[str]
     address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     updated_at: datetime.datetime
 
     class Config:
@@ -69,7 +75,9 @@ def create_profile(profile_data: ProfileCreate, current_user: models.User = Depe
             weight=profile_data.weight,
             allergies=profile_data.allergies,
             existing_conditions=profile_data.existing_conditions,
-            address=profile_data.address
+            address=profile_data.address,
+            latitude=profile_data.latitude,
+            longitude=profile_data.longitude
         )
         db.add(new_profile)
         db.commit()

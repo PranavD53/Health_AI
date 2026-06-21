@@ -69,6 +69,8 @@ def _column_migrations(db_url: str) -> list[tuple[str, str, str]]:
         # patient_profiles
         ("patient_profiles", "address", "TEXT"),
         ("patient_profiles", "profile_picture", "VARCHAR"),
+        ("patient_profiles", "latitude", "FLOAT"),
+        ("patient_profiles", "longitude", "FLOAT"),
         # doctors
         ("doctors", "address", "TEXT"),
         ("doctors", "profile_picture", "VARCHAR"),

@@ -17,6 +17,23 @@ export default function MedicalRecords() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [analysisError, setAnalysisError] = useState('');
   const [scanningIds, setScanningIds] = useState({});
+  const [genRemindersLoading, setGenRemindersLoading] = useState(false);
+  const [remindersSuccessMsg, setRemindersSuccessMsg] = useState('');
+
+  const handleGenerateReminders = async () => {
+    if (!selectedRecord) return;
+    setGenRemindersLoading(true);
+    setRemindersSuccessMsg('');
+    try {
+      const res = await api.generateRemindersFromPrescription(selectedRecord.id);
+      setRemindersSuccessMsg(`Generated ${res.reminders_count || 0} reminders!`);
+      window.dispatchEvent(new Event('reminders_updated'));
+    } catch (err) {
+      alert("Failed to generate reminders: " + err.message);
+    } finally {
+      setGenRemindersLoading(false);
+    }
+  };
 
   const handleAntiFraudScan = async (e, recordId) => {
     e.stopPropagation();
@@ -104,6 +121,7 @@ export default function MedicalRecords() {
     setInsightsLoading(true);
     setAnalysisResult(null);
     setAnalysisError('');
+    setRemindersSuccessMsg('');
     
     try {
       const data = await api.analyzeRecord(record.id);
@@ -424,14 +442,44 @@ export default function MedicalRecords() {
               )}
             </div>
             
-            <div className="p-4 border-t border-outline-variant/50 bg-surface flex justify-end shrink-0">
-              <button 
-                type="button"
-                onClick={() => setShowInsightsModal(false)}
-                className="px-5 py-2 bg-primary hover:bg-primary/95 text-on-primary font-bold text-xs rounded-xl hover:shadow-md active:scale-95 transition-all focus:outline-none"
-              >
-                Done
-              </button>
+            <div className="p-4 border-t border-outline-variant/50 bg-surface flex justify-between items-center shrink-0">
+              {remindersSuccessMsg ? (
+                <span className="text-xs font-bold text-success flex items-center gap-2xs animate-pulse">
+                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                  {remindersSuccessMsg}
+                </span>
+              ) : (
+                <div />
+              )}
+              <div className="flex gap-sm">
+                {analysisResult && (
+                  <button 
+                    type="button"
+                    disabled={genRemindersLoading}
+                    onClick={handleGenerateReminders}
+                    className="px-5 py-2 bg-secondary hover:bg-secondary/95 disabled:bg-neutral-200 disabled:text-neutral-500 text-white font-bold text-xs rounded-xl hover:shadow-md active:scale-95 transition-all flex items-center gap-xs focus:outline-none"
+                  >
+                    {genRemindersLoading ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[16px]">alarm_add</span>
+                        Auto-generate Reminders
+                      </>
+                    )}
+                  </button>
+                )}
+                <button 
+                  type="button"
+                  onClick={() => setShowInsightsModal(false)}
+                  className="px-5 py-2 bg-primary hover:bg-primary/95 text-on-primary font-bold text-xs rounded-xl hover:shadow-md active:scale-95 transition-all focus:outline-none"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>

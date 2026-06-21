@@ -35,6 +35,77 @@ export default function Settings() {
   const [longitude, setLongitude] = useState('');
   const [gpsLoading, setGpsLoading] = useState(false);
 
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const mapRef = React.useRef(null);
+  const markerRef = React.useRef(null);
+
+  useEffect(() => {
+    if (window.L) {
+      setMapLoaded(true);
+      return;
+    }
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(link);
+
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.async = true;
+    script.onload = () => {
+      setMapLoaded(true);
+    };
+    document.body.appendChild(script);
+  }, []);
+
+  useEffect(() => {
+    if (!mapLoaded || !window.L) return;
+
+    const defaultLat = parseFloat(latitude) || 12.9716;
+    const defaultLng = parseFloat(longitude) || 77.5946;
+
+    const container = document.getElementById('doctor-map');
+    if (!container) return;
+
+    if (!mapRef.current) {
+      const map = window.L.map('doctor-map').setView([defaultLat, defaultLng], 13);
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      const marker = window.L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
+
+      marker.on('dragend', () => {
+        const position = marker.getLatLng();
+        setLatitude(position.lat.toFixed(6));
+        setLongitude(position.lng.toFixed(6));
+      });
+
+      mapRef.current = map;
+      markerRef.current = marker;
+    } else {
+      const latNum = parseFloat(latitude);
+      const lngNum = parseFloat(longitude);
+      if (!isNaN(latNum) && !isNaN(lngNum)) {
+        const currentLatLng = markerRef.current.getLatLng();
+        if (Math.abs(currentLatLng.lat - latNum) > 0.0001 || Math.abs(currentLatLng.lng - lngNum) > 0.0001) {
+          mapRef.current.setView([latNum, lngNum], 13);
+          markerRef.current.setLatLng([latNum, lngNum]);
+        }
+      }
+    }
+  }, [mapLoaded, latitude, longitude]);
+
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, []);
+
   // Admin Request States
   const [adminRequestLoading, setAdminRequestLoading] = useState(false);
   const [adminRequestSuccess, setAdminRequestSuccess] = useState(false);
@@ -563,6 +634,7 @@ export default function Settings() {
                     />
                   </div>
                 </div>
+                <div id="doctor-map" className="border border-outline-variant/50 shadow-sm" style={{ height: '220px', width: '100%', borderRadius: '12px', marginTop: '12px', zIndex: 1 }} />
               </div>
 
               {/* Upload Documents and Photos */}

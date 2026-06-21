@@ -337,8 +337,9 @@ export const api = {
   },
 
   // AI Assistant endpoint (Global Chatbot)
-  sendAssistantMessage: async (message, groqKey = '', hfKey = '', language = '', onChunk = null) => {
+  sendAssistantMessage: async (message, geminiKey = '', groqKey = '', hfKey = '', language = '', onChunk = null) => {
     const payload = { message };
+    if (geminiKey) payload.gemini_key = geminiKey;
     if (groqKey) payload.groq_key = groqKey;
     if (hfKey) payload.hf_key = hfKey;
     if (language) payload.language = language;
@@ -834,6 +835,14 @@ export const api = {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ priority })
+    });
+    return handleResponse(res);
+  },
+
+  generateRemindersFromPrescription: async (recordId) => {
+    const res = await apiFetch(`/records/${recordId}/generate-reminders`, {
+      method: 'POST',
+      headers: getHeaders()
     });
     return handleResponse(res);
   }

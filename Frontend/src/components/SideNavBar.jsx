@@ -43,14 +43,34 @@ export default function SideNavBar() {
 
   const handleSos = async () => {
     setSosLoading(true);
-    try {
-      await api.triggerSOS();
-      setSosSuccess(true);
-      setTimeout(() => setSosSuccess(false), 5000);
-    } catch (e) {
-      alert("SOS Trigger failed: " + e.message);
-    } finally {
-      setSosLoading(false);
+    const triggerWithCoords = async (lat = null, lng = null) => {
+      try {
+        await api.triggerSOS(null, lat, lng);
+        setSosSuccess(true);
+        setTimeout(() => setSosSuccess(false), 5000);
+      } catch (e) {
+        alert("SOS Trigger failed: " + e.message);
+      } finally {
+        setSosLoading(false);
+      }
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          triggerWithCoords(lat, lng);
+        },
+        (error) => {
+          console.warn("Geolocation failed or denied, sending SOS without coordinates.", error);
+          triggerWithCoords(null, null);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    } else {
+      console.warn("Geolocation not supported by browser, sending SOS without coordinates.");
+      triggerWithCoords(null, null);
     }
   };
 
@@ -174,7 +194,7 @@ export default function SideNavBar() {
             </button>
           )}
 
-          {user?.has_admin_permission && (
+          {user?.has_admin_permission && !(user.role === 'admin' && user.base_role !== 'doctor' && user.base_role !== 'caregiver') && (
             <button 
               onClick={handleRoleSwitch}
               disabled={switching}
