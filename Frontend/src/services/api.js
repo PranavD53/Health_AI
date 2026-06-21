@@ -184,8 +184,9 @@ export const api = {
     return handleResponse(res);
   },
 
-  getPatientDashboard: async (lang = 'en') => {
-    const res = await apiFetch(`/dashboard-data?lang=${lang}`, {
+  getPatientDashboard: async (lang = 'en', excludeTip = '') => {
+    const url = `/dashboard-data?lang=${lang}` + (excludeTip ? `&exclude_tip=${encodeURIComponent(excludeTip)}` : '');
+    const res = await apiFetch(url, {
       method: 'GET',
       headers: getHeaders()
     });
@@ -712,6 +713,14 @@ export const api = {
   endCall: async (callId) => {
     const res = await apiFetch(`/calls/${callId}/end`, {
       method: 'POST',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  getActiveCall: async () => {
+    const res = await apiFetch('/calls/active', {
+      method: 'GET',
       headers: getHeaders()
     });
     return handleResponse(res);

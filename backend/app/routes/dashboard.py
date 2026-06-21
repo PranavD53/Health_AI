@@ -65,65 +65,74 @@ HEALTH_TIPS_TE = [
     "ప్రాసెస్ చేసిన చక్కెరలను పరిమితం చేయండి మరియు శక్తి స్థాయిలను స్థిరంగా ఉంచడానికి మరియు మధ్యాహ్నం అలసటను నివారించడానికి సహజ ఆహార వనరులపై దృష్టి పెట్టండి."
 ]
 
-async def fetch_ai_health_tip(lang: str = "en") -> str:
+async def fetch_ai_health_tip(lang: str = "en", exclude_tip: Optional[str] = None) -> str:
     groq_key = os.getenv("GROQ_API_KEY", "")
     has_valid_key = groq_key and not groq_key.startswith("your_groq_api_key")
     
     if has_valid_key:
-        try:
-            async with httpx.AsyncClient() as client:
-                system_prompt = (
-                    "You are a helpful wellness and healthcare assistant. "
-                    "Give a single, concise daily health or wellness tip."
-                )
-                
-                lang_name = "English"
-                if lang == "hi":
-                    lang_name = "Hindi"
-                elif lang == "te":
-                    lang_name = "Telugu"
+        for _ in range(5):
+            try:
+                async with httpx.AsyncClient() as client:
+                    system_prompt = (
+                        "You are a helpful wellness and healthcare assistant. "
+                        "Give a single, concise daily health or wellness tip."
+                    )
                     
-                user_prompt = f"Generate a single random, concise health tip in 1-2 sentences. Return only the tip text in the language: {lang_name}."
+                    lang_name = "English"
+                    if lang == "hi":
+                        lang_name = "Hindi"
+                    elif lang == "te":
+                        lang_name = "Telugu"
+                        
+                    user_prompt = f"Generate a single random, concise health tip in 1-2 sentences. Return only the tip text in the language: {lang_name}."
+                    if exclude_tip:
+                        user_prompt += f" Make sure it is DIFFERENT from: '{exclude_tip}'."
+                    
+                    response = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {groq_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": "llama-3.1-8b-instant",
+                            "messages": [
+                                {"role": "system", "content": system_prompt},
+                                {"role": "user", "content": user_prompt}
+                            ],
+                            "temperature": 0.8,
+                            "max_tokens": 120
+                        },
+                        timeout=5.0
+                    )
+                    
+                    if response.status_code == 200:
+                        res_json = response.json()
+                        tip = res_json["choices"][0]["message"]["content"].strip()
+                        if tip.startswith('"') and tip.endswith('"'):
+                            tip = tip[1:-1]
+                        if not exclude_tip or tip.lower().strip() != exclude_tip.lower().strip():
+                            return tip
+            except Exception as e:
+                print(f"Failed to fetch AI health tip: {e}")
                 
-                response = await client.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {groq_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "llama-3.1-8b-instant",
-                        "messages": [
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": user_prompt}
-                        ],
-                        "temperature": 0.7,
-                        "max_tokens": 120
-                    },
-                    timeout=5.0
-                )
-                
-                if response.status_code == 200:
-                    res_json = response.json()
-                    tip = res_json["choices"][0]["message"]["content"].strip()
-                    # Strip quotes if the model returned them
-                    if tip.startswith('"') and tip.endswith('"'):
-                        tip = tip[1:-1]
-                    return tip
-        except Exception as e:
-            print(f"Failed to fetch AI health tip: {e}")
-            
+    # Fallback lists
+    hi_tips = [t for t in HEALTH_TIPS_HI if not exclude_tip or t.lower().strip() != exclude_tip.lower().strip()] or HEALTH_TIPS_HI
+    te_tips = [t for t in HEALTH_TIPS_TE if not exclude_tip or t.lower().strip() != exclude_tip.lower().strip()] or HEALTH_TIPS_TE
+    en_tips = [t for t in HEALTH_TIPS if not exclude_tip or t.lower().strip() != exclude_tip.lower().strip()] or HEALTH_TIPS
+    
     if lang == "hi":
-        return random.choice(HEALTH_TIPS_HI)
+        return random.choice(hi_tips)
     elif lang == "te":
-        return random.choice(HEALTH_TIPS_TE)
-    return random.choice(HEALTH_TIPS)
+        return random.choice(te_tips)
+    return random.choice(en_tips)
 
 # --- Endpoints ---
 
 @router.get("", response_model=DashboardResponse)
 async def get_dashboard(
     lang: Optional[str] = "en",
+    exclude_tip: Optional[str] = None,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -165,7 +174,7 @@ async def get_dashboard(
         ).order_by(models.MedicalRecord.uploaded_at.desc()).limit(5).all()
 
         # 4. AI Health Tip
-        health_tip = await fetch_ai_health_tip(lang)
+        health_tip = await fetch_ai_health_tip(lang, exclude_tip)
 
         # 5. Patient Metrics
         hr = db.query(models.PatientMetric).filter(models.PatientMetric.user_id == current_user.id, models.PatientMetric.metric_type == "heart_rate").order_by(models.PatientMetric.recorded_at.desc()).first()

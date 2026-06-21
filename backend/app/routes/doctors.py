@@ -416,6 +416,23 @@ def create_leave_request(
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor profile not found")
         
+    try:
+        start_date_obj = datetime.datetime.strptime(data.start_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD.")
+
+    try:
+        end_date_obj = datetime.datetime.strptime(data.end_date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD.")
+
+    today = datetime.date.today()
+    if start_date_obj < today + datetime.timedelta(days=2):
+        raise HTTPException(status_code=400, detail="Leave must be requested at least 2 days in advance")
+
+    if end_date_obj < start_date_obj:
+        raise HTTPException(status_code=400, detail="End date must be on or after start date")
+
     new_request = models.LeaveRequest(
         doctor_id=doctor.id,
         start_date=data.start_date,
@@ -464,6 +481,11 @@ def approve_leave_request(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only administrators can approve leave requests")
         
+    # Check if current_user has both roles (admin and doctor)
+    is_doctor = db.query(models.Doctor).filter(models.Doctor.user_id == current_user.id).first() is not None
+    if is_doctor:
+        raise HTTPException(status_code=403, detail="A user with both admin and doctor roles cannot approve leave requests.")
+
     req = db.query(models.LeaveRequest).filter(models.LeaveRequest.id == id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Leave request not found")
@@ -483,6 +505,23 @@ def approve_leave_request(
     )
     db.add(doctor_notif)
     
+    # Cancel all booked appointments of this doctor during their leave period
+    if doctor:
+        affected_appts = db.query(models.Appointment).filter(
+            models.Appointment.doctor_id == req.doctor_id,
+            models.Appointment.status == "booked",
+            models.Appointment.date >= req.start_date,
+            models.Appointment.date <= req.end_date
+        ).all()
+        for appt in affected_appts:
+            appt.status = "cancelled"
+            cancellation_notif = models.Notification(
+                user_id=appt.patient_id,
+                message=f"Your appointment with {doctor.name} on {appt.date} at {appt.time} has been cancelled because the doctor is on approved leave.",
+                notification_type="general"
+            )
+            db.add(cancellation_notif)
+            
     db.commit()
     log_action(db, current_user.id, "LEAVE_REQUEST_APPROVED", f"Leave request {id} approved for doctor {doctor.name if doctor else 'Unknown'}")
     return {"status": "success", "message": "Leave request approved successfully"}
@@ -496,6 +535,11 @@ def reject_leave_request(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Only administrators can reject leave requests")
         
+    # Check if current_user has both roles (admin and doctor)
+    is_doctor = db.query(models.Doctor).filter(models.Doctor.user_id == current_user.id).first() is not None
+    if is_doctor:
+        raise HTTPException(status_code=403, detail="A user with both admin and doctor roles cannot reject leave requests.")
+
     req = db.query(models.LeaveRequest).filter(models.LeaveRequest.id == id).first()
     if not req:
         raise HTTPException(status_code=404, detail="Leave request not found")
@@ -544,6 +588,14 @@ def trigger_surgery_replacement(
         models.Doctor.available == True
     ).all()
     
+    # Ensure doctor's user_id is populated if None
+    if not doctor.user_id:
+        doc_user = db.query(models.User).filter(models.User.email == doctor.contact).first()
+        if doc_user:
+            doctor.user_id = doc_user.id
+            db.commit()
+            db.refresh(doctor)
+
     reassigned_count = 0
     not_reassigned_count = 0
     
@@ -576,11 +628,48 @@ def trigger_surgery_replacement(
             )
             db.add(patient_notif)
             not_reassigned_count += 1
+
+    # Send private messages to affected patients if doctor's user_id exists
+    if doctor.user_id:
+        from sqlalchemy import or_, and_
+        patient_ids = {appt.patient_id for appt in appointments}
+        for p_id in patient_ids:
+            conv = db.query(models.PrivateConversation).filter(
+                or_(
+                    and_(models.PrivateConversation.user1_id == doctor.user_id, models.PrivateConversation.user2_id == p_id),
+                    and_(models.PrivateConversation.user1_id == p_id, models.PrivateConversation.user2_id == doctor.user_id)
+                )
+            ).first()
+            if not conv:
+                conv = models.PrivateConversation(
+                    user1_id=doctor.user_id,
+                    user2_id=p_id
+                )
+                db.add(conv)
+                db.commit()
+                db.refresh(conv)
+
+            msg_text = f"Hello, I am writing to inform you that Dr. {doctor.name} is currently unavailable due to an urgent surgery. Your appointment has been updated accordingly."
+            new_msg = models.PrivateMessage(
+                conversation_id=conv.id,
+                sender_id=doctor.user_id,
+                content=msg_text
+            )
+            db.add(new_msg)
+
+            chat_notif = models.Notification(
+                user_id=p_id,
+                message=f"New message from Dr. {doctor.name}: {msg_text[:50]}...",
+                notification_type="chat_message",
+                related_id=conv.id
+            )
+            db.add(chat_notif)
             
     db.commit()
     log_action(db, current_user.id, "SURGERY_REPLACEMENT_TRIGGERED", f"Doctor {doctor.name} triggered surgery replacement. Reassigned: {reassigned_count}, Rescheduled: {not_reassigned_count}")
     return {
         "status": "success",
         "reassigned": reassigned_count,
+        "reassigned_count": reassigned_count,
         "pending_reschedule": not_reassigned_count
     }

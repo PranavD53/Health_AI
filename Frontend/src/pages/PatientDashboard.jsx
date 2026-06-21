@@ -80,7 +80,7 @@ export default function PatientDashboard() {
   const handleRefreshTip = async () => {
     setRefreshTipLoading(true);
     try {
-      const data = await api.getPatientDashboard(currentLanguage);
+      const data = await api.getPatientDashboard(currentLanguage, dashboardData?.health_tip);
       setDashboardData(prev => ({
         ...prev,
         health_tip: data.health_tip

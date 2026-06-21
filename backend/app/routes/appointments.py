@@ -140,6 +140,42 @@ def book_appointment(
                 detail="Doctor is currently unavailable for booking"
             )
 
+        # Validate clinic hours (08:00 to 20:00)
+        if not ("08:00" <= booking.time <= "20:00"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Appointments must be scheduled during clinic hours (08:00 to 20:00)."
+            )
+
+        # Validate booking date is at least 2 days in the future
+        try:
+            booking_date_obj = datetime.datetime.strptime(booking.date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid date format. Use YYYY-MM-DD."
+            )
+        
+        today = datetime.date.today()
+        if booking_date_obj < today + datetime.timedelta(days=2):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Appointments must be booked at least 2 days in advance."
+            )
+
+        # Check if booking date falls within approved leave dates
+        approved_leave = db.query(models.LeaveRequest).filter(
+            models.LeaveRequest.doctor_id == doctor_id_val,
+            models.LeaveRequest.status == "approved",
+            models.LeaveRequest.start_date <= booking.date,
+            models.LeaveRequest.end_date >= booking.date
+        ).first()
+        if approved_leave:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Doctor is on approved leave from {approved_leave.start_date} to {approved_leave.end_date}."
+            )
+
         # Check for scheduling conflicts (same doctor, same date, same time)
         existing_booking = db.query(models.Appointment).filter(
             models.Appointment.doctor_id == doctor_id_val,

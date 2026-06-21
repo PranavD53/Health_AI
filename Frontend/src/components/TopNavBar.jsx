@@ -421,6 +421,7 @@ export default function TopNavBar() {
                       if (n.notification_type === 'chat_message') iconName = 'chat';
                       else if (n.notification_type === 'complaint_submitted') iconName = 'report_problem';
                       else if (n.notification_type === 'complaint_resolved') iconName = 'check_circle';
+                      else if (n.notification_type === 'meet_started') iconName = 'videocam';
 
                       return (
                         <div 
@@ -428,7 +429,7 @@ export default function TopNavBar() {
                           className="p-3 hover:bg-surface-container-low transition-colors flex items-start gap-sm cursor-pointer"
                           onClick={() => {
                             handleMarkAsRead(n.id);
-                            if (n.notification_type === 'chat_message') {
+                            if (n.notification_type === 'chat_message' || n.notification_type === 'meet_started') {
                               window.location.href = '/chat';
                             }
                           }}

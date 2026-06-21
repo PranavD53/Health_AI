@@ -149,7 +149,14 @@ def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session 
 
 def require_role(allowed_roles: list[str]):
     def role_dependency(current_user: models.User = Depends(get_current_user)):
-        if current_user.role not in allowed_roles:
+        has_allowed_role = current_user.role in allowed_roles
+        
+        # If doctor is an allowed role and this user has a doctor profile, permit it
+        if not has_allowed_role and "doctor" in allowed_roles:
+            if current_user.doctor_profile is not None:
+                has_allowed_role = True
+                
+        if not has_allowed_role:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Operation not permitted. Required roles: {allowed_roles}"

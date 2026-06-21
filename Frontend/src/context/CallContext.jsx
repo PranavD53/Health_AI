@@ -68,7 +68,7 @@ export function CallProvider({ children }) {
     }
   };
 
-  const handleStartCall = async (chatId, otherPartyName) => {
+  const handleStartCall = async (chatId, otherPartyName, appointmentId = null) => {
     try {
       setCallStatus('ringing');
       setActiveCall({
@@ -76,7 +76,7 @@ export function CallProvider({ children }) {
         otherPartyName: otherPartyName
       });
       
-      const res = await api.initiateCall(null, chatId);
+      const res = await api.initiateCall(appointmentId || null, chatId || null);
       setActiveCall(prev => ({
         ...prev,
         call_id: res.call_id,
@@ -188,7 +188,56 @@ export function CallProvider({ children }) {
       setActiveCall(null);
       setIncomingCall(null);
       setCallStatus('idle');
+      return;
     }
+
+    const checkActiveCall = async () => {
+      try {
+        const data = await api.getActiveCall();
+        if (data && data.has_active_call) {
+          if (data.role === 'patient') {
+            if (data.status === 'INITIATED' || data.status === 'RINGING') {
+              setIncomingCall({
+                call_id: data.call_id,
+                room_id: data.room_id,
+                doctor_name: data.other_party_name
+              });
+              setCallStatus('ringing');
+            } else if (data.status === 'ACCEPTED' || data.status === 'ONGOING') {
+              setActiveCall({
+                call_id: data.call_id,
+                room_id: data.room_id,
+                token: data.token,
+                sfu_url: data.sfu_url,
+                role: 'patient',
+                otherPartyName: data.other_party_name
+              });
+              setCallStatus('connected');
+              startLocalCamera();
+            }
+          } else if (data.role === 'doctor') {
+            setActiveCall({
+              call_id: data.call_id,
+              room_id: data.room_id,
+              token: data.token,
+              sfu_url: data.sfu_url,
+              role: 'doctor',
+              otherPartyName: data.other_party_name
+            });
+            if (data.status === 'INITIATED' || data.status === 'RINGING') {
+              setCallStatus('ringing');
+            } else {
+              setCallStatus('connected');
+            }
+            startLocalCamera();
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch active call on load:", err);
+      }
+    };
+
+    checkActiveCall();
   }, [user]);
 
   // Subscribe to WS signaling events globally

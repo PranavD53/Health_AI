@@ -379,10 +379,38 @@ async def analyze_record(
                 res_json = response.json()
                 content = res_json["choices"][0]["message"]["content"]
                 parsed = json.loads(content)
+
+                def format_to_string(value) -> str:
+                    if value is None:
+                        return ""
+                    if isinstance(value, str):
+                        return value
+                    if isinstance(value, list):
+                        items = []
+                        for item in value:
+                            if isinstance(item, dict):
+                                parts = []
+                                for k, v in item.items():
+                                    parts.append(f"{k.capitalize()}: {v}")
+                                items.append("- " + ", ".join(parts))
+                            else:
+                                items.append(f"- {item}")
+                        return "\n".join(items)
+                    if isinstance(value, dict):
+                        parts = []
+                        for k, v in value.items():
+                            parts.append(f"{k.capitalize()}: {v}")
+                        return "\n".join(parts)
+                    return str(value)
+
+                insights_val = format_to_string(parsed.get("insights", "No insights extracted."))
+                medications_val = format_to_string(parsed.get("medications", "No medications suggested."))
+                disclaimer_val = format_to_string(parsed.get("disclaimer", disclaimer))
+
                 return RecordAnalysisResponse(
-                    insights=parsed.get("insights", "No insights extracted."),
-                    medications=parsed.get("medications", "No medications suggested."),
-                    disclaimer=parsed.get("disclaimer", disclaimer),
+                    insights=insights_val,
+                    medications=medications_val,
+                    disclaimer=disclaimer_val,
                     yolo_results=yolo_results
                 )
             else:

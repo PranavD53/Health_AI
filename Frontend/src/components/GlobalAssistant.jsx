@@ -689,6 +689,11 @@ export default function GlobalAssistant() {
 
     bgRec.onerror = (e) => {
       console.warn("Background SpeechRecognition error:", e);
+      if (e.error === 'not-allowed') {
+        setTarsVoiceEnabled(false);
+        localStorage.setItem('tars_voice_enabled', 'false');
+        window.dispatchEvent(new Event('tars_voice_toggle'));
+      }
     };
 
     bgRec.onresult = (event) => {
@@ -790,7 +795,7 @@ export default function GlobalAssistant() {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      console.warn("SpeechRecognition not supported in this browser.");
+      alert("SpeechRecognition / Web Speech API is not supported or is disabled in your browser. Please use Chrome or Edge, or enable voice/microphone support in your browser settings.");
       setIsListening(false);
       return;
     }
@@ -812,6 +817,11 @@ export default function GlobalAssistant() {
     activeRec.onerror = (e) => {
       console.error("Active SpeechRecognition error:", e);
       setIsListening(false);
+      if (e.error === 'not-allowed') {
+        alert("Microphone access was denied. Please enable microphone permissions in your browser settings to speak to TARS.");
+      } else if (e.error !== 'no-speech') {
+        alert(`Speech recognition error: ${e.error}. Please verify your microphone connection.`);
+      }
     };
 
     activeRec.onresult = (event) => {
@@ -953,7 +963,7 @@ export default function GlobalAssistant() {
         }
         const today = new Date();
         const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setDate(tomorrow.getDate() + 2);
         const yyyy = tomorrow.getFullYear();
         const mm = String(tomorrow.getMonth() + 1).padStart(2, '0');
         const dd = String(tomorrow.getDate()).padStart(2, '0');
@@ -963,10 +973,16 @@ export default function GlobalAssistant() {
         const date = parameters.date || tomorrowStr;
         const time = parameters.time || '10:00';
         
-        await api.bookAppointment(docId, date, time);
-        const successMsg = `Appointment successfully booked for ${date} at ${time}!`;
-        setMessages(prev => [...prev, { role: 'assistant', content: successMsg }]);
-        speakAndResume(successMsg);
+        try {
+          await api.bookAppointment(docId, date, time);
+          const successMsg = `Appointment successfully booked for ${date} at ${time}!`;
+          setMessages(prev => [...prev, { role: 'assistant', content: successMsg }]);
+          speakAndResume(successMsg);
+        } catch (err) {
+          const errorMsg = err.response?.data?.detail || err.message || "Failed to book appointment.";
+          setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
+          speakAndResume(errorMsg);
+        }
       } else if (type === 'fetchPrescription') {
         const list = parameters.prescriptions || [];
         if (list.length > 0) {
@@ -1159,7 +1175,7 @@ export default function GlobalAssistant() {
             </div>
           </div>
 
-            /* Messages List */
+            {/* Messages List */}
             <>
               <div className="flex-1 p-4 overflow-y-auto space-y-md bg-surface-container-lowest">
                 {messages.map((msg, index) => (

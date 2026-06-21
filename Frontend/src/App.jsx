@@ -56,7 +56,8 @@ function DoctorRoute() {
   if (loading) return <LoadingScreen />;
   if (!user) return <Navigate to="/login" replace />;
   
-  if (user.role !== 'doctor' || id != user.doctor_profile_id) {
+  const isDoc = user.role === 'doctor' || (user.role === 'admin' && user.doctor_profile_id);
+  if (!isDoc || id != user.doctor_profile_id) {
     if (user.role === 'doctor') {
       return <Navigate to={`/doctor/${user.doctor_profile_id}`} replace />;
     }

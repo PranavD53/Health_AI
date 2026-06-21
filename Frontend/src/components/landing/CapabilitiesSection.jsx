@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
 gsap.registerPlugin(ScrollTrigger);
 
 export default function CapabilitiesSection() {
+  const navigate = useNavigate();
   const containerRef = useRef(null);
   const [prefersReduced, setPrefersReduced] = useState(false);
 
@@ -134,7 +136,10 @@ export default function CapabilitiesSection() {
               </div>
 
               {/* Action Link */}
-              <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--theme-primary)] cursor-pointer group/link hover:opacity-85">
+              <div 
+                onClick={() => navigate('/register')}
+                className="flex items-center gap-1.5 text-xs font-bold text-[var(--theme-primary)] cursor-pointer group/link hover:opacity-85"
+              >
                 Learn more 
                 <span className="material-symbols-outlined text-xs transition-transform duration-200 group-hover/link:translate-x-1">
                   arrow_forward

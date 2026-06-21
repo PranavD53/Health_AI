@@ -436,7 +436,11 @@ export default function DoctorSearch() {
                   <input 
                     required
                     type="date"
-                    min={new Date().toISOString().split('T')[0]}
+                    min={(() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 2);
+                      return d.toISOString().split('T')[0];
+                    })()}
                     value={bookingDate}
                     onChange={(e) => setBookingDate(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:border-secondary text-sm font-semibold text-on-surface"

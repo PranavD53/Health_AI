@@ -149,83 +149,74 @@ async def voice_websocket(websocket: WebSocket, token: Optional[str] = None, db:
                     })
                     
                     # 3. Stream Response from TARS LLM Assistant
-                    # Resolve base API path dynamically from websocket connection details
-                    scheme = "https" if websocket.url.scheme in ("wss", "https") else "http"
-                    local_url = f"{scheme}://{websocket.url.netloc}/ai/assistant"
-                    
                     groq_key = control.get("groq_key") or ""
                     hf_key = control.get("hf_key") or ""
+                    gemini_key = control.get("gemini_key") or ""
                     
-                    accumulated_text = ""
-                    spoken_index = 0
-                    sentence_regex = re.compile(r'[^.?!।\n]+[.?!।\n]+')
+                    from app.services.tars_engine import execute_tars_intent
                     
-                    async with httpx.AsyncClient(verify=False) as client:
-                        headers = {
-                            "Authorization": f"Bearer {token}",
-                            "Content-Type": "application/json"
-                        }
-                        payload = {
-                            "message": transcription,
-                            "groq_key": groq_key,
-                            "hf_key": hf_key,
-                            "language": detected_language
-                        }
+                    try:
+                        result = await execute_tars_intent(
+                            message=transcription,
+                            current_user=current_user,
+                            db=db,
+                            gemini_key=gemini_key,
+                            groq_key=groq_key,
+                            hf_key=hf_key,
+                            language=detected_language
+                        )
                         
-                        try:
-                            async with client.stream("POST", local_url, headers=headers, json=payload, timeout=30.0) as stream_resp:
-                                if stream_resp.status_code == 200:
-                                    async for line in stream_resp.aiter_lines():
-                                        line = line.strip()
-                                        if line.startswith("data: "):
-                                            # Forward SSE text chunk directly to client
-                                            await websocket.send_text(line)
-                                            
-                                            # Extract chunk content for TTS synthesis
-                                            if line == "data: [DONE]":
-                                                continue
-                                            try:
-                                                chunk_data = json.loads(line[6:])
-                                                if chunk_data.get("type") == "chunk":
-                                                    content = chunk_data.get("content", "")
-                                                    accumulated_text += content
-                                                    
-                                                    # Look for completed sentences dynamically
-                                                    pending_text = accumulated_text[spoken_index:]
-                                                    for match in sentence_regex.finditer(pending_text):
-                                                        sentence = match.group(0).strip()
-                                                        if sentence:
-                                                            # Yield start signal
-                                                            await websocket.send_json({"type": "audio_start", "text": sentence})
-                                                            # Yield audio stream chunks
-                                                            for audio_chunk in synthesize_speech_stream(sentence, detected_language):
-                                                                await websocket.send_bytes(audio_chunk)
-                                                            # Yield end signal
-                                                            await websocket.send_json({"type": "audio_end"})
-                                                        spoken_index += match.end()
-                                            except Exception as chunk_err:
-                                                logger.debug(f"TTS Chunk parse err: {chunk_err}")
-                                                
-                                    # Speak any remaining unsynthesized text at the end
-                                    remaining = accumulated_text[spoken_index:].strip()
-                                    if remaining:
-                                        await websocket.send_json({"type": "audio_start", "text": remaining})
-                                        for audio_chunk in synthesize_speech_stream(remaining, detected_language):
-                                            await websocket.send_bytes(audio_chunk)
-                                        await websocket.send_json({"type": "audio_end"})
-                                else:
-                                    # Fallback if loopback HTTP call failed (e.g. SSL/port issue)
-                                    logger.warning(f"Local loopback failed with status {stream_resp.status_code}")
-                                    await websocket.send_json({
-                                        "type": "error",
-                                        "message": f"Local loopback failed: {stream_resp.status_code}"
-                                    })
-                        except Exception as loop_e:
-                            logger.error(f"WebSocket loopback error: {loop_e}")
+                        accumulated_text = result["message"]
+                        action_payload = result["action"]
+                        disclaimer = result["disclaimer"]
+                        
+                        # Send text representation of the assistant response to client
+                        # To simulate typing or streaming chunks, we yield chunk events
+                        chunk_size = 4
+                        for i in range(0, len(accumulated_text), chunk_size):
+                            chunk = accumulated_text[i:i+chunk_size]
                             await websocket.send_json({
-                                "type": "error",
-                                "message": f"Query execution failed: {str(loop_e)}"
+                                "type": "chunk",
+                                "content": chunk
                             })
+                            await asyncio.sleep(0.01)
+                            
+                        # Send final action mapping to complete the call execution on frontend
+                        await websocket.send_json({
+                            "type": "action",
+                            "action": action_payload,
+                            "disclaimer": disclaimer,
+                            "reply": accumulated_text
+                        })
+                        
+                        # Stream TTS audio sentences to client
+                        import asyncio
+                        spoken_index = 0
+                        sentence_regex = re.compile(r'[^.?!।\n]+[.?!।\n]+')
+                        
+                        pending_text = accumulated_text
+                        for match in sentence_regex.finditer(pending_text):
+                            sentence = match.group(0).strip()
+                            if sentence:
+                                await websocket.send_json({"type": "audio_start", "text": sentence})
+                                for audio_chunk in synthesize_speech_stream(sentence, detected_language):
+                                    await websocket.send_bytes(audio_chunk)
+                                await websocket.send_json({"type": "audio_end"})
+                            spoken_index += match.end()
+                            
+                        # Speak any remaining text
+                        remaining = accumulated_text[spoken_index:].strip()
+                        if remaining:
+                            await websocket.send_json({"type": "audio_start", "text": remaining})
+                            for audio_chunk in synthesize_speech_stream(remaining, detected_language):
+                                await websocket.send_bytes(audio_chunk)
+                            await websocket.send_json({"type": "audio_end"})
+                    except Exception as tars_e:
+                        logger.error(f"Voice WebSocket engine error: {tars_e}")
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": f"Query execution failed: {str(tars_e)}"
+                        })
                             
     except WebSocketDisconnect:
         logger.info("Voice WebSocket disconnected cleanly")

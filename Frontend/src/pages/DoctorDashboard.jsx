@@ -4,12 +4,20 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useWebSocket } from '../context/WebSocketContext';
+import { useCall } from '../context/CallContext';
 
 export default function DoctorDashboard() {
   const { t } = useLanguage();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { handleStartCall } = useCall();
   const [dashboardData, setDashboardData] = useState(null);
+
+  const getMinLeaveDate = () => {
+    const dt = new Date();
+    dt.setDate(dt.getDate() + 2);
+    return dt.toISOString().split('T')[0];
+  };
   const [activeSOS, setActiveSOS] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -403,12 +411,21 @@ export default function DoctorDashboard() {
                         {appt.status}
                       </span>
                       {appt.status === 'booked' && (
-                        <button
-                          onClick={() => handleCompleteAppointment(appt.id)}
-                          className="px-3 py-1.5 bg-secondary hover:bg-secondary/95 text-white text-xs font-bold rounded-lg transition-colors active:scale-[0.98]"
-                        >
-                          {t('completeVisit') || 'Complete Visit'}
-                        </button>
+                        <div className="flex gap-sm">
+                          <button
+                            onClick={() => handleStartCall(null, appt.patient_name, appt.id)}
+                            className="px-3 py-1.5 bg-primary hover:bg-primary/95 text-white text-xs font-bold rounded-lg transition-colors active:scale-[0.98] flex items-center gap-xs"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">videocam</span>
+                            Start Meet
+                          </button>
+                          <button
+                            onClick={() => handleCompleteAppointment(appt.id)}
+                            className="px-3 py-1.5 bg-secondary hover:bg-secondary/95 text-white text-xs font-bold rounded-lg transition-colors active:scale-[0.98]"
+                          >
+                            {t('completeVisit') || 'Complete Visit'}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -603,11 +620,11 @@ export default function DoctorDashboard() {
               <div className="grid grid-cols-2 gap-sm">
                 <div className="space-y-xs">
                   <label className="font-bold text-outline uppercase block">Start Date</label>
-                  <input required type="date" name="start_date" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                  <input required type="date" name="start_date" min={getMinLeaveDate()} className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
                 </div>
                 <div className="space-y-xs">
                   <label className="font-bold text-outline uppercase block">End Date</label>
-                  <input required type="date" name="end_date" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                  <input required type="date" name="end_date" min={getMinLeaveDate()} className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
                 </div>
               </div>
               <div className="space-y-xs">
