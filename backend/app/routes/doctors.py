@@ -1,5 +1,5 @@
 import os
-import datetime
+from app.timezone_helper import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Header
 from sqlalchemy.orm import Session
@@ -183,14 +183,14 @@ def get_doctors(
         
         doctors = query.all()
         
-        # Translate dynamically
+        # Translate dynamically using available translations
         lang = "en"
         if accept_language:
             preferred = accept_language.split(",")[0].strip().lower()
-            if preferred.startswith("hi"):
-                lang = "hi"
-            elif preferred.startswith("te"):
-                lang = "te"
+            for key in DOCTOR_TRANSLATIONS.keys():
+                if preferred.startswith(key):
+                    lang = key
+                    break
 
         res = []
         for d in doctors:

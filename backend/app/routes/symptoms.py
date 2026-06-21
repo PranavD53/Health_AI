@@ -42,7 +42,11 @@ EMERGENCY_KEYWORDS = [
     "chest pain", "can't breathe", "stroke", 
     "unconscious", "loss of consciousness", "bleeding", "heavy bleeding", "suicide", "heart attack", 
     "difficulty breathing", "extreme difficulty breathing", "slurred speech", "facial drooping",
-    "seizure", "seizures", "acute seizures", "anaphylactic", "anaphylaxis", "allergic reaction"
+    "seizure", "seizures", "acute seizures", "anaphylactic", "anaphylaxis", "allergic reaction",
+    # Hindi emergency keywords
+    "छाती में दर्द", "सांस लेने में तकलीफ", "लकवा", "स्ट्रोक", "खून बहना", "दिल का दौरा", "आत्महत्या",
+    # Telugu emergency keywords
+    "గుండె నొప్పి", "గుండెల్లో నొప్పి", "శ్వాస తీసుకోవడంలో ఇబ్బంది", "పక్షవాతం", "రక్తం కారడం", "రక్తస్రావం", "గుండెపోటు", "ఆత్మహత్య"
 ]
 
 def scan_for_emergency(text: str) -> bool:

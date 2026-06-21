@@ -1,4 +1,4 @@
-import datetime
+from app.timezone_helper import datetime
 from typing import List, Optional, Union, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.orm import Session
@@ -42,7 +42,7 @@ class AppointmentResponse(BaseModel):
 
 # --- Helper for dynamic timeline offsets ---
 def adjust_timestamps_generic(items: list, today_date=None):
-    import datetime
+    # Using patched datetime from module level
     if not today_date:
         today_date = datetime.date.today()
     now = datetime.datetime.utcnow()

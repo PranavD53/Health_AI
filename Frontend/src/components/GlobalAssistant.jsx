@@ -104,9 +104,7 @@ export default function GlobalAssistant() {
   const groqKey = localStorage.getItem('tars_groq_key') || '';
   const hfKey = localStorage.getItem('tars_hf_key') || '';
 
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: 'Hello! I am TARS, your multilingual AI assistant. I can speak and listen in English, Hindi (हिन्दी), Telugu (తెలుగు), Hinglish, and Tinglish. Say "TARS wake up" or click the mic to begin, or type a request to navigate through the application.' }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [language, setLanguage] = useState('en-US'); // en-US, hi-IN, te-IN
   const [isListening, setIsListening] = useState(false);
@@ -114,14 +112,31 @@ export default function GlobalAssistant() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (currentLanguage === 'hi') {
-      setLanguage('hi-IN');
-    } else if (currentLanguage === 'te') {
-      setLanguage('te-IN');
-    } else {
-      setLanguage('en-US');
-    }
+    const languageLocales = {
+      en: 'en-US',
+      hi: 'hi-IN',
+      te: 'te-IN'
+    };
+    setLanguage(languageLocales[currentLanguage] || 'en-US');
   }, [currentLanguage]);
+
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length === 0) {
+        return [{ role: 'assistant', content: t('tarsGreetingInitial') }];
+      }
+      const newMsgs = [...prev];
+      if (newMsgs[0] && newMsgs[0].role === 'assistant') {
+        const content = newMsgs[0].content;
+        if (content.startsWith('Hello! I am TARS') || 
+            content.startsWith('नमस्ते!') || 
+            content.startsWith('నమస్తే!')) {
+          newMsgs[0].content = t('tarsGreetingInitial');
+        }
+      }
+      return newMsgs;
+    });
+  }, [currentLanguage, t]);
 
   const connectVoiceWebSocket = () => {
     if (voiceSocketRef.current && (voiceSocketRef.current.readyState === WebSocket.CONNECTING || voiceSocketRef.current.readyState === WebSocket.OPEN)) {
@@ -392,17 +407,10 @@ export default function GlobalAssistant() {
 
   // Helper matching deactivation commands
   const isDeactivationCommand = (text) => {
-    const t = text.toLowerCase().trim();
-    const sleepPhrases = [
-      "tars go to sleep", "tars sleep", "tars turn off", "turn off tars", 
-      "tars stop", "stop tars", "tars deactivate", "tars bye", "bye tars",
-      "tars sojao", "tars band karo", "tars off karo", "tars bandh karo", 
-      "tars paduko", "tars off cheyyi", "tars stop cheyyi", "tars bandh cheyyi",
-      "go to sleep tars", "sleep tars", "sojao tars", "band karo tars",
-      "that's enough", "go quiet", "stop listening", "bas karo", "oddu", "bye", "goodbye",
-      "chup", "chup ho jao", "chup raho", "silent", "go silent", "standby"
-    ];
-    return sleepPhrases.some(phrase => t.includes(phrase) || phrase === t);
+    const textVal = text.toLowerCase().trim();
+    const phrasesStr = t('tarsDeactivatePhrases');
+    const phrases = phrasesStr.split(',').map(p => p.trim().toLowerCase());
+    return phrases.some(phrase => textVal.includes(phrase) || phrase === textVal);
   };
 
 
@@ -601,13 +609,13 @@ export default function GlobalAssistant() {
   useEffect(() => {
     const handleGlobalMicClick = () => {
       if (localStorage.getItem('is_in_call') === 'true') {
-        alert("Voice assistant is disabled during an active video call.");
+        alert(t('tarsVoiceCallWarning'));
         return;
       }
       
       if (!user) {
         cancelSpeech();
-        speakMessage("Hello! Please login or register to access fully voice-automated TARS assistance.");
+        speakMessage(t('tarsLoginWarning'));
         return;
       }
 
@@ -664,7 +672,7 @@ export default function GlobalAssistant() {
     }
 
     const bgRec = new SpeechRecognition();
-    bgRec.continuous = true;
+    bgRec.continuous = false;
     bgRec.interimResults = true;
     bgRec.lang = language;
 
@@ -702,10 +710,9 @@ export default function GlobalAssistant() {
       console.log("Background heard:", transcript);
 
       const transcriptLower = transcript.toLowerCase();
-      // Expanded wake word triggers (tars, tarz, stars, star, tar, task, torch, tour, cars, bars)
-      const containsWakeWord = /\b(tars|tarz|stars|star|tar|task|torch|tour|cars|bars)\b/i.test(transcriptLower) ||
-                               transcriptLower.includes("टार्स") || 
-                               transcriptLower.includes("టార్స్");
+      const wakeWordsStr = t('tarsWakeWords');
+      const wakeWords = wakeWordsStr.split(',').map(w => w.trim().toLowerCase());
+      const containsWakeWord = wakeWords.some(w => transcriptLower.includes(w) || w === transcriptLower);
 
       if (containsWakeWord) {
         try {
@@ -714,18 +721,20 @@ export default function GlobalAssistant() {
 
         if (!user) {
           playActivationSound();
-          speakMessage("Hello! Please login or register to access fully voice-automated TARS assistance.");
+          speakMessage(t('tarsLoginWarning'));
           return;
         }
 
-        let processedText = transcript
-          .replace(/\b(tars|tarz|stars|star|torch|task|tour|tar|cars|bars)\b/gi, '')
-          .replace(/टार्स/gi, '')
-          .replace(/టార్స్/gi, '')
-          .trim();
-
-        // Clean up leading/trailing punctuation/spaces
-        processedText = processedText.replace(/^[,.\s]+|[,.\s]+$/g, '');
+        let processedText = transcript;
+        const wakeWordsStr = t('tarsWakeWords');
+        const wakeWords = wakeWordsStr.split(',').map(w => w.trim().toLowerCase());
+        wakeWords.sort((a, b) => b.length - a.length);
+        for (const word of wakeWords) {
+          const regex = new RegExp(`\\b${word}\\b`, 'gi');
+          processedText = processedText.replace(regex, '');
+          processedText = processedText.replace(new RegExp(word, 'gi'), '');
+        }
+        processedText = processedText.trim();
 
         playActivationSound();
         setVoiceSessionActive(true);
@@ -734,13 +743,7 @@ export default function GlobalAssistant() {
           handleSend(processedText);
         } else {
           // Greet and start active listening
-          const uiLang = localStorage.getItem('app_lang') || 'en';
-          let greeting = "Yes, I am listening.";
-          if (uiLang === 'hi') {
-            greeting = "जी, मैं सुन रहा हूँ।";
-          } else if (uiLang === 'te') {
-            greeting = "అవును, నేను వింటున్నాను.";
-          }
+          const greeting = t('tarsListening');
           speakMessage(greeting, () => {
             startListening();
           });
@@ -780,13 +783,15 @@ export default function GlobalAssistant() {
 
   const startListening = () => {
     if (isInCall) {
-      alert("Voice assistant is disabled during an active video call.");
+      alert(t('tarsVoiceCallWarning'));
       return;
     }
     
+    let stoppedBg = false;
     if (bgRecognitionRef.current) {
       try {
         bgRecognitionRef.current.stop();
+        stoppedBg = true;
       } catch (e) {}
     }
 
@@ -795,49 +800,58 @@ export default function GlobalAssistant() {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert("SpeechRecognition / Web Speech API is not supported or is disabled in your browser. Please use Chrome or Edge, or enable voice/microphone support in your browser settings.");
+      alert(t('tarsUnsupported'));
       setIsListening(false);
       return;
     }
 
-    const activeRec = new SpeechRecognition();
-    activeRec.continuous = false;
-    activeRec.interimResults = false;
-    activeRec.lang = language;
+    const startActiveRec = () => {
+      if (isInCall) return;
+      const activeRec = new SpeechRecognition();
+      activeRec.continuous = false;
+      activeRec.interimResults = false;
+      activeRec.lang = language;
 
-    activeRec.onstart = () => {
-      console.log("Active SpeechRecognition started...");
-    };
+      activeRec.onstart = () => {
+        console.log("Active SpeechRecognition started...");
+      };
 
-    activeRec.onend = () => {
-      console.log("Active SpeechRecognition ended.");
-      setIsListening(false);
-    };
+      activeRec.onend = () => {
+        console.log("Active SpeechRecognition ended.");
+        setIsListening(false);
+      };
 
-    activeRec.onerror = (e) => {
-      console.error("Active SpeechRecognition error:", e);
-      setIsListening(false);
-      if (e.error === 'not-allowed') {
-        alert("Microphone access was denied. Please enable microphone permissions in your browser settings to speak to TARS.");
-      } else if (e.error !== 'no-speech') {
-        alert(`Speech recognition error: ${e.error}. Please verify your microphone connection.`);
+      activeRec.onerror = (e) => {
+        console.error("Active SpeechRecognition error:", e);
+        setIsListening(false);
+        if (e.error === 'not-allowed') {
+          alert(t('tarsMicDenied'));
+        } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+          console.warn(`Speech recognition non-fatal error: ${e.error}`);
+        }
+      };
+
+      activeRec.onresult = (event) => {
+        const transcript = event.results[0][0].transcript.trim();
+        console.log("Active SpeechRecognition heard:", transcript);
+        if (transcript.length > 0) {
+          handleSend(transcript);
+        }
+      };
+
+      activeRecognitionRef.current = activeRec;
+      try {
+        activeRec.start();
+      } catch (e) {
+        console.error("Failed to start active SpeechRecognition:", e);
+        setIsListening(false);
       }
     };
 
-    activeRec.onresult = (event) => {
-      const transcript = event.results[0][0].transcript.trim();
-      console.log("Active SpeechRecognition heard:", transcript);
-      if (transcript.length > 0) {
-        handleSend(transcript);
-      }
-    };
-
-    activeRecognitionRef.current = activeRec;
-    try {
-      activeRec.start();
-    } catch (e) {
-      console.error("Failed to start active SpeechRecognition:", e);
-      setIsListening(false);
+    if (stoppedBg) {
+      setTimeout(startActiveRec, 350);
+    } else {
+      startActiveRec();
     }
   };
 
@@ -849,7 +863,7 @@ export default function GlobalAssistant() {
 
     if (isDeactivationCommand(text)) {
       playDeactivationSound();
-      const goodbye = "Goodbye.";
+      const goodbye = t('tarsGoodbye');
       setMessages(prev => [...prev, { role: 'user', content: text }, { role: 'assistant', content: goodbye }]);
       speakMessage(goodbye);
       setVoiceSessionActive(false);
@@ -907,7 +921,7 @@ export default function GlobalAssistant() {
       const errorMsg = `Error: ${err.message}`;
       setMessages(prev => [...prev, { role: 'assistant', content: errorMsg }]);
       
-      const speechError = "Sorry, I encountered an error. Please try again.";
+      const speechError = t('tarsError');
       if (voiceSessionActive) {
         speakMessage(speechError, () => {
           setTimeout(() => {
@@ -1094,24 +1108,24 @@ export default function GlobalAssistant() {
 
   if (isOpen) {
     hudIcon = 'close';
-    hudTitle = 'Close TARS';
+    hudTitle = t('tarsClose');
   } else {
     if (loading) {
       hudIcon = 'progress_activity';
       hudBg = 'bg-indigo-600 hover:bg-indigo-700';
-      hudTitle = 'TARS is thinking...';
+      hudTitle = t('tarsThinking');
     } else if (isListening) {
       hudIcon = 'graphic_eq';
       hudBg = 'bg-emerald-600 hover:bg-emerald-700';
-      hudTitle = 'TARS is listening... Speak now';
+      hudTitle = t('tarsListeningStatus');
     } else if (isSpeaking) {
       hudIcon = 'volume_up';
       hudBg = 'bg-cyan-600 hover:bg-cyan-700';
-      hudTitle = 'TARS is speaking...';
+      hudTitle = t('tarsSpeakingStatus');
     } else {
       hudIcon = 'forum';
       hudBg = tarsVoiceEnabled ? 'bg-primary hover:bg-primary/95' : 'bg-outline/60 hover:bg-outline/70';
-      hudTitle = tarsVoiceEnabled ? 'TARS Voice Standby is Active' : 'TARS Voice Standby is Disabled';
+      hudTitle = tarsVoiceEnabled ? t('tarsActiveStatus') : t('tarsDisabledStatus');
     }
   }
 
@@ -1149,7 +1163,7 @@ export default function GlobalAssistant() {
             <div className="flex justify-between items-center mt-1 pt-1 border-t border-outline-variant/40 text-[10px]">
               <div className="flex items-center gap-xs text-outline font-semibold">
                 <span className={`w-2 h-2 rounded-full ${tarsVoiceEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-outline/60'}`}></span>
-                <span>Standby: {tarsVoiceEnabled ? 'Active' : 'Disabled'}</span>
+                <span>{tarsVoiceEnabled ? t('tarsStandbyActive') : t('tarsStandbyDisabled')}</span>
               </div>
               <button 
                 onClick={() => {
@@ -1170,7 +1184,7 @@ export default function GlobalAssistant() {
                     : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                 }`}
               >
-                {tarsVoiceEnabled ? 'Turn OFF' : 'Turn ON'}
+                {tarsVoiceEnabled ? t('tarsTurnOff') : t('tarsTurnOn')}
               </button>
             </div>
           </div>
@@ -1221,7 +1235,7 @@ export default function GlobalAssistant() {
                     <span className="w-1.5 h-1.5 bg-outline rounded-full animate-bounce"></span>
                     <span className="w-1.5 h-1.5 bg-outline rounded-full animate-bounce delay-75"></span>
                     <span className="w-1.5 h-1.5 bg-outline rounded-full animate-bounce delay-150"></span>
-                    <span>Thinking...</span>
+                    <span>{t('tarsThinkingLabel')}</span>
                   </div>
                 )}
                 
@@ -1229,7 +1243,7 @@ export default function GlobalAssistant() {
                   /* Listening Indicator Waveform */
                   <div className="flex items-center justify-center gap-xs p-2 bg-emerald-500/10 text-emerald-500 rounded-xl text-xs font-semibold animate-pulse border border-emerald-500/20">
                     <span className="material-symbols-outlined text-[16px] animate-spin">graphic_eq</span>
-                    <span>TARS is listening... Speak now</span>
+                    <span>{t('tarsListeningStatus')}</span>
                   </div>
                 )}
                 
@@ -1239,28 +1253,28 @@ export default function GlobalAssistant() {
               {/* Quick Suggestions */}
               <div className="p-2 border-t border-outline-variant bg-surface flex gap-sm overflow-x-auto whitespace-nowrap scrollbar-none">
                 <button 
-                  onClick={() => handleSend("Find general doctors")}
+                  onClick={() => handleSend(t('tarsSuggestionFindDoctorText'))}
                   className="text-[10px] bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full font-bold hover:opacity-90 active:scale-95 duration-100"
                 >
-                  🔍 Find Doctor
+                  {t('tarsSuggestionFindDoctor')}
                 </button>
                 <button 
-                  onClick={() => handleSend("Book appointment")}
+                  onClick={() => handleSend(t('tarsSuggestionBookVisitText'))}
                   className="text-[10px] bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full font-bold hover:opacity-90 active:scale-95 duration-100"
                 >
-                  📅 Book Visit
+                  {t('tarsSuggestionBookVisit')}
                 </button>
                 <button 
-                  onClick={() => handleSend("View my medical records")}
+                  onClick={() => handleSend(t('tarsSuggestionViewRecordsText'))}
                   className="text-[10px] bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full font-bold hover:opacity-90 active:scale-95 duration-100"
                 >
-                  📂 View Records
+                  {t('tarsSuggestionViewRecords')}
                 </button>
                 <button 
-                  onClick={() => handleSend("I want to submit a complaint")}
+                  onClick={() => handleSend(t('tarsSuggestionFileComplaintText'))}
                   className="text-[10px] bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full font-bold hover:opacity-90 active:scale-95 duration-100"
                 >
-                  ⚠️ File Complaint
+                  {t('tarsSuggestionFileComplaint')}
                 </button>
               </div>
 
@@ -1268,7 +1282,7 @@ export default function GlobalAssistant() {
               <div className="p-3 border-t border-outline-variant bg-white flex gap-sm items-center">
                 <input 
                   type="text" 
-                  placeholder="Ask TARS anything..."
+                  placeholder={t('tarsInputPlaceholder')}
                   value={inputValue}
                   onChange={(e) => {
                     setInputValue(e.target.value);
@@ -1295,7 +1309,7 @@ export default function GlobalAssistant() {
         onClick={() => {
           if (!user) {
             cancelSpeech();
-            speakMessage("Hello! Please login or register to access fully voice-automated TARS assistance.");
+            speakMessage(t('tarsLoginWarning'));
             return;
           }
           const nextOpen = !isOpen;

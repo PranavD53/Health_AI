@@ -32,6 +32,69 @@ class MedicalRecordResponse(BaseModel):
     class Config:
         from_attributes = True
 
+def check_file_status(content: bytes, filename: str, extension: str) -> tuple[str, str]:
+    content_lower = content.lower() if content else b""
+    filename_lower = filename.lower()
+    
+    is_tampered = False
+    fraud_reason = "None"
+    
+    if any(w in filename_lower for w in ["tampered", "fake", "forged", "altered", "manipulated", "mock_fraud"]):
+        is_tampered = True
+        fraud_reason = "Suspicious file name metadata signature matching fraud database."
+    elif b"photoshop" in content_lower or b"gimp" in content_lower or b"tampered" in content_lower or b"altered" in content_lower:
+        is_tampered = True
+        fraud_reason = "Image metadata contains editing software signature tags."
+    elif b"fake medical" in content_lower or b"sample specimen" in content_lower:
+        is_tampered = True
+        fraud_reason = "Document content matches known fake medical report templates."
+
+    if is_tampered:
+        return "FLAGGED (Tampering Detected)", fraud_reason
+
+    # Check if the document contains medical terminology
+    is_medical = True
+    if extension == ".pdf" and content:
+        try:
+            import io
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(content))
+            pdf_text = ""
+            for page in reader.pages[:3]:
+                pdf_text += page.extract_text() or ""
+            pdf_text_lower = pdf_text.lower()
+            
+            medical_terms = [
+                "doctor", "patient", "clinic", "hospital", "medicine", "prescription", 
+                "diagnosis", "symptom", "blood", "report", "medical", "treatment", 
+                "health", "physician", "dose", "rx", "tablet", "capsule", "disease",
+                "clinical", "pharmacy", "medical record", "report", "lab", "test",
+                "urine", "ecg", "x-ray", "mri", "ct scan", "blood test", "sugar",
+                "bp", "pressure", "heart", "cardio", "derma", "pediat"
+            ]
+            if pdf_text_lower.strip() and not any(term in pdf_text_lower for term in medical_terms):
+                is_medical = False
+        except Exception:
+            pass
+    elif extension in [".txt", ".doc", ".docx"] and content:
+        try:
+            doc_text = content.decode("utf-8", errors="ignore").lower()
+            medical_terms = [
+                "doctor", "patient", "clinic", "hospital", "medicine", "prescription", 
+                "diagnosis", "symptom", "blood", "report", "medical", "treatment", 
+                "health", "physician", "dose", "rx", "tablet", "capsule", "disease",
+                "clinical", "pharmacy", "medical record", "report", "lab", "test"
+            ]
+            if doc_text.strip() and not any(term in doc_text for term in medical_terms):
+                is_medical = False
+        except Exception:
+            pass
+
+    if not is_medical:
+        return "VERIFIED (Non-Medical Document)", "The uploaded document is authentic but does not contain standard medical terminology."
+        
+    return "VERIFIED (Authentic)", "None"
+
 # --- Endpoints ---
 
 @router.post("/upload", response_model=MedicalRecordResponse, status_code=status.HTTP_201_CREATED)
@@ -56,24 +119,7 @@ async def upload_record(
         unique_filename = f"{uuid.uuid4()}_{file.filename}"
         content = await file.read()
 
-        # Simulated anti-fraud scan heuristics
-        content_lower = content.lower() if content else b""
-        filename_lower = file.filename.lower()
-        
-        is_tampered = False
-        fraud_reason = "None"
-        
-        if any(w in filename_lower for w in ["tampered", "fake", "forged", "altered", "manipulated", "mock_fraud"]):
-            is_tampered = True
-            fraud_reason = "Suspicious file name metadata signature matching fraud database."
-        elif b"photoshop" in content_lower or b"gimp" in content_lower or b"tampered" in content_lower or b"altered" in content_lower:
-            is_tampered = True
-            fraud_reason = "Image metadata contains editing software signature tags."
-        elif b"fake medical" in content_lower or b"sample specimen" in content_lower:
-            is_tampered = True
-            fraud_reason = "Document content matches known fake medical report templates."
-
-        fraud_status = "FLAGGED (Tampering Detected)" if is_tampered else "VERIFIED (Authentic)"
+        fraud_status, fraud_reason = check_file_status(content, file.filename, file_extension)
 
         # Save file metadata and data to DB
         encoded_data = base64.b64encode(content).decode("utf-8") if content else ""
@@ -380,27 +426,40 @@ async def analyze_record(
                 content = res_json["choices"][0]["message"]["content"]
                 parsed = json.loads(content)
 
-                def format_to_string(value) -> str:
+                def format_to_string(value, indent=0) -> str:
                     if value is None:
                         return ""
                     if isinstance(value, str):
                         return value
+                    
+                    pad = "  " * indent
+                    
                     if isinstance(value, list):
                         items = []
                         for item in value:
                             if isinstance(item, dict):
                                 parts = []
                                 for k, v in item.items():
-                                    parts.append(f"{k.capitalize()}: {v}")
-                                items.append("- " + ", ".join(parts))
+                                    k_clean = k.replace("_", " ").capitalize()
+                                    parts.append(f"{k_clean}: {v}")
+                                items.append(f"{pad}- " + ", ".join(parts))
+                            elif isinstance(item, list):
+                                items.append(format_to_string(item, indent + 1))
                             else:
-                                items.append(f"- {item}")
+                                items.append(f"{pad}- {item}")
                         return "\n".join(items)
+                        
                     if isinstance(value, dict):
                         parts = []
                         for k, v in value.items():
-                            parts.append(f"{k.capitalize()}: {v}")
+                            k_clean = k.replace("_", " ").capitalize()
+                            if isinstance(v, (dict, list)):
+                                formatted_val = format_to_string(v, indent + 1)
+                                parts.append(f"{pad}{k_clean}:\n{formatted_val}")
+                            else:
+                                parts.append(f"{pad}{k_clean}: {v}")
                         return "\n".join(parts)
+                        
                     return str(value)
 
                 insights_val = format_to_string(parsed.get("insights", "No insights extracted."))
@@ -435,21 +494,11 @@ def run_anti_fraud_scan(
     if record.user_id != current_user.id and current_user.role not in ["doctor", "admin"]:
         raise HTTPException(status_code=403, detail="Permission denied")
         
-    filename_lower = record.file_name.lower()
-    is_tampered = False
-    fraud_reason = "None"
+    _, ext = os.path.splitext(record.file_name)
+    ext = ext.lower()
+    content = base64.b64decode(record.file_data) if record.file_data else b""
     
-    if any(w in filename_lower for w in ["tampered", "fake", "forged", "altered", "manipulated", "mock_fraud"]):
-        is_tampered = True
-        fraud_reason = "Suspicious file name metadata signature matching fraud database."
-    elif "photoshop" in filename_lower or "gimp" in filename_lower:
-        is_tampered = True
-        fraud_reason = "Image metadata contains editing software signature tags."
-    elif "fake_report" in filename_lower:
-        is_tampered = True
-        fraud_reason = "Document content matches known fake medical report templates."
-        
-    fraud_status = "FLAGGED (Tampering Detected)" if is_tampered else "VERIFIED (Authentic)"
+    fraud_status, fraud_reason = check_file_status(content, record.file_name, ext)
     record.fraud_status = fraud_status
     db.commit()
     db.refresh(record)

@@ -47,6 +47,13 @@ export default function DoctorSearch() {
     loadDoctors();
   }, []);
 
+  useEffect(() => {
+    const searchVal = searchParams.get('search');
+    if (searchVal !== null) {
+      setSearchTerm(searchVal);
+    }
+  }, [searchParams]);
+
   // Filter application logic
   useEffect(() => {
     let result = doctors;

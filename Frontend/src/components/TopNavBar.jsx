@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
+import { useLanguage, translations } from '../context/LanguageContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import { api } from '../services/api';
 import { resolveMediaUrl } from '../utils/apiConfig';
@@ -183,9 +183,18 @@ export default function TopNavBar() {
               onChange={(e) => setCurrentLanguage(e.target.value)}
               className="text-xs border border-outline-variant/60 rounded-xl px-2 py-1 bg-surface font-semibold text-primary focus:outline-none transition-colors hover:border-primary cursor-pointer"
             >
-              <option value="en">English</option>
-              <option value="hi">Hindi (हिन्दी)</option>
-              <option value="te">Telugu (తెలుగు)</option>
+              {Object.keys(translations).map((lang) => {
+                const languageNames = {
+                  en: "English",
+                  hi: "Hindi (हिन्दी)",
+                  te: "Telugu (తెలుగు)"
+                };
+                return (
+                  <option key={lang} value={lang}>
+                    {languageNames[lang] || lang.toUpperCase()}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

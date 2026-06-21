@@ -1,5 +1,5 @@
 import os
-import datetime
+from app.timezone_helper import datetime
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Header
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from app import models
 from app.routes.auth import get_current_user, require_role, log_action
 from app.services.prescription_pdf import generate_prescription_pdf
 from app.config import UPLOADS_DIR
+from app.routes.records import check_file_status
 
 router = APIRouter(prefix="/chats", tags=["Private Messaging"])
 
@@ -342,19 +343,7 @@ async def send_message(
         
         fraud_status = "VERIFIED (Authentic)"
         if ext in allowed_extensions:
-            content_lower = file_content.lower() if file_content else b""
-            filename_lower = file.filename.lower()
-            is_tampered = False
-            
-            if any(w in filename_lower for w in ["tampered", "fake", "forged", "altered", "manipulated", "mock_fraud"]):
-                is_tampered = True
-            elif b"photoshop" in content_lower or b"gimp" in content_lower or b"tampered" in content_lower or b"altered" in content_lower:
-                is_tampered = True
-            elif b"fake medical" in content_lower or b"sample specimen" in content_lower:
-                is_tampered = True
-
-            if is_tampered:
-                fraud_status = "FLAGGED (Tampering Detected)"
+            fraud_status, _ = check_file_status(file_content, file.filename, ext)
 
         # Save record with base64 data to DB
         import base64
@@ -649,7 +638,7 @@ def get_notifications(current_user: models.User = Depends(get_current_user), db:
             pass
             
     # Adjust timestamps to make them feel recent (e.g. 2 min ago, 15 min ago, 1 hour ago, etc.)
-    import datetime
+    # Using patched datetime from module level
     now = datetime.datetime.utcnow()
     offsets = [
         datetime.timedelta(minutes=2),

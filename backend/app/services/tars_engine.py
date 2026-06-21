@@ -5,7 +5,7 @@ import os
 import re
 import json
 import logging
-import datetime
+from app.timezone_helper import datetime
 from typing import Optional, Dict, Any, List
 import httpx
 from sqlalchemy.orm import Session
@@ -16,6 +16,48 @@ from app.routes.symptoms import scan_for_emergency
 from app.routes.appointments import adjust_timestamps_generic
 
 logger = logging.getLogger(__name__)
+
+OFFLINE_TRANSLATIONS = {
+    "en": {
+        "emergency": "EMERGENCY WARNING: Severe symptoms detected. Please call 108 or head to the nearest emergency department immediately.",
+        "disclaimer": "This is AI-generated information. Please consult a real doctor.",
+        "dashboard": "Opening dashboard.",
+        "records": "Opening records.",
+        "settings": "Opening settings.",
+        "chat": "Opening chat.",
+        "appointments": "Opening doctors directory.",
+        "appointments_spec": "Opening doctors directory for {spec}.",
+        "sos": "Triggering SOS.",
+        "logout": "Logging out.",
+        "hello": "Hello! I am TARS. How can I help you today?"
+    },
+    "hi": {
+        "emergency": "आपातकालीन चेतावनी: गंभीर लक्षण पाए गए हैं। कृपया तुरंत 108 पर कॉल करें या निकटतम आपातकालीन विभाग में जाएं।",
+        "disclaimer": "यह एआई-जनरेटेड जानकारी है। कृपया किसी वास्तविक डॉक्टर से सलाह लें।",
+        "dashboard": "डैशबोर्ड खोला जा रहा है।",
+        "records": "रिकॉर्ड्स खोले जा रहे हैं।",
+        "settings": "सेटिंग्स खोली जा रही हैं।",
+        "chat": "चैट खोली जा रही है।",
+        "appointments": "डॉक्टरों की निर्देशिका खोली जा रही है।",
+        "appointments_spec": "{spec} के लिए डॉक्टरों की निर्देशिका खोली जा रही है।",
+        "sos": "एसओएस सक्रिय किया जा रहा है।",
+        "logout": "लॉगआउट किया जा रहा है।",
+        "hello": "नमस्ते! मैं TARS हूँ। आज मैं आपकी क्या सहायता कर सकता हूँ?"
+    },
+    "te": {
+        "emergency": "అత్యవసర హెచ్చరిక: తీవ్రమైన లక్షణాలు గుర్తించబడ్డాయి. దయచేసి వెంటనే 108 కి కాల్ చేయండి లేదా సమీప అత్యవసర విభాగానికి వెళ్ళండి.",
+        "disclaimer": "ఇది AI-ఉత్పత్తి చేసిన సమాచారం. దయచేసి నిజమైన వైద్యుడిని సంప్రదించండి.",
+        "dashboard": "డాష్‌బోర్డ్ తెరవబడుతోంది.",
+        "records": "రికార్డులు తెరవబడుతున్నాయి.",
+        "settings": "సెట్టింగ్‌లు తెరవబడుతున్నాయి.",
+        "chat": "చాట్ తెరవబడుతోంది.",
+        "appointments": "వైద్యుల డైరెక్టరీ తెరవబడుతోంది.",
+        "appointments_spec": "{spec} కొరకు వైద్యుల డైరెక్టరీ తెరవబడుతోంది.",
+        "sos": "SOS పంపబడుతోంది.",
+        "logout": "లాగ్అవుట్ చేయబడుతోంది.",
+        "hello": "నమస్తే! నేను TARS. ఈ రోజు నేను మీకు ఎలా సహాయం చేయగలను?"
+    }
+}
 
 async def execute_tars_intent(
     message: str,
@@ -38,14 +80,12 @@ async def execute_tars_intent(
     """
     current_msg = message.strip()
     pref_lang = language or "en"
-    disclaimer = "This is AI-generated information. Please consult a real doctor."
+    lang = pref_lang if pref_lang in OFFLINE_TRANSLATIONS else "en"
+    disclaimer = OFFLINE_TRANSLATIONS[lang]["disclaimer"]
 
     # 1. Scan for emergency
     if scan_for_emergency(current_msg):
-        reply = (
-            "EMERGENCY WARNING: Severe symptoms detected. Please call 108 or head to "
-            "the nearest emergency department immediately."
-        )
+        reply = OFFLINE_TRANSLATIONS[lang]["emergency"]
         return {
             "message": reply,
             "action": None,
@@ -96,6 +136,7 @@ async def execute_tars_intent(
         f"CURRENT USER CONTEXT:\n"
         f"- Logged-in User Email: {current_user.email}\n"
         f"- Role: {current_user.role}\n"
+        f"- User's Preferred Language/Locale: {pref_lang}\n"
     )
 
     # Fetch and inject user's medical records
@@ -207,9 +248,12 @@ async def execute_tars_intent(
         "3. You must classify user intent and return a JSON object with 'intent', 'action', 'parameters', 'message', and 'confidence'.\n"
         "4. Clinic hours are strictly between 08:00 and 20:00. If the user requests an appointment time outside this window (e.g., at 10pm / 22:00), you must politely deny the request in the 'message' field and set action to empty string \"\" (do NOT return createAppointment).\n"
         "5. For greetings, symptom checking, or health questions, do NOT execute any action (set the 'action' field to empty string \"\"), and provide a supportive reply or medical advice in the 'message' field.\n"
+        "6. If the user wants to book a visit or find a doctor, and their previous messages or current query relate to a specific organ or condition (like heart/cardiology, skin/dermatology, children/pediatrics, brain/neurology, or general symptoms), specify the appropriate specialization (e.g. 'Cardiology', 'Dermatology', 'Pediatrics', 'Neurology', 'General Medicine') in the 'specialization' parameter of the action (under action: openPage / page_name: appointments).\n"
+        "7. If the user's request is incomplete, ambiguous, or lacks required details to execute an action (for example, setting an alarm/reminder without a specified time/purpose, or booking an appointment without a doctor/date/time), you must ask for clarification in the 'message' field and set the 'action' field to an empty string \"\". Do not attempt to guess or execute with default/placeholder parameters unless the user explicitly confirms them.\n"
+        f"8. The user's preferred language/locale is '{pref_lang}'. You MUST write your response message in this language/locale.\n"
         "\n"
         "Allowed Action Router Actions:\n"
-        "- openPage(page_name): Navigate the application. Allowed page_name: 'dashboard', 'records', 'chat', 'settings', 'appointments'\n"
+        "- openPage(page_name, specialization): Navigate the application. Allowed page_name: 'dashboard', 'records', 'chat', 'settings', 'appointments'. Provide 'specialization' parameter if booking a visit related to specific health concerns.\n"
         "- createAppointment(doctor_id, date, time): Schedule a consultation visit.\n"
         "- fetchPrescription(patient_name): Retrieve prescriptions.\n"
         "- updatePatient(latitude, longitude, address): Update patient address/GPS coordinates.\n"
@@ -289,6 +333,7 @@ async def execute_tars_intent(
                                         "type": "OBJECT",
                                         "properties": {
                                             "page_name": {"type": "STRING"},
+                                            "specialization": {"type": "STRING"},
                                             "doctor_id": {"type": "STRING"},
                                             "date": {"type": "STRING"},
                                             "time": {"type": "STRING"},
@@ -407,7 +452,22 @@ async def execute_tars_intent(
                 message = parsed_json.get("message", "")
                 confidence = parsed_json.get("confidence", 0.0)
             else:
-                message = reply
+                # Try parsing key-value pairs via regex if the LLM output is not JSON
+                intent_match = re.search(r'(?i)intent:\s*(.*)', clean_reply)
+                action_match = re.search(r'(?i)action:\s*(.*)', clean_reply)
+                message_match = re.search(r'(?i)message:\s*([\s\S]*?)(?=\n\s*(?:intent|action|parameters|confidence|disclaimer):|$)', clean_reply)
+                confidence_match = re.search(r'(?i)confidence:\s*([\d.]+)', clean_reply)
+                
+                if message_match:
+                    message = message_match.group(1).strip()
+                    intent = intent_match.group(1).strip() if intent_match else ""
+                    action_type = action_match.group(1).strip() if action_match else ""
+                    try:
+                        confidence = float(confidence_match.group(1).strip()) if confidence_match else 0.0
+                    except Exception:
+                        confidence = 0.0
+                else:
+                    message = reply
         except Exception as pe:
             logger.error(f"JSON parsing error: {pe}. Using raw reply.")
             message = reply
@@ -418,49 +478,65 @@ async def execute_tars_intent(
         is_schedule_query = any(k in msg_lower for k in ["show", "read", "view", "what", "my", "list", "check", "శెడ్యూల్", "అపాయింట్మెంట్", "షెడ్యూల్", "अपॉइंटमेंट", "शेड्यूल"]) and any(k in msg_lower for k in ["appointment", "appointments", "consultation", "consultations", "schedule", "visit", "visits", "meeting", "meetings", "record", "records"])
         is_booking_intent = any(k in msg_lower for k in ["book", "schedule", "appointment", "अपॉइंटमेंट", "అపాయింట్మెంట్"])
         
+        lang = pref_lang if pref_lang in OFFLINE_TRANSLATIONS else "en"
+        trans = OFFLINE_TRANSLATIONS[lang]
+        
         if is_schedule_query:
             intent = "view_schedule"
             action_type = "openPage"
             action_params = {"page_name": "dashboard"}
-            message = "Opening dashboard."
+            message = trans["dashboard"]
         elif is_booking_intent:
             intent = "book_appointment"
             action_type = "openPage"
-            action_params = {"page_name": "appointments"}
-            message = "Opening doctors directory."
+            spec = ""
+            if any(k in msg_lower for k in ["heart", "chest", "cardio", "दिल", "గుండె"]):
+                spec = "Cardiology"
+            elif any(k in msg_lower for k in ["skin", "hair", "dermatology", "त्वचा", "చర్మం"]):
+                spec = "Dermatology"
+            elif any(k in msg_lower for k in ["brain", "neurology", "दिमाग", "మెదడు"]):
+                spec = "Neurology"
+            elif any(k in msg_lower for k in ["child", "pediatrics", "बच्चा", "పిల్లలు"]):
+                spec = "Pediatrics"
+            action_params = {"page_name": "appointments", "specialization": spec}
+            if spec:
+                message = trans["appointments_spec"].format(spec=spec)
+            else:
+                message = trans["appointments"]
         elif "record" in msg_lower or "prescription" in msg_lower or "file" in msg_lower or "report" in msg_lower:
             intent = "view_records"
             action_type = "openPage"
             action_params = {"page_name": "records"}
-            message = "Opening records."
+            message = trans["records"]
         elif "setting" in msg_lower or "profile" in msg_lower:
             intent = "view_settings"
             action_type = "openPage"
             action_params = {"page_name": "settings"}
-            message = "Opening settings."
+            message = trans["settings"]
         elif "chat" in msg_lower or "message" in msg_lower:
             intent = "view_chat"
             action_type = "openPage"
             action_params = {"page_name": "chat"}
-            message = "Opening chat."
+            message = trans["chat"]
         elif "sos" in msg_lower or "emergency" in msg_lower:
             intent = "trigger_sos"
             action_type = "triggerSOS"
-            message = "Triggering SOS."
+            message = trans["sos"]
         elif "logout" in msg_lower or "sign out" in msg_lower:
             intent = "logout"
             action_type = "logout"
-            message = "Logging out."
+            message = trans["logout"]
         else:
             intent = "common_help"
-            message = "Hello! I am TARS. How can I help you today?"
+            message = trans["hello"]
 
     # Structure action payload
     action_payload = None
     if action_type:
         if action_type == 'OPEN_DOCTORS' or action_type == 'find_doctors':
             action_type = 'openPage'
-            action_params = {"page_name": "appointments"}
+            spec = action_params.get("specialization", "")
+            action_params = {"page_name": "appointments", "specialization": spec}
         elif action_type in ['OPEN_PRESCRIPTIONS', 'OPEN_RECORDS', 'view_records']:
             action_type = 'openPage'
             action_params = {"page_name": "records"}
