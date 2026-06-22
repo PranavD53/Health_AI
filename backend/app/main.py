@@ -1279,7 +1279,7 @@ async def global_ai_assistant(
                 await asyncio.sleep(0.01)
 
             # Yield action payload and final message mapping to complete the call
-            yield f"data: {json.dumps({'type': 'action', 'action': action_payload, 'disclaimer': disclaimer, 'reply': message})}\n\n"
+            yield f"data: {json.dumps({'type': 'action', 'action': action_payload, 'disclaimer': disclaimer, 'reply': message, 'citations': result.get('citations', [])})}\n\n"
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

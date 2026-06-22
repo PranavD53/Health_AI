@@ -190,6 +190,16 @@ export default function GlobalAssistant() {
               if (data.action) {
                 handleAction(data.action, data.reply);
               }
+              if (data.citations) {
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastMsg = newMessages[newMessages.length - 1];
+                  if (lastMsg && lastMsg.role === 'assistant') {
+                    lastMsg.citations = data.citations;
+                  }
+                  return newMessages;
+                });
+              }
             }
           } catch (e) {
             console.error("Error parsing socket text data:", e);
@@ -940,6 +950,7 @@ export default function GlobalAssistant() {
       setMessages(prev => {
         const newMessages = [...prev];
         newMessages[newMessages.length - 1].content = data.reply;
+        newMessages[newMessages.length - 1].citations = data.citations || [];
         return newMessages;
       });
       
@@ -1264,6 +1275,19 @@ export default function GlobalAssistant() {
                       }`}
                     >
                       {msg.content.replace(/\[ACTION:[\s\S]*?\]/g, '')}
+                      {msg.role === 'assistant' && msg.citations && msg.citations.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-xs">
+                          {msg.citations.map((cite, cIdx) => (
+                            <span 
+                              key={cIdx} 
+                              className="inline-flex items-center gap-xs px-2 py-0.5 rounded-full bg-success/15 text-success border border-success/35 text-[9px] font-bold uppercase tracking-wider scale-[0.95] origin-left"
+                            >
+                              <span className="material-symbols-outlined text-[10px]">verified</span>
+                              {cite}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {msg.uiCard === 'prescriptions' && msg.data && (
                         <div className="mt-2 space-y-xs w-full">
                           {msg.data.map((p, idx) => (

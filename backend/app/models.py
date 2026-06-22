@@ -380,3 +380,13 @@ class MedicalImagingDiagnostic(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
 
     user = relationship("User", back_populates="imaging_diagnostics")
+
+
+class ClinicalGuideline(Base):
+    __tablename__ = "clinical_guidelines"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    source_citation = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    embedding_json = Column(Text, nullable=False)

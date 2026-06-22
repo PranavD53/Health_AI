@@ -189,7 +189,8 @@ async def voice_websocket(websocket: WebSocket, token: Optional[str] = None, db:
                             "type": "action",
                             "action": action_payload,
                             "disclaimer": disclaimer,
-                            "reply": accumulated_text
+                            "reply": accumulated_text,
+                            "citations": result.get("citations", [])
                         })
                         
                         # Stream TTS audio sentences to client

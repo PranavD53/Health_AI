@@ -83,6 +83,10 @@ async def execute_tars_intent(
     lang = pref_lang if pref_lang in OFFLINE_TRANSLATIONS else "en"
     disclaimer = OFFLINE_TRANSLATIONS[lang]["disclaimer"]
 
+    gemini_api_key = gemini_key or os.getenv("GEMINI_API_KEY", "")
+    groq_api_key = groq_key or os.getenv("GROQ_API_KEY", "")
+    hf_api_key = hf_key or os.getenv("HUGGINGFACE_API_KEY", os.getenv("HF_API_KEY", ""))
+
     # 1. Scan for emergency
     if scan_for_emergency(current_msg):
         reply = OFFLINE_TRANSLATIONS[lang]["emergency"]
@@ -282,6 +286,27 @@ async def execute_tars_intent(
         else:
             user_context += "YOUR UPCOMING CONSULTATIONS: No doctor profile found.\n"
 
+    # Retrieve clinical guidelines (RAG) for medical safety
+    from app.services.rag_engine import retrieve_clinical_guidelines
+    guidelines = []
+    citations = []
+    guideline_ref = "No specific clinical guideline reference available."
+    try:
+        guidelines = await retrieve_clinical_guidelines(
+            db=db,
+            query=current_msg,
+            hf_key=hf_api_key,
+            gemini_key=gemini_api_key
+        )
+        if guidelines:
+            guideline_ref = "\n".join([
+                f"- Document: {g.title} | Source Citation: {g.source_citation}\n  Guideline content: {g.content}"
+                for g in guidelines
+            ])
+            citations = [g.source_citation for g in guidelines]
+    except Exception as RAG_err:
+        logger.error(f"RAG: Retrieval error: {RAG_err}")
+
     system_instructions = (
         "You are TARS, the multilingual voice assistant for a medical web application called HealthAI.\n"
         "Your job is to understand user commands, navigate pages, and trigger allowed actions based on the user's role.\n"
@@ -320,6 +345,11 @@ async def execute_tars_intent(
         "List of available doctors for bookings:\n"
         f"{doctors_directory}\n"
         "\n"
+        "CLINICAL GUIDELINE REFERENCE MATERIAL:\n"
+        "You MUST base your medical advice strictly on the verified clinical reference guidelines below. "
+        "Explicitly cite the source citations (e.g. '[Source: Merck Manual]') directly in your response text.\n"
+        f"{guideline_ref}\n"
+        "\n"
         f"{user_context}"
     )
 
@@ -333,9 +363,7 @@ async def execute_tars_intent(
     for h_msg in history_msgs[-8:]:
         messages_payload.append({"role": h_msg.role, "content": h_msg.content})
 
-    gemini_api_key = gemini_key or os.getenv("GEMINI_API_KEY", "")
-    groq_api_key = groq_key or os.getenv("GROQ_API_KEY", "")
-    hf_api_key = hf_key or os.getenv("HUGGINGFACE_API_KEY", os.getenv("HF_API_KEY", ""))
+    # API keys loaded at start of execute_tars_intent
 
     has_gemini = gemini_api_key and not gemini_api_key.startswith("your_gemini_api_key")
     has_groq = groq_api_key and not groq_api_key.startswith("your_groq_api_key")
@@ -751,5 +779,6 @@ async def execute_tars_intent(
         "message": message,
         "action": action_payload,
         "disclaimer": disclaimer,
-        "reply": message
+        "reply": message,
+        "citations": citations
     }

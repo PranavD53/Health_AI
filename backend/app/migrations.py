@@ -161,6 +161,15 @@ def ensure_schema(engine=None, db_url: str | None = None) -> dict:
     created = create_tables(engine)
     column_summary = run_column_migrations(engine, db_url)
 
+    # Seed clinical guidelines
+    try:
+        from sqlalchemy.orm import Session
+        with Session(engine) as session:
+            from app.seed_guidelines import seed_clinical_guidelines
+            seed_clinical_guidelines(session)
+    except Exception as seed_err:
+        print(f"  WARNING: Seeding clinical guidelines failed: {seed_err}")
+
     # If running on PostgreSQL (not SQLite), run specific DDL for user_color_palettes (RLS, indexes)
     is_sqlite = _is_sqlite(db_url)
     if not is_sqlite:
