@@ -13,7 +13,7 @@ from app.routes.auth import get_current_user
 from app.routes.appointments import AppointmentResponse
 from app.routes.symptoms import SymptomLogResponse
 from app.routes.records import MedicalRecordResponse
-from app.routes.doctors import translate_doctor, DOCTOR_TRANSLATIONS
+from app.routes.doctors import translate_doctor, translate_doctor_info
 
 router = APIRouter(prefix="/dashboard-data", tags=["Dashboard"])
 
@@ -212,8 +212,9 @@ async def get_dashboard(
         for app in appts:
             doc = db.query(models.Doctor).filter(models.Doctor.id == app.doctor_id).first()
             doc_name = doc.name if doc else "Doctor"
-            if doc_name != "Doctor" and lang_code in ["hi", "te"] and doc_name in DOCTOR_TRANSLATIONS[lang_code]:
-                doc_name = DOCTOR_TRANSLATIONS[lang_code][doc_name]["name"]
+            if doc_name != "Doctor" and lang_code in ["hi", "te"]:
+                doc_trans = translate_doctor_info(doc_name, doc.specialization if doc else "General Medicine", doc.location if doc else "", lang_code)
+                doc_name = doc_trans["name"]
             activity_logs.append({
                 "id": app.id,
                 "action": "Appointment Booked",
