@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
 class PCMAudioPlayer {
   constructor(sampleRate = 16000, onEnded = null) {
@@ -157,8 +158,8 @@ export default function GlobalAssistant() {
     }
 
     const token = localStorage.getItem('access_token');
-    const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${wsScheme}://${window.location.host}/ws/tars/voice?token=${token}`;
+    const apiBase = getApiBaseUrl() || `${window.location.protocol}//${window.location.host}`;
+    const wsUrl = apiBase.replace(/^http/, 'ws') + `/ws/tars/voice?token=${token}`;
 
     const socket = new WebSocket(wsUrl);
     voiceSocketRef.current = socket;

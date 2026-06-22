@@ -1,4 +1,4 @@
-const configuredBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const configuredBase = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 
 /**
  * Resolves an API path to a fetchable URL.
