@@ -21,8 +21,6 @@ export default function Layout({ children }) {
     callDuration,
     isMuted,
     isVideoOff,
-    localVideoRef,
-    remoteVideoRef,
     handleAcceptCall,
     handleRejectCall,
     handleEndCall,
@@ -188,7 +186,12 @@ export default function Layout({ children }) {
                 <div className="w-full h-full flex items-center justify-center bg-slate-950 relative">
                   {remoteStream ? (
                     <video
-                      ref={remoteVideoRef}
+                      ref={(el) => {
+                        if (el && el.srcObject !== remoteStream) {
+                          el.srcObject = remoteStream;
+                          console.log("[Video] Remote video srcObject bound");
+                        }
+                      }}
                       autoPlay
                       playsInline
                       className="w-full h-full object-cover"
@@ -242,7 +245,12 @@ export default function Layout({ children }) {
                     </div>
                   ) : (
                     <video
-                      ref={localVideoRef}
+                      ref={(el) => {
+                        if (el && el.srcObject !== localStream) {
+                          el.srcObject = localStream;
+                          console.log("[Video] Local video srcObject bound");
+                        }
+                      }}
                       autoPlay
                       playsInline
                       muted
