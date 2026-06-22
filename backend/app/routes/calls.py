@@ -15,11 +15,6 @@ from app.websocket_manager import manager
 
 router = APIRouter(prefix="/calls", tags=["Video Calls"])
 
-# Get LiveKit credentials from environment
-LIVEKIT_API_KEY = os.environ.get("LIVEKIT_API_KEY", "devkey")
-LIVEKIT_API_SECRET = os.environ.get("LIVEKIT_API_SECRET", "secret")
-LIVEKIT_URL = os.environ.get("LIVEKIT_URL", "ws://localhost:7880")
-
 # --- Pydantic Schemas ---
 class CallInitiateRequest(BaseModel):
     appointment_id: Optional[int] = None
@@ -28,13 +23,15 @@ class CallInitiateRequest(BaseModel):
 class CallInitiateResponse(BaseModel):
     call_id: int
     room_id: str
-    token: str
-    sfu_url: str
+    token: Optional[str] = None
+    sfu_url: Optional[str] = None
+    peer_id: Optional[int] = None
 
 class CallAcceptResponse(BaseModel):
     call_id: int
-    token: str
-    sfu_url: str
+    token: Optional[str] = None
+    sfu_url: Optional[str] = None
+    peer_id: Optional[int] = None
 
 class CallEndResponse(BaseModel):
     call_id: int
@@ -50,25 +47,8 @@ class ActiveCallResponse(BaseModel):
     other_party_name: Optional[str] = None
     token: Optional[str] = None
     sfu_url: Optional[str] = None
+    peer_id: Optional[int] = None
 
-# --- Token Helper ---
-def generate_livekit_token(api_key: str, api_secret: str, room_id: str, identity: str, name: str = "", is_publisher: bool = True) -> str:
-    now = int(time.time())
-    payload = {
-        "iss": api_key,
-        "sub": identity,
-        "name": name,
-        "exp": now + 600,  # 10 minutes short-lived expiry
-        "nbf": now,
-        "video": {
-            "roomJoin": True,
-            "room": room_id,
-            "canPublish": is_publisher,
-            "canSubscribe": True,
-            "canPublishData": True
-        }
-    }
-    return jwt.encode(payload, api_secret, algorithm="HS256")
 
 # --- Audit Logging Helper ---
 def log_call_audit(db: Session, call_id: Optional[int], actor_id: Optional[int], action: str, request: Request):
@@ -203,16 +183,6 @@ async def initiate_call(
     # Resolve shared room name if sibling appointments exist
     active_room_id = get_active_room_id(call, db)
 
-    # 4. Generate short-lived LiveKit token for doctor
-    doc_token = generate_livekit_token(
-        api_key=LIVEKIT_API_KEY,
-        api_secret=LIVEKIT_API_SECRET,
-        room_id=active_room_id,
-        identity=str(current_user.id),
-        name=doctor_profile.name,
-        is_publisher=True
-    )
-
     # 5. Emit call_initiated signaling event to the patient via WebSockets
     signal_data = {
         "event": "call_initiated",
@@ -221,7 +191,8 @@ async def initiate_call(
             "room_id": active_room_id,
             "doctor_name": doctor_profile.name,
             "appointment_id": req.appointment_id,
-            "chat_id": req.chat_id
+            "chat_id": req.chat_id,
+            "peer_id": current_user.id  # The doctor initiating the call
         }
     }
     await manager.send_personal_json(signal_data, patient_id)
@@ -249,9 +220,11 @@ async def initiate_call(
     return CallInitiateResponse(
         call_id=call.id,
         room_id=active_room_id,
-        token=doc_token,
-        sfu_url=LIVEKIT_URL
+        token=None,
+        sfu_url=None,
+        peer_id=patient_id
     )
+
 
 
 @router.post("/{call_id}/accept", response_model=CallAcceptResponse)
@@ -282,7 +255,7 @@ async def accept_call(
     call.started_at = datetime.datetime.utcnow()
     db.commit()
 
-    # 4. Generate token for patient
+    # 4. Get patient name
     patient_name = "Patient"
     patient_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == current_user.id).first()
     if patient_profile:
@@ -291,22 +264,14 @@ async def accept_call(
     # Resolve shared room name if sibling appointments exist
     active_room_id = get_active_room_id(call, db)
 
-    patient_token = generate_livekit_token(
-        api_key=LIVEKIT_API_KEY,
-        api_secret=LIVEKIT_API_SECRET,
-        room_id=active_room_id,
-        identity=str(current_user.id),
-        name=patient_name,
-        is_publisher=True
-    )
-
     # 5. Emit accepted signaling event to the doctor
     signal_data = {
         "event": "accepted",
         "data": {
             "call_id": call.id,
             "room_id": active_room_id,
-            "patient_name": patient_name
+            "patient_name": patient_name,
+            "peer_id": current_user.id  # The patient accepting the call
         }
     }
     await manager.send_personal_json(signal_data, call.doctor_id)
@@ -316,9 +281,11 @@ async def accept_call(
 
     return CallAcceptResponse(
         call_id=call.id,
-        token=patient_token,
-        sfu_url=LIVEKIT_URL
+        token=None,
+        sfu_url=None,
+        peer_id=call.doctor_id
     )
+
 
 
 @router.post("/{call_id}/reject")
@@ -436,35 +403,12 @@ async def get_active_call(
         role = "doctor"
         pat = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == call.patient_id).first()
         other_party_name = pat.name if pat else "Patient"
-        # Generate doctor LiveKit token
-        doc_profile = db.query(models.Doctor).filter(models.Doctor.user_id == current_user.id).first()
-        doc_name = doc_profile.name if doc_profile else "Doctor"
-        token = generate_livekit_token(
-            api_key=LIVEKIT_API_KEY,
-            api_secret=LIVEKIT_API_SECRET,
-            room_id=active_room_id,
-            identity=str(current_user.id),
-            name=doc_name,
-            is_publisher=True
-        )
+        peer_id = call.patient_id
     else:
         role = "patient"
         doc = db.query(models.Doctor).filter(models.Doctor.user_id == call.doctor_id).first()
         other_party_name = doc.name if doc else "Doctor"
-        # Generate patient LiveKit token if accepted or ongoing
-        if call.status in ["ACCEPTED", "ONGOING"]:
-            pat_profile = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == current_user.id).first()
-            pat_name = pat_profile.name if pat_profile else "Patient"
-            token = generate_livekit_token(
-                api_key=LIVEKIT_API_KEY,
-                api_secret=LIVEKIT_API_SECRET,
-                room_id=active_room_id,
-                identity=str(current_user.id),
-                name=pat_name,
-                is_publisher=True
-            )
-        else:
-            token = None
+        peer_id = call.doctor_id
 
     return ActiveCallResponse(
         has_active_call=True,
@@ -473,6 +417,8 @@ async def get_active_call(
         status=call.status,
         role=role,
         other_party_name=other_party_name,
-        token=token,
-        sfu_url=LIVEKIT_URL
+        token=None,
+        sfu_url=None,
+        peer_id=peer_id
     )
+

@@ -308,9 +308,24 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
     await manager.connect(websocket, user.id)
     try:
         while True:
-            await websocket.receive_text()
+            data_str = await websocket.receive_text()
+            try:
+                import json
+                data = json.loads(data_str)
+                if data.get("event") == "signal":
+                    to_user_id = data.get("to_user_id")
+                    signal_data = data.get("data")
+                    if to_user_id:
+                        await manager.send_personal_json({
+                            "event": "signal",
+                            "from_user_id": user.id,
+                            "data": signal_data
+                        }, int(to_user_id))
+            except Exception:
+                pass
     except WebSocketDisconnect:
         manager.disconnect(websocket, user.id)
+
 
 # --- Pydantic Schemas for Conversations & AI & Notifications ---
 class ConversationCreate(BaseModel):

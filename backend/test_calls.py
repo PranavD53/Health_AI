@@ -154,16 +154,10 @@ def test_video_calls_flow():
         data = init_resp.json()
         assert "call_id" in data
         assert data["room_id"].startswith(f"room_app_{appointment_id}")
-        assert "token" in data
-        assert data["sfu_url"] == "wss://test.livekit.cloud"
+        assert data["peer_id"] == patient_id
+        assert data["token"] is None
+        assert data["sfu_url"] is None
         call_id = data["call_id"]
-
-        # Decode and verify the Doctor token claims
-        decoded_doc = jwt.decode(data["token"], "test_lk_secret", algorithms=["HS256"])
-        assert decoded_doc["iss"] == "test_lk_key"
-        assert decoded_doc["video"]["room"].startswith(f"room_app_{appointment_id}")
-        assert decoded_doc["video"]["roomJoin"] is True
-        assert decoded_doc["video"]["canPublish"] is True
 
         # Verify that CallRecord is stored as INITIATED in DB
         db = TestingSessionLocal()
@@ -185,14 +179,10 @@ def test_video_calls_flow():
         assert accept_resp.status_code == 200, accept_resp.text
         accept_data = accept_resp.json()
         assert accept_data["call_id"] == call_id
-        assert "token" in accept_data
-        assert accept_data["sfu_url"] == "wss://test.livekit.cloud"
+        assert accept_data["peer_id"] == doctor_user_id
+        assert accept_data["token"] is None
+        assert accept_data["sfu_url"] is None
 
-        # Decode and verify Patient token claims
-        decoded_pat = jwt.decode(accept_data["token"], "test_lk_secret", algorithms=["HS256"])
-        assert decoded_pat["iss"] == "test_lk_key"
-        assert decoded_pat["video"]["room"].startswith(f"room_app_{appointment_id}")
-        assert decoded_pat["video"]["canPublish"] is True
 
         # Verify call status changed to ACCEPTED in DB
         db = TestingSessionLocal()
