@@ -180,6 +180,46 @@ export function CallProvider({ children }) {
     setRemoteStream(null);
   };
 
+  // Function to build WebRTC ICE Server config from environment variables
+  const getIceServers = () => {
+    // Default STUN servers if nothing provided in .env
+    const defaultStun = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' }
+    ];
+
+    const iceServers = [];
+
+    // 1. Process STUN overrides from .env
+    if (import.meta.env.VITE_STUN_URLS) {
+      const stunUrls = import.meta.env.VITE_STUN_URLS.split(',').map(u => u.trim());
+      iceServers.push({ urls: stunUrls });
+    } else {
+      iceServers.push(...defaultStun);
+    }
+
+    // 2. Process TURN configuration from .env
+    if (import.meta.env.VITE_TURN_URLS) {
+      const turnUrls = import.meta.env.VITE_TURN_URLS.split(',').map(u => u.trim());
+      const turnConfig = {
+        urls: turnUrls,
+      };
+      
+      if (import.meta.env.VITE_TURN_USERNAME) {
+        turnConfig.username = import.meta.env.VITE_TURN_USERNAME;
+      }
+      if (import.meta.env.VITE_TURN_CREDENTIAL) {
+        turnConfig.credential = import.meta.env.VITE_TURN_CREDENTIAL;
+      }
+      iceServers.push(turnConfig);
+      console.log("[WebRTC] TURN server configured.");
+    } else {
+      console.warn("[WebRTC] No TURN server configured. Production calls may fail on strict networks.");
+    }
+
+    return iceServers;
+  };
+
   const createPeerConnection = (peerId, role) => {
     // Prevent double-creation for the same call
     if (peerConnectionRef.current && pcCreatedForCallRef.current === peerId) {
@@ -194,27 +234,38 @@ export function CallProvider({ children }) {
     }
 
     console.log("[WebRTC] Creating RTCPeerConnection for peer:", peerId, "role:", role);
+    const iceServers = getIceServers();
+    
+    // Explicitly allow all candidates (host, srflx, relay) for maximum connectivity
     const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' }
-      ]
+      iceServers: iceServers,
+      iceTransportPolicy: 'all'
     });
+    
     peerConnectionRef.current = pc;
     pcCreatedForCallRef.current = peerId;
 
     pc.onicecandidate = (event) => {
-      if (event.candidate && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        console.log("[WebRTC] Sending ICE candidate to peer:", peerId);
-        wsRef.current.send(JSON.stringify({
-          event: 'signal',
-          to_user_id: peerId,
-          data: { ice: event.candidate }
-        }));
+      if (event.candidate) {
+        // Log detailed ICE debugging information for outgoing candidates
+        const typeMatch = event.candidate.candidate.match(/typ\s+(\w+)/i);
+        const candidateType = typeMatch ? typeMatch[1] : 'unknown';
+        console.log(`[WebRTC] Generated outgoing ICE candidate (type: ${candidateType}):`, event.candidate.candidate);
+        
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            event: 'signal',
+            to_user_id: peerId,
+            data: { ice: event.candidate }
+          }));
+        }
+      } else {
+        console.log("[WebRTC] ICE candidate gathering complete.");
       }
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.log("[WebRTC] ICE gathering state:", pc.iceGatheringState);
     };
 
     pc.ontrack = (event) => {
@@ -225,9 +276,9 @@ export function CallProvider({ children }) {
     };
 
     pc.oniceconnectionstatechange = () => {
-      console.log("[WebRTC] ICE state:", pc.iceConnectionState);
+      console.log("[WebRTC] ICE connection state:", pc.iceConnectionState);
       if (pc.iceConnectionState === 'failed') {
-        console.warn("[WebRTC] ICE connection failed, attempting restart...");
+        console.error("[WebRTC] ICE connection failed. This usually means a direct STUN connection was blocked by firewalls/NATs and no TURN server relay was available or reachable.");
         try { pc.restartIce(); } catch (e) {}
       }
       if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
@@ -235,8 +286,33 @@ export function CallProvider({ children }) {
       }
     };
 
-    pc.onconnectionstatechange = () => {
+    pc.onconnectionstatechange = async () => {
       console.log("[WebRTC] Connection state:", pc.connectionState);
+      if (pc.connectionState === 'connected') {
+        // Run diagnostics to clearly indicate if STUN or TURN is being used
+        try {
+          const stats = await pc.getStats();
+          stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+              const localCandidate = stats.get(report.localCandidateId);
+              const remoteCandidate = stats.get(report.remoteCandidateId);
+              if (localCandidate && remoteCandidate) {
+                console.log(`[WebRTC] Active connection established!`);
+                console.log(`[WebRTC] Local candidate: ${localCandidate.candidateType} (${localCandidate.ip}:${localCandidate.port})`);
+                console.log(`[WebRTC] Remote candidate: ${remoteCandidate.candidateType} (${remoteCandidate.ip}:${remoteCandidate.port})`);
+                
+                if (localCandidate.candidateType === 'relay' || remoteCandidate.candidateType === 'relay') {
+                  console.log(`[WebRTC] -> DIAGNOSTIC: Using TURN relay connection.`);
+                } else {
+                  console.log(`[WebRTC] -> DIAGNOSTIC: Using STUN direct connection.`);
+                }
+              }
+            }
+          });
+        } catch (err) {
+          console.error("[WebRTC] Failed to get connection stats:", err);
+        }
+      }
     };
 
     return pc;
@@ -330,7 +406,9 @@ export function CallProvider({ children }) {
         console.error("[WebRTC] Error handling SDP:", err);
       }
     } else if (data.ice) {
-      console.log("[WebRTC] Received ICE candidate from:", fromUserId);
+      const typeMatch = data.ice.candidate ? data.ice.candidate.match(/typ\s+(\w+)/i) : null;
+      const candidateType = typeMatch ? typeMatch[1] : 'unknown';
+      console.log(`[WebRTC] Received incoming ICE candidate (type: ${candidateType}) from:`, fromUserId);
       try {
         // If remote description not yet set, queue the candidate
         if (!pc.remoteDescription) {
