@@ -21,7 +21,9 @@ SYSTEM_CAPABILITIES = {
                 "updatePatient",
                 "triggerSOS",
                 "logout",
-                "setReminder"
+                "setReminder",
+                "openMedicalRecord",
+                "openImagingDiagnostic"
             ]
         },
         "doctor": {
@@ -31,7 +33,9 @@ SYSTEM_CAPABILITIES = {
                 "triggerSOS",
                 "logout",
                 "createPrescription",
-                "setReminder"
+                "setReminder",
+                "openMedicalRecord",
+                "openImagingDiagnostic"
             ]
         },
         "admin": {
@@ -42,7 +46,9 @@ SYSTEM_CAPABILITIES = {
                 "fetchPrescription",
                 "triggerSOS",
                 "logout",
-                "setReminder"
+                "setReminder",
+                "openMedicalRecord",
+                "openImagingDiagnostic"
             ]
         }
     },
@@ -245,6 +251,31 @@ SYSTEM_CAPABILITIES = {
                     "record_id": {"type": "integer"}
                 },
                 "required": ["record_id"]
+            },
+            "requires_confirmation": False
+        },
+        "openMedicalRecord": {
+            "description": "Open or display a previously uploaded medical record or prescription PDF/image.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "record_id": {"type": "integer"},
+                    "file_path": {"type": "string"},
+                    "file_name": {"type": "string"}
+                },
+                "required": ["record_id"]
+            },
+            "requires_confirmation": False
+        },
+        "openImagingDiagnostic": {
+            "description": "Open or display a previously generated clinical imaging diagnostics report from the history.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "diagnostic_id": {"type": "integer"},
+                    "scan_type": {"type": "string"}
+                },
+                "required": ["diagnostic_id"]
             },
             "requires_confirmation": False
         }

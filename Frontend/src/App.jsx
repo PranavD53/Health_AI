@@ -19,6 +19,7 @@ import DoctorSearch from './pages/DoctorSearch';
 import MedicalRecords from './pages/MedicalRecords';
 import Settings from './pages/Settings';
 import Chat from './pages/Chat';
+import ImagingDiagnostics from './pages/ImagingDiagnostics';
 
 const LoadingScreen = () => (
   <div className="flex justify-center items-center h-screen bg-surface">
@@ -100,6 +101,16 @@ function RecordsRoute() {
   return <MedicalRecords />;
 }
 
+function ImagingRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return <LoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'admin') {
+    return <Navigate to={`/${user.role}/${user.id}`} replace />;
+  }
+  return <ImagingDiagnostics />;
+}
+
 function App() {
   return (
     <LanguageProvider>
@@ -163,6 +174,14 @@ function App() {
                 element={
                   <Layout>
                     <RecordsRoute />
+                  </Layout>
+                } 
+              />
+              <Route 
+                path="/imaging" 
+                element={
+                  <Layout>
+                    <ImagingRoute />
                   </Layout>
                 } 
               />

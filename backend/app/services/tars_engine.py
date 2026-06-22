@@ -181,12 +181,25 @@ async def execute_tars_intent(
         
         records_list = []
         for rec in medical_records:
-            records_list.append(f"- Record: {rec.file_name} (Type: {rec.file_type}, ID: {rec.id}, Status: {rec.fraud_status})")
+            records_list.append(f"- Record: {rec.file_name} (Type: {rec.file_type}, ID: {rec.id}, FilePath: {rec.file_path}, Status: {rec.fraud_status})")
         
         if records_list:
             user_context += "YOUR UPLOADED MEDICAL RECORDS & PRESCRIPTIONS:\n" + "\n".join(records_list) + "\n"
         else:
             user_context += "YOUR UPLOADED MEDICAL RECORDS & PRESCRIPTIONS: You have no uploaded medical records or prescriptions.\n"
+
+        imaging_records = db.query(models.MedicalImagingDiagnostic).filter(
+            models.MedicalImagingDiagnostic.user_id == current_user.id
+        ).order_by(models.MedicalImagingDiagnostic.created_at.desc()).all()
+        
+        imaging_list = []
+        for img in imaging_records:
+            imaging_list.append(f"- Imaging Diagnostic Scan: {img.file_name} (Category: {img.scan_type}, ID: {img.id}, Severity: {img.severity}, Specialist: {img.recommended_specialist})")
+        
+        if imaging_list:
+            user_context += "YOUR IMAGING DIAGNOSTICS HISTORY:\n" + "\n".join(imaging_list) + "\n"
+        else:
+            user_context += "YOUR IMAGING DIAGNOSTICS HISTORY: You have no imaging diagnostic reports.\n"
 
         # Fetch patient upcoming appointments
         from sqlalchemy.orm import joinedload
@@ -288,7 +301,6 @@ async def execute_tars_intent(
         "9. For actions that perform database modifications or background operations (like 'createAppointment', 'updatePatient', 'setReminder'), the 'message' field should state that you are *attempting* or *proceeding* to perform the action (e.g., 'I will proceed to book that appointment for you...', 'Updating your location now...', 'Setting a medication reminder...'), rather than asserting that the action has already succeeded, as the actual execution runs asynchronously after your response is returned.\n"
         "10. Crucial Booking Validation: When proposing or scheduling an appointment, you MUST check the doctor's 'Status', 'Booked Slots', and 'Approved Leaves' in the 'List of available doctors for bookings'. You MUST NOT suggest or schedule any slot if the doctor is 'Unavailable', or if the requested date/time conflicts with their 'Booked Slots' or falls within their 'Approved Leaves' dates. Also, you MUST NOT suggest or schedule any slot that is less than 2 days in advance from the current date and time. If a conflict or violation of these rules occurs, you MUST politely explain the issue and suggest alternative dates/times that are valid.\n"
         "\n"
-        "Allowed Action Router Actions:\n"
         "- openPage(page_name, specialization): Navigate the application. Allowed page_name: 'dashboard', 'records', 'chat', 'settings', 'appointments'. Provide 'specialization' parameter if booking a visit related to specific health concerns.\n"
         "- createAppointment(doctor_id, date, time): Schedule a consultation visit.\n"
         "- fetchPrescription(patient_name): Retrieve prescriptions.\n"
@@ -297,6 +309,8 @@ async def execute_tars_intent(
         "- logout(): Sign out from the session.\n"
         "- setReminder(medicine_name, dosage, time, days, method): Schedule medication reminders.\n"
         "- createPrescription(patient_name, diagnosis, medicines, instructions): Issue clinical prescription (DOCTOR only).\n"
+        "- openMedicalRecord(record_id, file_path): Open a specific uploaded medical record or prescription PDF/image file from the list. Must supply the record_id and file_path from context.\n"
+        "- openImagingDiagnostic(diagnostic_id): Open a specific clinical visual diagnostics report from history. Must supply the diagnostic_id (ID) from history.\n"
         "\n"
         "Roles & Permissions:\n"
         "PATIENT: can openPage, createAppointment, fetchPrescription (self), updatePatient, triggerSOS, logout, setReminder.\n"
@@ -604,6 +618,10 @@ async def execute_tars_intent(
             action_type = 'logout'
         elif action_type in ['set_reminder', 'setReminder', 'createReminder', 'create_reminder']:
             action_type = 'setReminder'
+        elif action_type in ['open_medical_record', 'openMedicalRecord', 'view_medical_record', 'openRecord', 'open_record']:
+            action_type = 'openMedicalRecord'
+        elif action_type in ['open_imaging_diagnostic', 'openImagingDiagnostic', 'view_imaging_diagnostic', 'openDiagnostic', 'open_diagnostic']:
+            action_type = 'openImagingDiagnostic'
 
         action_payload = {
             "type": action_type,
@@ -617,7 +635,8 @@ async def execute_tars_intent(
     # Recognized actions that require permission checks
     RECOGNIZED_ACTIONS = [
         "openPage", "createAppointment", "fetchPrescription", "updatePatient",
-        "triggerSOS", "logout", "setReminder", "createPrescription"
+        "triggerSOS", "logout", "setReminder", "createPrescription",
+        "openMedicalRecord", "openImagingDiagnostic"
     ]
     
     if action_payload:

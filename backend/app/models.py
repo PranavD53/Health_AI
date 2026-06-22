@@ -30,6 +30,7 @@ class User(Base):
     feedbacks = relationship("Feedback", back_populates="patient", foreign_keys="[Feedback.patient_id]", cascade="all, delete-orphan")
     color_palettes = relationship("UserColorPalette", back_populates="user", cascade="all, delete-orphan")
     medicine_reminders = relationship("MedicineReminder", back_populates="user", cascade="all, delete-orphan")
+    imaging_diagnostics = relationship("MedicalImagingDiagnostic", back_populates="user", cascade="all, delete-orphan")
 
     @property
     def doctor_profile_id(self):
@@ -361,3 +362,21 @@ class MedicineReminder(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
 
     user = relationship("User", back_populates="medicine_reminders")
+
+
+class MedicalImagingDiagnostic(Base):
+    __tablename__ = "medical_imaging_diagnostics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    file_name = Column(String, nullable=False)
+    file_path = Column(String, nullable=False)
+    file_type = Column(String, nullable=False)
+    file_data = Column(Text, nullable=True)
+    scan_type = Column(String, nullable=False)
+    findings = Column(Text, nullable=False)
+    severity = Column(String, nullable=False)  # Normal, Low, Moderate, High, Critical
+    recommended_specialist = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
+
+    user = relationship("User", back_populates="imaging_diagnostics")

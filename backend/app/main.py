@@ -12,7 +12,7 @@ import httpx
 from app.database import engine, Base, get_db
 from app.migrations import ensure_schema
 from app import models
-from app.routes import auth, profile, symptoms, doctors, appointments, records, dashboard, chats, calls, feedback, palettes
+from app.routes import auth, profile, symptoms, doctors, appointments, records, dashboard, chats, calls, feedback, palettes, imaging
 from app.routes.auth import get_current_user, require_role, log_action
 from app.routes.auth import get_password_hash
 from app.routes.doctors import seed_doctors
@@ -171,6 +171,7 @@ app.include_router(chats.router)
 app.include_router(calls.router)
 app.include_router(feedback.router)
 app.include_router(palettes.router)
+app.include_router(imaging.router)
 
 
 from fastapi import UploadFile, File

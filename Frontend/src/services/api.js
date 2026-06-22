@@ -854,5 +854,30 @@ export const api = {
       headers: getHeaders()
     });
     return handleResponse(res);
+  },
+
+  analyzeImaging: async (formData) => {
+    const res = await apiFetch('/imaging/analyze', {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: formData
+    });
+    return handleResponse(res);
+  },
+
+  getMyDiagnostics: async () => {
+    const res = await apiFetch('/imaging/my-diagnostics', {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
+  },
+
+  deleteDiagnostic: async (id) => {
+    const res = await apiFetch(`/imaging/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
   }
 };

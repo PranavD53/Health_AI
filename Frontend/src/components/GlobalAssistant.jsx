@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { getApiBaseUrl } from '../utils/apiConfig';
+import { getApiBaseUrl, resolveMediaUrl } from '../utils/apiConfig';
 
 class PCMAudioPlayer {
   constructor(sampleRate = 16000, onEnded = null) {
@@ -1005,6 +1005,22 @@ export default function GlobalAssistant() {
           navigate(`/${page}`);
         }
         speakAndResume(assistantReply || `Opening ${page} page.`);
+      } else if (type === 'openMedicalRecord') {
+        const filePath = parameters.file_path || parameters.filePath;
+        if (filePath) {
+          window.open(resolveMediaUrl(filePath), '_blank');
+          speakAndResume(assistantReply || "Opening medical record in a new tab.");
+        } else {
+          speakAndResume("Sorry, I could not find the file path for that record.");
+        }
+      } else if (type === 'openImagingDiagnostic') {
+        const diagId = parameters.diagnostic_id || parameters.diagnosticId || parameters.id;
+        if (diagId) {
+          navigate(`/imaging?open_report=${diagId}`);
+          speakAndResume(assistantReply || `Opening diagnostic report number ${diagId}.`);
+        } else {
+          speakAndResume("Sorry, I could not find the ID for that diagnostic report.");
+        }
       } else if (type === 'createAppointment') {
         if (user && (user.role === 'doctor' || user.role === 'admin')) {
           const errorMsg = user.role === 'doctor' 
