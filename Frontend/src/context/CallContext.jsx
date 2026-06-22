@@ -171,6 +171,21 @@ export function CallProvider({ children }) {
   }, [callStatus]);
 
   useEffect(() => {
+    let ringTimeout = null;
+    if (callStatus === 'ringing' && activeCall && activeCall.role === 'doctor') {
+      ringTimeout = setTimeout(() => {
+        console.log("Ringing timed out. Ending call as MISSED.");
+        handleEndCall();
+      }, 30000); // 30 seconds
+    }
+    return () => {
+      if (ringTimeout) {
+        clearTimeout(ringTimeout);
+      }
+    };
+  }, [callStatus, activeCall]);
+
+  useEffect(() => {
     const inCall = callStatus !== 'idle';
     localStorage.setItem('is_in_call', inCall ? 'true' : 'false');
     window.dispatchEvent(new Event('call_state_change'));

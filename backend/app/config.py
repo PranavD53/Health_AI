@@ -16,6 +16,7 @@ SYSTEM_CAPABILITIES = {
             "permissions": [
                 "openPage",
                 "createAppointment",
+                "book_appointment",
                 "fetchPrescription",
                 "updatePatient",
                 "triggerSOS",
@@ -36,6 +37,8 @@ SYSTEM_CAPABILITIES = {
         "admin": {
             "permissions": [
                 "openPage",
+                "createAppointment",
+                "book_appointment",
                 "fetchPrescription",
                 "triggerSOS",
                 "logout",
