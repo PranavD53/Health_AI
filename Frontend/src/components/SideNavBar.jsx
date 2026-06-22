@@ -128,7 +128,7 @@ export default function SideNavBar() {
                 <span className="text-label-md">{t('records')}</span>
               </Link>
               <Link to="/imaging" className={getLinkClass('/imaging')}>
-                <span className="material-symbols-outlined">clinical_feval</span>
+                <span className="material-symbols-outlined">image_search</span>
                 <span className="text-label-md">Imaging Diagnostics</span>
               </Link>
               <Link to="/chat" className={getLinkClass('/chat')}>

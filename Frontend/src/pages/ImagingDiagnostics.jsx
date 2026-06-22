@@ -391,7 +391,7 @@ export default function ImagingDiagnostics() {
           <div className="space-y-md">
             <div className="flex items-center gap-sm">
               <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <span className="material-symbols-outlined">clinical_feval</span>
+                <span className="material-symbols-outlined">biotech</span>
               </div>
               <h3 className="text-title-md font-black text-on-surface">AI Smart Assessment</h3>
             </div>
