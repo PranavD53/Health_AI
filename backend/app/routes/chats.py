@@ -12,6 +12,7 @@ from app.routes.auth import get_current_user, require_role, log_action
 from app.services.prescription_pdf import generate_prescription_pdf
 from app.config import UPLOADS_DIR
 from app.routes.records import check_file_status
+from app.routes.doctors import translate_doctor_info
 
 router = APIRouter(prefix="/chats", tags=["Private Messaging"])
 
@@ -96,8 +97,9 @@ def get_contacts(
                     u = db.query(models.User).filter(models.User.id == doc.user_id).first()
                     if u and u.is_active:
                         doc_name = doc.name
-                        if lang in ["hi", "te"] and doc_name in DOCTOR_TRANSLATIONS[lang]:
-                            doc_name = DOCTOR_TRANSLATIONS[lang][doc_name]["name"]
+                        if lang in ["hi", "te"]:
+                            doc_trans = translate_doctor_info(doc_name, doc.specialization or "General Medicine", doc.location or "", lang)
+                            doc_name = doc_trans["name"]
                         contacts.append({
                             "id": u.id,
                             "email": u.email,
@@ -150,8 +152,9 @@ def get_contacts(
                     u = db.query(models.User).filter(models.User.id == doc.user_id).first()
                     if u and u.is_active:
                         doc_name = doc.name
-                        if lang in ["hi", "te"] and doc_name in DOCTOR_TRANSLATIONS[lang]:
-                            doc_name = DOCTOR_TRANSLATIONS[lang][doc_name]["name"]
+                        if lang in ["hi", "te"]:
+                            doc_trans = translate_doctor_info(doc_name, doc.specialization or "General Medicine", doc.location or "", lang)
+                            doc_name = doc_trans["name"]
                         contacts.append({
                             "id": u.id,
                             "email": u.email,
@@ -202,8 +205,9 @@ def get_conversations(
                 doc = db.query(models.Doctor).filter(models.Doctor.user_id == other_id).first()
                 if doc:
                     other_name = doc.name
-                    if lang in ["hi", "te"] and other_name in DOCTOR_TRANSLATIONS[lang]:
-                        other_name = DOCTOR_TRANSLATIONS[lang][other_name]["name"]
+                    if lang in ["hi", "te"]:
+                        doc_trans = translate_doctor_info(other_name, doc.specialization or "General Medicine", doc.location or "", lang)
+                        other_name = doc_trans["name"]
             elif other_user.role == "admin":
                 prof = db.query(models.PatientProfile).filter(models.PatientProfile.user_id == other_id).first()
                 if prof:

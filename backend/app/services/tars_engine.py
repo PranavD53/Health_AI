@@ -563,9 +563,18 @@ async def execute_tars_intent(
     user_role = current_user.role
     role_permissions = SYSTEM_CAPABILITIES.get("roles", {}).get(user_role, {}).get("permissions", [])
     
+    # Recognized actions that require permission checks
+    RECOGNIZED_ACTIONS = [
+        "openPage", "createAppointment", "fetchPrescription", "updatePatient",
+        "triggerSOS", "logout", "setReminder", "createPrescription"
+    ]
+    
     if action_payload:
         act_name = action_payload["type"]
-        if act_name not in ["logout", "triggerSOS"] and act_name not in role_permissions:
+        # If it is a dummy action or unrecognized action, clear payload but do NOT raise Access Denied
+        if not act_name or act_name.lower() in ["none", "null", "no_action", "no", "false", "undefined"] or act_name not in RECOGNIZED_ACTIONS:
+            action_payload = None
+        elif act_name not in ["logout", "triggerSOS"] and act_name not in role_permissions:
             action_payload = None
             if user_role == "doctor":
                 message = "Access Denied: As a doctor, you do not have permission to execute this action."

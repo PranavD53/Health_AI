@@ -166,8 +166,8 @@ def test_voice_websocket_pipeline():
     ]
     mock_stream = MockStreamResponse(mock_lines)
 
-    # Mock piper_tts to yield dummy PCM audio bytes
-    def mock_synthesize(text, lang="en"):
+    # Mock piper_tts to yield dummy PCM audio bytes as async generator
+    async def mock_synthesize(text, lang="en"):
         yield b"PCM_AUDIO_SAMPLE_DATA_CHUNK"
 
     t_ws = time.time()
@@ -209,8 +209,8 @@ def test_voice_websocket_pipeline():
                         received_binary = True
                     elif "text" in msg:
                         text_data = msg["text"]
-                        if text_data.startswith("data: "):
-                            # SSE line
+                        if text_data.startswith("data: ") or "chunk" in text_data:
+                            # SSE line or JSON chunk message
                             chunk_counter += 1
                         else:
                             control = json.loads(text_data)

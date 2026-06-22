@@ -90,25 +90,224 @@ DOCTOR_TRANSLATIONS = {
     }
 }
 
+DYNAMIC_TRANSLATIONS_CACHE = {
+    "hi": {},
+    "te": {}
+}
+
+def fallback_rule_based(name: str, specialization: str, location: str, lang: str) -> dict:
+    spec_trans = {
+        "hi": {
+            "Cardiology": "हृदय रोग विज्ञान (Cardiology)",
+            "Dermatology": "त्वचा विज्ञान (Dermatology)",
+            "General Medicine": "सामान्य चिकित्सा (General Medicine)",
+            "Neurology": "न्यूरोलॉजी (Neurology)",
+            "Pediatrics": "बाल रोग विज्ञान (Pediatrics)",
+        },
+        "te": {
+            "Cardiology": "గుండె జబ్బుల నిపుణులు (Cardiology)",
+            "Dermatology": "చర్మవ్యాధి నిపుణులు (Dermatology)",
+            "General Medicine": "జనరల్ మెడిసిన్ (General Medicine)",
+            "Neurology": "నరాల వ్యాధుల నిపుణులు (Neurology)",
+            "Pediatrics": "పిల్లల వైద్య నిపుణులు (Pediatrics)",
+        }
+    }
+    
+    translated_name = name
+    if name.lower().startswith("dr."):
+        prefix = "डॉ. " if lang == "hi" else "డా. "
+        rest_of_name = name[3:].strip()
+        translated_name = prefix + rest_of_name
+    elif name.lower().startswith("dr"):
+        prefix = "डॉ. " if lang == "hi" else "డా. "
+        rest_of_name = name[2:].strip()
+        translated_name = prefix + rest_of_name
+        
+    translated_spec = spec_trans.get(lang, {}).get(specialization, specialization)
+    
+    return {
+        "name": translated_name,
+        "specialization": translated_spec,
+        "location": location
+    }
+
+def translate_text_via_llm(name: str, specialization: str, location: str, lang: str) -> dict:
+    import httpx
+    import os
+    import json
+    
+    lang_name = "Hindi" if lang == "hi" else "Telugu"
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    hf_key = os.getenv("HUGGINGFACE_API_KEY", os.getenv("HF_API_KEY", ""))
+    
+    prompt = (
+        f"You are a translator. Translate the following doctor details to {lang_name}.\n"
+        f"Doctor Name: {name}\n"
+        f"Specialization: {specialization}\n"
+        f"Location: {location}\n"
+        f"Return a JSON object with 'name', 'specialization', and 'location' keys. "
+        f"Translate names phonetically so they sound correct and natural in {lang_name} script (not roman script). "
+        f"Translate specializations and locations accurately. Do not include any explanations."
+    )
+    
+    # 1. Primary: Gemini 2.5 Flash
+    if gemini_key and not gemini_key.startswith("your_"):
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+            with httpx.Client() as client:
+                res = client.post(
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {
+                            "responseMimeType": "application/json",
+                            "responseSchema": {
+                                "type": "OBJECT",
+                                "properties": {
+                                    "name": {"type": "STRING"},
+                                    "specialization": {"type": "STRING"},
+                                    "location": {"type": "STRING"}
+                                },
+                                "required": ["name", "specialization", "location"]
+                            }
+                        }
+                    },
+                    timeout=4.0
+                )
+                if res.status_code == 200:
+                    res_obj = res.json()
+                    text = res_obj.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                    parsed = json.loads(text)
+                    return {
+                        "name": parsed.get("name", name),
+                        "specialization": parsed.get("specialization", specialization),
+                        "location": parsed.get("location", location)
+                    }
+                else:
+                    print(f"Gemini translation returned status {res.status_code}: {res.text}")
+        except Exception as e:
+            print(f"Error in Gemini translation: {e}")
+
+    # 2. Fallback 1: Groq (Llama-3.1-8b-instant)
+    if groq_key and not groq_key.startswith("your_"):
+        try:
+            url = "https://api.groq.com/openai/v1/chat/completions"
+            with httpx.Client() as client:
+                res = client.post(
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {groq_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": "llama-3.1-8b-instant",
+                        "messages": [
+                            {"role": "system", "content": "You are a translator. You must return only a JSON object matching the requested schema with name, specialization, and location. Do not include any markdown fences or explanations."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        "response_format": {"type": "json_object"},
+                        "temperature": 0.2
+                    },
+                    timeout=4.0
+                )
+                if res.status_code == 200:
+                    res_obj = res.json()
+                    text = res_obj["choices"][0]["message"].get("content", "").strip()
+                    parsed = json.loads(text)
+                    return {
+                        "name": parsed.get("name", name),
+                        "specialization": parsed.get("specialization", specialization),
+                        "location": parsed.get("location", location)
+                    }
+                else:
+                    print(f"Groq translation returned status {res.status_code}: {res.text}")
+        except Exception as e:
+            print(f"Error in Groq translation fallback: {e}")
+
+    # 3. Fallback 2: Hugging Face (Llama-3.2-3B-Instruct)
+    if hf_key and not hf_key.startswith("your_"):
+        try:
+            url = "https://api-inference.huggingface.co/models/meta-llama/Llama-3.2-3B-Instruct"
+            hf_prompt = f"<|system|>\nYou are a translator. Translate the details to a JSON format containing 'name', 'specialization', and 'location'. Do not include explanations.\n<|user|>\n{prompt}\n<|assistant|>\n"
+            with httpx.Client() as client:
+                res = client.post(
+                    url,
+                    headers={
+                        "Authorization": f"Bearer {hf_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "inputs": hf_prompt,
+                        "parameters": {"max_new_tokens": 150, "temperature": 0.2}
+                    },
+                    timeout=5.0
+                )
+                if res.status_code == 200:
+                    res_json = res.json()
+                    if isinstance(res_json, list) and len(res_json) > 0:
+                        generated = res_json[0].get("generated_text", "")
+                        text = generated.split("<|assistant|>")[-1].strip() if "<|assistant|>" in generated else generated.replace(hf_prompt, "").strip()
+                        import re
+                        match = re.search(r'\{.*?\}', text, re.DOTALL)
+                        if match:
+                            parsed = json.loads(match.group(0))
+                            return {
+                                "name": parsed.get("name", name),
+                                "specialization": parsed.get("specialization", specialization),
+                                "location": parsed.get("location", location)
+                            }
+                else:
+                    print(f"Hugging Face translation returned status {res.status_code}: {res.text}")
+        except Exception as e:
+            print(f"Error in Hugging Face translation fallback: {e}")
+
+    # 4. Fallback 3: Rule-based translation
+    return fallback_rule_based(name, specialization, location, lang)
+
+def translate_doctor_info(name: str, specialization: str, location: str, lang: str) -> dict:
+    if not lang or lang not in ["hi", "te"]:
+        return {"name": name, "specialization": specialization, "location": location}
+        
+    import re
+    if not name or re.search(r"[\u0900-\u097F\u0C00-\u0C7F]", name):
+        return {"name": name, "specialization": specialization, "location": location}
+        
+    if name in DOCTOR_TRANSLATIONS[lang]:
+        return DOCTOR_TRANSLATIONS[lang][name]
+    elif name in DYNAMIC_TRANSLATIONS_CACHE[lang]:
+        return DYNAMIC_TRANSLATIONS_CACHE[lang][name]
+    else:
+        trans = translate_text_via_llm(name, specialization or "General Medicine", location or "", lang)
+        DYNAMIC_TRANSLATIONS_CACHE[lang][name] = trans
+        return trans
+
 def translate_doctor(doc_obj, lang: str):
     if not lang or lang not in ["hi", "te"]:
         return doc_obj
     
     is_dict = isinstance(doc_obj, dict)
     name = doc_obj.get("name") if is_dict else getattr(doc_obj, "name", None)
+    specialization = doc_obj.get("specialization") if is_dict else getattr(doc_obj, "specialization", "General Medicine")
+    location = doc_obj.get("location") if is_dict else getattr(doc_obj, "location", "")
     
-    if name and name in DOCTOR_TRANSLATIONS[lang]:
-        trans = DOCTOR_TRANSLATIONS[lang][name]
-        if is_dict:
-            doc_obj["name"] = trans["name"]
-            doc_obj["specialization"] = trans["specialization"]
-            if "location" in doc_obj:
-                doc_obj["location"] = trans["location"]
-        else:
-            doc_obj.name = trans["name"]
-            doc_obj.specialization = trans["specialization"]
-            if hasattr(doc_obj, "location") and doc_obj.location is not None:
-                doc_obj.location = trans["location"]
+    if not name:
+        return doc_obj
+        
+    trans = translate_doctor_info(name, specialization, location, lang)
+    
+    if is_dict:
+        doc_obj["name"] = trans["name"]
+        doc_obj["specialization"] = trans["specialization"]
+        if "location" in doc_obj:
+            doc_obj["location"] = trans["location"]
+    else:
+        doc_obj.name = trans["name"]
+        doc_obj.specialization = trans["specialization"]
+        if hasattr(doc_obj, "location") and doc_obj.location is not None:
+            doc_obj.location = trans["location"]
+            
     return doc_obj
 
 # --- Database Seeding Helper ---
