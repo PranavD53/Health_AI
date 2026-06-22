@@ -52,7 +52,8 @@ def run_offline_heuristics(scan_type: str, filename: str) -> dict:
             "Visual inspection indicates localized dermatological lesions. Moderate epidermal erythema "
             "and hyperpigmented borders are observed. The lesion displays distinct asymmetrical margins "
             "and minor scaling. Recommend differential diagnosis for contact dermatitis, eczema, or "
-            "localized fungal infection. Patient advised to avoid scratching and apply soothing emollient."
+            "localized fungal infection. Patient advised to avoid scratching and apply soothing emollient "
+            "(such as Calamine lotion or mild hydrocortisone 1% cream topically twice daily as needed)."
         )
         severity = "Moderate"
         specialist = "dermatology"
@@ -61,7 +62,8 @@ def run_offline_heuristics(scan_type: str, filename: str) -> dict:
             "Posterior pharyngeal wall shows significant vascular congestion and diffuse erythema. "
             "Tonsillar swelling is mild (Grade 1) with no visible purulent exudate or cobblestoning. "
             "Slight uvular inflammation noted. Findings are highly consistent with acute viral pharyngitis. "
-            "Recommend warm saline rinses, adequate hydration, and symptomatic monitoring."
+            "Recommend warm saline rinses, adequate hydration, and symptomatic monitoring. Suggested OTC medicines: "
+            "throat lozenges every 4 hours for irritation, and paracetamol (500mg up to 3 times daily as needed) for mild soreness."
         )
         severity = "Low"
         specialist = "general"
@@ -71,7 +73,7 @@ def run_offline_heuristics(scan_type: str, filename: str) -> dict:
             "No consolidation, pleural effusion, or active airspace disease detected. Cardiomediastinal "
             "silhouette and hila are within normal limits. Skeletal structures show normal alignment "
             "with no obvious signs of acute fracture or subluxation. Findings suggest normal respiratory "
-            "and osseous structures."
+            "and osseous structures. No prescription medications required. Maintain normal health monitoring."
         )
         severity = "Normal"
         specialist = "general"
@@ -79,7 +81,8 @@ def run_offline_heuristics(scan_type: str, filename: str) -> dict:
         findings = (
             "Preliminary clinical imaging scan processed. General structural integrity of the target region "
             "appears unremarkable, with no clear anomalies or acute pathology visible. Further specific diagnostic "
-            "examinations may be required if clinical symptoms persist."
+            "examinations may be required if clinical symptoms persist. Mild symptoms may be managed with standard "
+            "over-the-counter pain relievers or topical emollients as appropriate."
         )
         severity = "Normal"
         specialist = "general"
@@ -143,6 +146,7 @@ async def analyze_imaging(
                     "You are an expert AI clinical diagnostic assistant. "
                     f"Analyze the uploaded image representing a '{scan_type}' scan. "
                     "Provide a professional clinical diagnostic report describing findings and observations. "
+                    "Crucial Medication Rule: If the determined severity of the condition is Normal, Low, or Moderate, you MUST suggest appropriate, safe over-the-counter (OTC) or mild medicines (such as paracetamol for mild fever/pain, throat lozenges for sore throat, topical calamine or 1% hydrocortisone cream for skin rashes) directly inside the findings text.\n"
                     "Select the appropriate severity (Normal, Low, Moderate, High, Critical) and recommend the "
                     "most suitable specialist field (cardiology, dermatology, general, neurology, pediatrics) for patient routing.\n"
                     "Respond ONLY in JSON matching the specified schema."
@@ -219,7 +223,7 @@ async def analyze_imaging(
                                         "You are an expert AI clinical diagnostic assistant. "
                                         f"Analyze this image representing a '{scan_type}' scan. "
                                         "Return a JSON object containing:\n"
-                                        "1. 'findings': Detailed clinical observations.\n"
+                                        "1. 'findings': Detailed clinical observations. Crucial Medication Rule: If the determined severity of the condition is Normal, Low, or Moderate, you MUST suggest appropriate, safe over-the-counter (OTC) or mild medicines (such as paracetamol for mild fever/pain, throat lozenges for sore throat, topical calamine or 1% hydrocortisone cream for skin rashes) directly inside the findings text.\n"
                                         "2. 'severity': One of 'Normal', 'Low', 'Moderate', 'High', 'Critical'.\n"
                                         "3. 'recommended_specialist': One of 'cardiology', 'dermatology', 'general', 'neurology', 'pediatrics'.\n"
                                         "Respond ONLY with a valid JSON object. Do not include markdown formatting or code blocks."
@@ -286,8 +290,8 @@ async def analyze_imaging(
         else:
             specialist = specialist_formatted
 
-        # Append model metadata to findings
-        findings += f"\n\n[Diagnostic scan processed by {analyzed_by}. Integrity status: {fraud_status}]"
+        # Removed model metadata to satisfy user request
+        pass
 
         # Save to Database
         new_diagnostic = models.MedicalImagingDiagnostic(

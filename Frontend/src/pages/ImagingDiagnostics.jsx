@@ -607,7 +607,7 @@ export default function ImagingDiagnostics() {
                   {localT.findings}
                 </h4>
                 <div className="text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
-                  {activeReport.findings}
+                  {activeReport.findings ? activeReport.findings.split('[Diagnostic')[0].trim() : ''}
                 </div>
               </div>
             </div>
