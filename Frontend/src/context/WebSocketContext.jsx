@@ -27,9 +27,17 @@ export function WebSocketProvider({ children }) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
       }
+      
+      // Ping interval to keep connection alive through proxies/NAT
+      socket.pingInterval = setInterval(() => {
+        if (socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ event: 'ping' }));
+        }
+      }, 15000); // 15 seconds
     };
 
     socket.onmessage = (event) => {
+      if (event.data === 'pong' || event.data === '{"event":"pong"}') return;
       try {
         const data = JSON.parse(event.data);
         subscribersRef.current.forEach((callback) => callback(data));
@@ -40,6 +48,7 @@ export function WebSocketProvider({ children }) {
 
     socket.onclose = () => {
       console.log('WebSocket disconnected');
+      if (socket.pingInterval) clearInterval(socket.pingInterval);
       setIsConnected(false);
       setWs(null);
       // Reconnect after 3 seconds if user is still logged in

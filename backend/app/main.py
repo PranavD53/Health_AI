@@ -312,6 +312,11 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
             try:
                 import json
                 data = json.loads(data_str)
+
+                if data.get("event") == "ping":
+                    await websocket.send_json({"event": "pong"})
+                    continue
+
                 if data.get("event") == "signal":
                     to_user_id = data.get("to_user_id")
                     signal_data = data.get("data")

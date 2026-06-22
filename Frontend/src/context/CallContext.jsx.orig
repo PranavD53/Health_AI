@@ -140,27 +140,25 @@ export function CallProvider({ children }) {
       streamRef.current = null;
     }
     setLocalStream(null);
-    setIsMuted(false);
-    setIsVideoOff(false);
   };
 
   const toggleMute = () => {
-    const stream = streamRef.current || localStream;
-    if (stream) {
-      stream.getAudioTracks().forEach(track => {
-        track.enabled = !track.enabled;
-        setIsMuted(!track.enabled);
-      });
+    if (streamRef.current) {
+      const audioTrack = streamRef.current.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMuted(!audioTrack.enabled);
+      }
     }
   };
 
   const toggleVideo = () => {
-    const stream = streamRef.current || localStream;
-    if (stream) {
-      stream.getVideoTracks().forEach(track => {
-        track.enabled = !track.enabled;
-        setIsVideoOff(!track.enabled);
-      });
+    if (streamRef.current) {
+      const videoTrack = streamRef.current.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoOff(!videoTrack.enabled);
+      }
     }
   };
 
@@ -295,23 +293,6 @@ export function CallProvider({ children }) {
       console.log(`[WebRTC] Received ${sdp.type} from:`, fromUserId);
       try {
         await pc.setRemoteDescription(sdp);
-        
-        // Drain any queued ICE candidates for this peer now that remote description is set
-        const remainingSignals = [];
-        for (const sig of pendingSignalsRef.current) {
-          if (sig.fromUserId === fromUserId && sig.data.ice) {
-            console.log("[WebRTC] Draining queued ICE candidate after remote description set");
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(sig.data.ice));
-            } catch (e) {
-              console.error("[WebRTC] Error adding drained ICE candidate:", e);
-            }
-          } else {
-            remainingSignals.push(sig);
-          }
-        }
-        pendingSignalsRef.current = remainingSignals;
-
         if (sdp.type === 'offer') {
           console.log("[WebRTC] Creating SDP answer...");
           const answer = await pc.createAnswer();
@@ -325,7 +306,6 @@ export function CallProvider({ children }) {
             }));
           }
         }
-        await processPendingSignals(pc);
       } catch (err) {
         console.error("[WebRTC] Error handling SDP:", err);
       }
@@ -351,16 +331,15 @@ export function CallProvider({ children }) {
     
     console.log("[WebRTC] Setting up connection. Role:", role, "Peer:", peer_id);
 
-    // 1. Acquire media stream FIRST, before creating PC and exposing it to incoming signals
-    // This prevents incoming SDP offers from being processed with recvonly when our tracks aren't added yet
+    // 1. Create peer connection
+    const pc = createPeerConnection(peer_id, role);
+
+    // 2. Acquire media stream
     const stream = await acquireMediaStream();
     if (!stream) {
       console.error("[WebRTC] Could not acquire media stream!");
       return;
     }
-
-    // 2. Create peer connection
-    const pc = createPeerConnection(peer_id, role);
 
     // 3. Add local tracks to PC
     addLocalTracksToPC(pc, stream);
@@ -477,7 +456,44 @@ export function CallProvider({ children }) {
   };
 
   // --- Video element srcObject binding with retry ---
-  // Deleted: we now use callback refs in Layout.jsx to avoid React render race conditions.
+  useEffect(() => {
+    if (!localStream) return;
+    
+    const attachLocalVideo = () => {
+      if (localVideoRef.current && localVideoRef.current.srcObject !== localStream) {
+        localVideoRef.current.srcObject = localStream;
+        console.log("[Video] Local video srcObject set");
+      }
+    };
+
+    attachLocalVideo();
+    // Retry after a short delay in case the video element hasn't mounted yet
+    const timer = setTimeout(attachLocalVideo, 300);
+    const timer2 = setTimeout(attachLocalVideo, 800);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
+  }, [localStream, callStatus, activeCall]);
+
+  useEffect(() => {
+    if (!remoteStream) return;
+    
+    const attachRemoteVideo = () => {
+      if (remoteVideoRef.current && remoteVideoRef.current.srcObject !== remoteStream) {
+        remoteVideoRef.current.srcObject = remoteStream;
+        console.log("[Video] Remote video srcObject set");
+      }
+    };
+
+    attachRemoteVideo();
+    const timer = setTimeout(attachRemoteVideo, 300);
+    const timer2 = setTimeout(attachRemoteVideo, 800);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timer2);
+    };
+  }, [remoteStream, callStatus, activeCall]);
 
   // Duration effect
   useEffect(() => {

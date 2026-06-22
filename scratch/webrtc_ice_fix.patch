@@ -1,0 +1,10 @@
+--- Frontend/src/context/CallContext.jsx
++++ Frontend/src/context/CallContext.jsx
+@@ -308,6 +308,7 @@
+             }));
+           }
+         }
++        await processPendingSignals(pc);
+       } catch (err) {
+         console.error("[WebRTC] Error handling SDP:", err);
+       }
