@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "@livekit/components-react": "^2.9.21",
+    "livekit-client": "^2.19.2"
+  }
+}

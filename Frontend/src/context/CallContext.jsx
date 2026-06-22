@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { Room, RoomEvent } from 'livekit-client';
 import { api } from '../services/api';
 import { useWebSocket } from './WebSocketContext';
 import { useAuth } from './AuthContext';
@@ -13,12 +14,16 @@ export function CallProvider({ children }) {
   const [incomingCall, setIncomingCall] = useState(null);
   const [callStatus, setCallStatus] = useState('idle');
   const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   
   const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
   const streamRef = useRef(null);
+  const roomRef = useRef(null);
+  const ringTimeoutRef = useRef(null);
 
   const startLocalCamera = async () => {
     try {
@@ -48,8 +53,12 @@ export function CallProvider({ children }) {
     }
   };
 
-  const toggleMute = () => {
-    if (streamRef.current) {
+  const toggleMute = async () => {
+    if (roomRef.current) {
+      const isMutedNow = !roomRef.current.localParticipant.isMicrophoneEnabled;
+      await roomRef.current.localParticipant.setMicrophoneEnabled(!isMutedNow);
+      setIsMuted(isMutedNow);
+    } else if (streamRef.current) {
       const audioTrack = streamRef.current.getAudioTracks()[0];
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
@@ -58,8 +67,12 @@ export function CallProvider({ children }) {
     }
   };
 
-  const toggleVideo = () => {
-    if (streamRef.current) {
+  const toggleVideo = async () => {
+    if (roomRef.current) {
+      const isVideoOffNow = !roomRef.current.localParticipant.isCameraEnabled;
+      await roomRef.current.localParticipant.setCameraEnabled(!isVideoOffNow);
+      setIsVideoOff(isVideoOffNow);
+    } else if (streamRef.current) {
       const videoTrack = streamRef.current.getVideoTracks()[0];
       if (videoTrack) {
         videoTrack.enabled = !videoTrack.enabled;
@@ -132,6 +145,18 @@ export function CallProvider({ children }) {
 
   const handleEndCall = async () => {
     const callId = activeCall?.call_id || incomingCall?.call_id;
+    
+    if (roomRef.current) {
+      try {
+        roomRef.current.disconnect();
+      } catch (e) {
+        console.error("Error disconnecting LiveKit room:", e);
+      }
+      roomRef.current = null;
+    }
+    
+    setRemoteStream(null);
+
     if (!callId) {
       stopLocalCamera();
       setActiveCall(null);
@@ -159,6 +184,12 @@ export function CallProvider({ children }) {
   }, [localStream, callStatus, activeCall]);
 
   useEffect(() => {
+    if (remoteStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream, callStatus, activeCall]);
+
+  useEffect(() => {
     let interval = null;
     if (callStatus === 'connected') {
       interval = setInterval(() => {
@@ -171,6 +202,28 @@ export function CallProvider({ children }) {
   }, [callStatus]);
 
   useEffect(() => {
+    if (callStatus === 'ringing' && activeCall && activeCall.role === 'doctor') {
+      if (ringTimeoutRef.current) {
+        clearTimeout(ringTimeoutRef.current);
+      }
+      ringTimeoutRef.current = setTimeout(() => {
+        console.log("Ringing timed out. Ending call as MISSED.");
+        handleEndCall();
+      }, 30000); // 30 seconds
+    } else {
+      if (ringTimeoutRef.current) {
+        clearTimeout(ringTimeoutRef.current);
+        ringTimeoutRef.current = null;
+      }
+    }
+    return () => {
+      if (ringTimeoutRef.current) {
+        clearTimeout(ringTimeoutRef.current);
+      }
+    };
+  }, [callStatus, activeCall]);
+
+  useEffect(() => {
     const inCall = callStatus !== 'idle';
     localStorage.setItem('is_in_call', inCall ? 'true' : 'false');
     window.dispatchEvent(new Event('call_state_change'));
@@ -181,6 +234,88 @@ export function CallProvider({ children }) {
       }
     }
   }, [callStatus]);
+
+  // LiveKit WebRTC SFU Room Connection Effect
+  useEffect(() => {
+    let activeRoom = null;
+
+    if (callStatus === 'connected' && activeCall?.token && activeCall?.sfu_url) {
+      const connectRoom = async () => {
+        try {
+          console.log(`[WebRTC] Connecting to LiveKit room at ${activeCall.sfu_url}...`);
+          const room = new Room({
+            adaptiveStream: true,
+            dynacast: true,
+          });
+          activeRoom = room;
+          roomRef.current = room;
+
+          room.on(RoomEvent.TrackSubscribed, (track, publication, participant) => {
+            console.log(`[WebRTC] Track subscribed: ${track.kind} from ${participant.identity}`);
+            if (track.kind === 'video') {
+              const stream = new MediaStream([track.mediaStreamTrack]);
+              setRemoteStream(stream);
+            } else if (track.kind === 'audio') {
+              const el = track.attach();
+              document.body.appendChild(el);
+            }
+          });
+
+          room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
+            console.log(`[WebRTC] Track unsubscribed: ${track.kind}`);
+            if (track.kind === 'video') {
+              setRemoteStream(null);
+            } else if (track.kind === 'audio') {
+              track.detach();
+            }
+          });
+
+          room.on(RoomEvent.Disconnected, () => {
+            console.log('[WebRTC] Disconnected from LiveKit room');
+            setRemoteStream(null);
+            stopLocalCamera();
+            setActiveCall(null);
+            setIncomingCall(null);
+            setCallStatus('idle');
+          });
+
+          await room.connect(activeCall.sfu_url, activeCall.token);
+          console.log('[WebRTC] Connected to LiveKit successfully');
+
+          await room.localParticipant.setCameraEnabled(true);
+          await room.localParticipant.setMicrophoneEnabled(true);
+          console.log('[WebRTC] Camera and microphone enabled for local participant');
+
+          const localVideoTrack = room.localParticipant.videoTracks.values().next().value?.track;
+          if (localVideoTrack && localVideoTrack.mediaStreamTrack) {
+            const stream = new MediaStream([localVideoTrack.mediaStreamTrack]);
+            setLocalStream(stream);
+            streamRef.current = stream;
+          }
+        } catch (err) {
+          console.error('[WebRTC] Failed to connect to LiveKit room:', err);
+          // Fallback to local camera if LiveKit connection fails
+          startLocalCamera();
+        }
+      };
+
+      connectRoom();
+    }
+
+    return () => {
+      if (activeRoom) {
+        try {
+          activeRoom.disconnect();
+        } catch (e) {
+          console.error('[WebRTC] Error disconnecting LiveKit room:', e);
+        }
+        if (roomRef.current === activeRoom) {
+          roomRef.current = null;
+        }
+        setRemoteStream(null);
+      }
+    };
+  }, [callStatus, activeCall?.token, activeCall?.sfu_url]);
 
   useEffect(() => {
     if (!user) {
@@ -213,7 +348,6 @@ export function CallProvider({ children }) {
                 otherPartyName: data.other_party_name
               });
               setCallStatus('connected');
-              startLocalCamera();
             }
           } else if (data.role === 'doctor') {
             setActiveCall({
@@ -229,7 +363,6 @@ export function CallProvider({ children }) {
             } else {
               setCallStatus('connected');
             }
-            startLocalCamera();
           }
         }
       } catch (err) {
@@ -256,7 +389,6 @@ export function CallProvider({ children }) {
       } else if (data.event === 'accepted') {
         // Connected on doctor side
         setCallStatus('connected');
-        startLocalCamera();
       } else if (data.event === 'rejected') {
         setCallStatus('declined');
         stopLocalCamera();
@@ -284,10 +416,12 @@ export function CallProvider({ children }) {
       incomingCall,
       callStatus,
       localStream,
+      remoteStream,
       callDuration,
       isMuted,
       isVideoOff,
       localVideoRef,
+      remoteVideoRef,
       handleStartCall,
       handleAcceptCall,
       handleRejectCall,

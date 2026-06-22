@@ -95,7 +95,7 @@ def adjust_timestamps_generic(items: list, today_date=None):
 # --- Endpoints ---
 
 @router.post("/book", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
-def book_appointment(
+async def book_appointment(
     booking: AppointmentBook,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -133,8 +133,36 @@ def book_appointment(
                 detail="Doctor not found"
             )
 
+        async def notify_doctor_conflict(message_text: str):
+            # Resolve doctor user id
+            doc_user_id = doctor.user_id
+            if not doc_user_id and doctor.contact:
+                doc_user = db.query(models.User).filter(models.User.email == doctor.contact).first()
+                if doc_user:
+                    doc_user_id = doc_user.id
+            if doc_user_id:
+                try:
+                    notif = models.Notification(
+                        user_id=doc_user_id,
+                        message=message_text,
+                        notification_type="general"
+                    )
+                    db.add(notif)
+                    db.commit()
+                    
+                    from app.websocket_manager import manager
+                    await manager.send_personal_json({
+                        "event": "new_notification"
+                    }, doc_user_id)
+                except Exception as ex:
+                    db.rollback()
+                    print(f"Failed to send conflict notification: {ex}")
+
         # Check if doctor is available
         if not doctor.available:
+            await notify_doctor_conflict(
+                f"A patient attempted to book an appointment with you on {booking.date} at {booking.time}, but you are currently marked as unavailable."
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Doctor is currently unavailable for booking"
@@ -171,6 +199,9 @@ def book_appointment(
             models.LeaveRequest.end_date >= booking.date
         ).first()
         if approved_leave:
+            await notify_doctor_conflict(
+                f"A patient attempted to book an appointment with you on {booking.date} at {booking.time}, which conflicts with your approved leave from {approved_leave.start_date} to {approved_leave.end_date}."
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Doctor is on approved leave from {approved_leave.start_date} to {approved_leave.end_date}."
@@ -184,6 +215,9 @@ def book_appointment(
             models.Appointment.status == "booked"
         ).first()
         if existing_booking:
+            await notify_doctor_conflict(
+                f"A patient attempted to book an appointment with you on {booking.date} at {booking.time}, which conflicts with an existing booking."
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This time slot is already booked with this doctor"

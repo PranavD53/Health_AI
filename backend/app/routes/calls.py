@@ -380,7 +380,10 @@ async def end_call(
             detail="You are not a participant in this call."
         )
 
-    call.status = "COMPLETED"
+    if call.status in ["INITIATED", "RINGING"]:
+        call.status = "MISSED"
+    else:
+        call.status = "COMPLETED"
     call.ended_at = datetime.datetime.utcnow()
     
     # Calculate duration

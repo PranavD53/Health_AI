@@ -129,7 +129,41 @@ async def execute_tars_intent(
 
     # Load active/verified doctors directory dynamically
     doctors_query = db.query(models.Doctor).all()
-    doctors_directory = "\n".join([f"- {doc.name} ({doc.specialization}, ID {doc.id})" for doc in doctors_query])
+    doctors_list_str = []
+    for doc in doctors_query:
+        # Get approved leaves
+        leaves = db.query(models.LeaveRequest).filter(
+            models.LeaveRequest.doctor_id == doc.id,
+            models.LeaveRequest.status == "approved"
+        ).all()
+        leaves_str = ", ".join([f"{l.start_date} to {l.end_date}" for l in leaves]) if leaves else "None"
+        
+        # Get booked slots
+        booked_appts = db.query(models.Appointment).filter(
+            models.Appointment.doctor_id == doc.id,
+            models.Appointment.status == "booked"
+        ).all()
+        # Adjust timestamps just in case
+        for appt in booked_appts:
+            try:
+                db.expunge(appt)
+            except Exception:
+                pass
+        adjust_timestamps_generic(booked_appts)
+        # Filter for booked slots on or after today
+        booked_appts = [a for a in booked_appts if a.date >= today_str]
+        booked_appts.sort(key=lambda x: (x.date, x.time))
+        booked_str = ", ".join([f"{a.date} at {a.time}" for a in booked_appts]) if booked_appts else "None"
+        
+        avail_status = "Available" if doc.available else "Unavailable"
+        
+        doctors_list_str.append(
+            f"- {doc.name} ({doc.specialization}, ID {doc.id}) | "
+            f"Status: {avail_status} | "
+            f"Booked Slots: [{booked_str}] | "
+            f"Approved Leaves: [{leaves_str}]"
+        )
+    doctors_directory = "\n".join(doctors_list_str)
 
     user_context = (
         f"CURRENT DATE AND TIME: {current_time_str}\n"
@@ -252,6 +286,7 @@ async def execute_tars_intent(
         "7. If the user's request is incomplete, ambiguous, or lacks required details to execute an action (for example, setting an alarm/reminder without a specified time/purpose, or booking an appointment without a doctor/date/time), you must ask for clarification in the 'message' field and set the 'action' field to an empty string \"\". Do not attempt to guess or execute with default/placeholder parameters unless the user explicitly confirms them.\n"
         f"8. The user's preferred language/locale is '{pref_lang}'. You should respond in this language by default. However, if the user speaks or queries in a different language or mixed style (like Hindi, Telugu, Hinglish, or Tinglish, whether in native scripts or romanized/transliterated English characters), you MUST detect and match their input language, script, and code-mixing style in your response (e.g., reply in Hinglish if they ask in Hinglish, and reply in Tinglish if they ask in Tinglish).\n"
         "9. For actions that perform database modifications or background operations (like 'createAppointment', 'updatePatient', 'setReminder'), the 'message' field should state that you are *attempting* or *proceeding* to perform the action (e.g., 'I will proceed to book that appointment for you...', 'Updating your location now...', 'Setting a medication reminder...'), rather than asserting that the action has already succeeded, as the actual execution runs asynchronously after your response is returned.\n"
+        "10. Crucial Booking Validation: When proposing or scheduling an appointment, you MUST check the doctor's 'Status', 'Booked Slots', and 'Approved Leaves' in the 'List of available doctors for bookings'. You MUST NOT suggest or schedule any slot if the doctor is 'Unavailable', or if the requested date/time conflicts with their 'Booked Slots' or falls within their 'Approved Leaves' dates. Also, you MUST NOT suggest or schedule any slot that is less than 2 days in advance from the current date and time. If a conflict or violation of these rules occurs, you MUST politely explain the issue and suggest alternative dates/times that are valid.\n"
         "\n"
         "Allowed Action Router Actions:\n"
         "- openPage(page_name, specialization): Navigate the application. Allowed page_name: 'dashboard', 'records', 'chat', 'settings', 'appointments'. Provide 'specialization' parameter if booking a visit related to specific health concerns.\n"
@@ -561,10 +596,14 @@ async def execute_tars_intent(
         elif action_type in ['OPEN_CHAT', 'view_chat']:
             action_type = 'openPage'
             action_params = {"page_name": "chat"}
-        elif action_type == 'book_appointment':
+        elif action_type in ['book_appointment', 'bookAppointment', 'create_appointment', 'createAppointment']:
             action_type = 'createAppointment'
-        elif action_type == 'trigger_sos':
+        elif action_type in ['trigger_sos', 'triggerSOS', 'triggerSos']:
             action_type = 'triggerSOS'
+        elif action_type in ['logout', 'signout', 'signOut', 'sign_out']:
+            action_type = 'logout'
+        elif action_type in ['set_reminder', 'setReminder', 'createReminder', 'create_reminder']:
+            action_type = 'setReminder'
 
         action_payload = {
             "type": action_type,
@@ -572,7 +611,7 @@ async def execute_tars_intent(
         }
 
     # Enforce Role-Based Access Control (RBAC)
-    user_role = current_user.role
+    user_role = current_user.role.lower() if current_user.role else "patient"
     role_permissions = SYSTEM_CAPABILITIES.get("roles", {}).get(user_role, {}).get("permissions", [])
     
     # Recognized actions that require permission checks
