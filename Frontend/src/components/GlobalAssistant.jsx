@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
 class PCMAudioPlayer {
   constructor(sampleRate = 16000, onEnded = null) {
@@ -88,6 +89,7 @@ export default function GlobalAssistant() {
   const voiceSocketRef = useRef(null);
   const vadWorkerRef = useRef(null);
   const pcmPlayerRef = useRef(null);
+  const bgActivationTriggeredRef = useRef(false);
   
   const [tarsVoiceEnabled, setTarsVoiceEnabled] = useState(() => {
     return localStorage.getItem('tars_voice_enabled') !== 'false';
@@ -156,8 +158,8 @@ export default function GlobalAssistant() {
     }
 
     const token = localStorage.getItem('access_token');
-    const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const wsUrl = `${wsScheme}://${window.location.host}/ws/tars/voice?token=${token}`;
+    const apiBase = getApiBaseUrl() || `${window.location.protocol}//${window.location.host}`;
+    const wsUrl = apiBase.replace(/^http/, 'ws') + `/ws/tars/voice?token=${token}`;
 
     const socket = new WebSocket(wsUrl);
     voiceSocketRef.current = socket;
@@ -700,11 +702,12 @@ export default function GlobalAssistant() {
 
     const bgRec = new SpeechRecognition();
     bgRec.continuous = false;
-    bgRec.interimResults = true;
+    bgRec.interimResults = false;
     bgRec.lang = language;
 
     bgRec.onstart = () => {
       setBackgroundListening(true);
+      bgActivationTriggeredRef.current = false;
     };
 
     bgRec.onend = () => {
@@ -713,6 +716,7 @@ export default function GlobalAssistant() {
         setTimeout(() => {
           if (tarsVoiceEnabled && !isListening && !isSpeaking && !voiceSessionActive && bgRecognitionRef.current === bgRec) {
             try {
+              bgActivationTriggeredRef.current = false;
               bgRec.start();
             } catch (e) {
               console.error("Failed to restart background listener", e);
@@ -732,6 +736,11 @@ export default function GlobalAssistant() {
     };
 
     bgRec.onresult = (event) => {
+      if (bgActivationTriggeredRef.current) {
+        console.log("Background wake word already triggered. Ignoring duplicate result.");
+        return;
+      }
+
       const lastIndex = event.results.length - 1;
       const transcript = event.results[lastIndex][0].transcript.trim();
       console.log("Background heard:", transcript);
@@ -742,6 +751,7 @@ export default function GlobalAssistant() {
       const containsWakeWord = wakeWords.some(w => transcriptLower.includes(w) || w === transcriptLower);
 
       if (containsWakeWord) {
+        bgActivationTriggeredRef.current = true;
         try {
           bgRec.stop();
         } catch (e) {}
@@ -782,6 +792,7 @@ export default function GlobalAssistant() {
     const startTimeout = setTimeout(() => {
       if (bgRecognitionRef.current === bgRec) {
         try {
+          bgActivationTriggeredRef.current = false;
           bgRec.start();
         } catch (e) {
           console.warn("Failed to start background SpeechRecognition:", e);
@@ -792,6 +803,7 @@ export default function GlobalAssistant() {
     return () => {
       clearTimeout(startTimeout);
       bgRecognitionRef.current = null;
+      bgActivationTriggeredRef.current = false;
       try {
         bgRec.stop();
       } catch (e) {}
