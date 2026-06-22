@@ -106,18 +106,18 @@ export default function GlobalAssistant() {
 
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
-  const [language, setLanguage] = useState('en-US'); // en-US, hi-IN, te-IN
+  const [language, setLanguage] = useState('en-IN'); // en-IN, hi-IN, te-IN
   const [isListening, setIsListening] = useState(false);
   const [backgroundListening, setBackgroundListening] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const languageLocales = {
-      en: 'en-US',
+      en: 'en-IN',
       hi: 'hi-IN',
       te: 'te-IN'
     };
-    setLanguage(languageLocales[currentLanguage] || 'en-US');
+    setLanguage(languageLocales[currentLanguage] || 'en-IN');
   }, [currentLanguage]);
 
   useEffect(() => {
@@ -453,7 +453,24 @@ export default function GlobalAssistant() {
     const { text, callback } = nextItem;
 
     if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
+      // Clean up text for speech to avoid speaking punctuation like "asterisk", "square bracket", etc.
+      const cleanedText = text
+        .replace(/\*/g, '')
+        .replace(/[\[\]]/g, '')
+        .replace(/[{}]/g, '')
+        .replace(/[-_]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (!cleanedText) {
+        if (callback) callback();
+        setTimeout(() => {
+          processSpeechQueue();
+        }, 100);
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(cleanedText);
       utteranceRef.current = utterance; // Keep a reference to prevent garbage collection
       const voices = window.speechSynthesis.getVoices();
       

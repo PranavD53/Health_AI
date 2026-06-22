@@ -166,8 +166,8 @@ def test_voice_websocket_pipeline():
     ]
     mock_stream = MockStreamResponse(mock_lines)
 
-    # Mock piper_tts to yield dummy PCM audio bytes as async generator
-    async def mock_synthesize(text, lang="en"):
+    # Mock piper_tts to yield dummy PCM audio bytes as sync generator
+    def mock_synthesize(text, lang="en"):
         yield b"PCM_AUDIO_SAMPLE_DATA_CHUNK"
 
     t_ws = time.time()

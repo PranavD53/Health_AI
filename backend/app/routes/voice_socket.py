@@ -105,7 +105,10 @@ async def voice_websocket(websocket: WebSocket, token: Optional[str] = None, db:
                                     "https://api.groq.com/openai/v1/audio/transcriptions",
                                     headers=headers,
                                     files=files,
-                                    data={"model": "whisper-large-v3"}
+                                    data={
+                                        "model": "whisper-large-v3",
+                                        "prompt": "TARS, HealthAI, medical assistant, consultations, records, symptoms, Hindi, Telugu, English, Hinglish, Tinglish, chest pain, cardiology, dermatology, neurology, pediatrics, general medicine."
+                                    }
                                 )
                                 if response.status_code == 200:
                                     res_json = response.json()
@@ -198,19 +201,26 @@ async def voice_websocket(websocket: WebSocket, token: Optional[str] = None, db:
                         for match in sentence_regex.finditer(pending_text):
                             sentence = match.group(0).strip()
                             if sentence:
-                                await websocket.send_json({"type": "audio_start", "text": sentence})
-                                for audio_chunk in synthesize_speech_stream(sentence, detected_language):
-                                    await websocket.send_bytes(audio_chunk)
-                                await websocket.send_json({"type": "audio_end"})
+                                # Clean up speech text to prevent reading aloud markdown symbols
+                                clean_sentence = re.sub(r'[*\[\]{}_-]', ' ', sentence).strip()
+                                clean_sentence = re.sub(r'\s+', ' ', clean_sentence)
+                                if clean_sentence:
+                                    await websocket.send_json({"type": "audio_start", "text": clean_sentence})
+                                    for audio_chunk in synthesize_speech_stream(clean_sentence, detected_language):
+                                        await websocket.send_bytes(audio_chunk)
+                                    await websocket.send_json({"type": "audio_end"})
                             spoken_index += match.end()
                             
                         # Speak any remaining text
                         remaining = accumulated_text[spoken_index:].strip()
                         if remaining:
-                            await websocket.send_json({"type": "audio_start", "text": remaining})
-                            for audio_chunk in synthesize_speech_stream(remaining, detected_language):
-                                await websocket.send_bytes(audio_chunk)
-                            await websocket.send_json({"type": "audio_end"})
+                            clean_remaining = re.sub(r'[*\[\]{}_-]', ' ', remaining).strip()
+                            clean_remaining = re.sub(r'\s+', ' ', clean_remaining)
+                            if clean_remaining:
+                                await websocket.send_json({"type": "audio_start", "text": clean_remaining})
+                                for audio_chunk in synthesize_speech_stream(clean_remaining, detected_language):
+                                    await websocket.send_bytes(audio_chunk)
+                                await websocket.send_json({"type": "audio_end"})
                     except Exception as tars_e:
                         logger.error(f"Voice WebSocket engine error: {tars_e}")
                         await websocket.send_json({

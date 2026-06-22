@@ -246,11 +246,12 @@ async def execute_tars_intent(
         "1. Act as a voice assistant, not a chatbot. Keep responses short and natural (maximum 2 sentences, 40 words max).\n"
         "2. Never perform actions outside the user's role. If the requested action is not allowed under their role, politely deny it in the 'message' field and return empty action.\n"
         "3. You must classify user intent and return a JSON object with 'intent', 'action', 'parameters', 'message', and 'confidence'.\n"
-        "4. Clinic hours are strictly between 08:00 and 20:00. If the user requests an appointment time outside this window (e.g., at 10pm / 22:00), you must politely deny the request in the 'message' field and set action to empty string \"\" (do NOT return createAppointment).\n"
+        "4. Clinic hours are strictly between 08:00 and 20:00. If the user requests an appointment time outside this window (e.g., at 10pm / 22:00), or if the requested appointment date is less than 2 days in the future (relative to the CURRENT DATE AND TIME provided), you must politely deny the request in the 'message' field (explaining the 2-day advance or clinic hour restriction) and set the 'action' field to an empty string \"\" (do NOT return createAppointment).\n"
         "5. For greetings, symptom checking, or health questions, do NOT execute any action (set the 'action' field to empty string \"\"), and provide a supportive reply or medical advice in the 'message' field.\n"
         "6. If the user wants to book a visit or find a doctor, and their previous messages or current query relate to a specific organ or condition (like heart/cardiology, skin/dermatology, children/pediatrics, brain/neurology, or general symptoms), specify the appropriate specialization (e.g. 'Cardiology', 'Dermatology', 'Pediatrics', 'Neurology', 'General Medicine') in the 'specialization' parameter of the action (under action: openPage / page_name: appointments).\n"
         "7. If the user's request is incomplete, ambiguous, or lacks required details to execute an action (for example, setting an alarm/reminder without a specified time/purpose, or booking an appointment without a doctor/date/time), you must ask for clarification in the 'message' field and set the 'action' field to an empty string \"\". Do not attempt to guess or execute with default/placeholder parameters unless the user explicitly confirms them.\n"
-        f"8. The user's preferred language/locale is '{pref_lang}'. You MUST write your response message in this language/locale.\n"
+        f"8. The user's preferred language/locale is '{pref_lang}'. You should respond in this language by default. However, if the user speaks or queries in a different language or mixed style (like Hindi, Telugu, Hinglish, or Tinglish, whether in native scripts or romanized/transliterated English characters), you MUST detect and match their input language, script, and code-mixing style in your response (e.g., reply in Hinglish if they ask in Hinglish, and reply in Tinglish if they ask in Tinglish).\n"
+        "9. For actions that perform database modifications or background operations (like 'createAppointment', 'updatePatient', 'setReminder'), the 'message' field should state that you are *attempting* or *proceeding* to perform the action (e.g., 'I will proceed to book that appointment for you...', 'Updating your location now...', 'Setting a medication reminder...'), rather than asserting that the action has already succeeded, as the actual execution runs asynchronously after your response is returned.\n"
         "\n"
         "Allowed Action Router Actions:\n"
         "- openPage(page_name, specialization): Navigate the application. Allowed page_name: 'dashboard', 'records', 'chat', 'settings', 'appointments'. Provide 'specialization' parameter if booking a visit related to specific health concerns.\n"
@@ -451,12 +452,18 @@ async def execute_tars_intent(
                 action_params = parsed_json.get("parameters", {})
                 message = parsed_json.get("message", "")
                 confidence = parsed_json.get("confidence", 0.0)
+                if isinstance(message, str):
+                    message = message.replace("**", "").replace("*", "").strip()
             else:
+                # Normalize clean_reply: remove bold asterisks around key labels (e.g. **message**: -> message:)
+                normalized_reply = re.sub(r'(?i)\*\*(intent|action|parameters|message|confidence|disclaimer)\*\*:', r'\1:', clean_reply)
+                normalized_reply = re.sub(r'(?i)\*(intent|action|parameters|message|confidence|disclaimer)\*:', r'\1:', normalized_reply)
+                
                 # Try parsing key-value pairs via regex if the LLM output is not JSON
-                intent_match = re.search(r'(?i)intent:\s*(.*)', clean_reply)
-                action_match = re.search(r'(?i)action:\s*(.*)', clean_reply)
-                message_match = re.search(r'(?i)message:\s*([\s\S]*?)(?=\n\s*(?:intent|action|parameters|confidence|disclaimer):|$)', clean_reply)
-                confidence_match = re.search(r'(?i)confidence:\s*([\d.]+)', clean_reply)
+                intent_match = re.search(r'(?i)intent:\s*(.*)', normalized_reply)
+                action_match = re.search(r'(?i)action:\s*(.*)', normalized_reply)
+                message_match = re.search(r'(?i)message:\s*([\s\S]*?)(?=\n\s*(?:intent|action|parameters|confidence|disclaimer):|$)', normalized_reply)
+                confidence_match = re.search(r'(?i)confidence:\s*([\d.]+)', normalized_reply)
                 
                 if message_match:
                     message = message_match.group(1).strip()
@@ -468,9 +475,14 @@ async def execute_tars_intent(
                         confidence = 0.0
                 else:
                     message = reply
+                
+                if isinstance(message, str):
+                    message = message.replace("**", "").replace("*", "").strip()
         except Exception as pe:
             logger.error(f"JSON parsing error: {pe}. Using raw reply.")
             message = reply
+            if isinstance(message, str):
+                message = message.replace("**", "").replace("*", "").strip()
 
     # 4. Offline Fallback if no LLM response could be fetched
     if not message:
