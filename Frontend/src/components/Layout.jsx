@@ -17,10 +17,12 @@ export default function Layout({ children }) {
     incomingCall,
     callStatus,
     localStream,
+    remoteStream,
     callDuration,
     isMuted,
     isVideoOff,
     localVideoRef,
+    remoteVideoRef,
     handleAcceptCall,
     handleRejectCall,
     handleEndCall,
@@ -183,40 +185,51 @@ export default function Layout({ children }) {
                   <p className="text-xs text-slate-400">The video consultation has been completed.</p>
                 </div>
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 relative">
-                  <div className="relative flex items-center justify-center mb-6">
-                    <div className="absolute w-32 h-32 bg-primary/10 rounded-full animate-ping duration-[3000ms]"></div>
-                    <div className="absolute w-28 h-28 bg-primary/20 rounded-full animate-pulse duration-[2000ms]"></div>
-                    <div className="w-24 h-24 rounded-full bg-slate-800 border-2 border-primary/30 flex items-center justify-center text-2xl font-bold text-primary z-10 shadow-lg">
-                      {getInitials(activeCall.otherPartyName)}
-                    </div>
-                  </div>
-                  
-                  <div className="z-10 text-center">
-                    <h4 className="text-lg font-black text-white">{activeCall.otherPartyName}</h4>
-                    <p className="text-xs text-slate-400 mt-1 flex items-center justify-center gap-sm">
-                      <span className="w-1.5 h-1.5 rounded-full bg-success animate-ping"></span>
-                      <span>Connected & Streaming Securely</span>
-                    </p>
-                  </div>
+                <div className="w-full h-full flex items-center justify-center bg-slate-950 relative">
+                  {remoteStream ? (
+                    <video
+                      ref={remoteVideoRef}
+                      autoPlay
+                      playsInline
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 relative">
+                      <div className="relative flex items-center justify-center mb-6">
+                        <div className="absolute w-32 h-32 bg-primary/10 rounded-full animate-ping duration-[3000ms]"></div>
+                        <div className="absolute w-28 h-28 bg-primary/20 rounded-full animate-pulse duration-[2000ms]"></div>
+                        <div className="w-24 h-24 rounded-full bg-slate-800 border-2 border-primary/30 flex items-center justify-center text-2xl font-bold text-primary z-10 shadow-lg">
+                          {getInitials(activeCall.otherPartyName)}
+                        </div>
+                      </div>
+                      
+                      <div className="z-10 text-center">
+                        <h4 className="text-lg font-black text-white">{activeCall.otherPartyName}</h4>
+                        <p className="text-xs text-slate-400 mt-1 flex items-center justify-center gap-sm">
+                          <span className="w-1.5 h-1.5 rounded-full bg-success animate-ping"></span>
+                          <span>Connected & Streaming Securely</span>
+                        </p>
+                      </div>
 
-                  <div className="absolute bottom-6 flex items-end gap-[4px] h-8 justify-center w-full opacity-60">
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(i => {
-                      const randHeight = [12, 28, 16, 24, 8, 32, 20, 14, 26, 18, 10, 22, 15, 27, 9][i % 15];
-                      const randDur = [1.2, 0.8, 1.5, 0.9, 1.1, 1.4, 0.7, 1.3, 1.0, 1.2, 0.9, 1.4, 0.8, 1.1, 1.3][i % 15];
-                      return (
-                        <div 
-                          key={i} 
-                          className="w-[3px] bg-primary rounded-full animate-pulse" 
-                          style={{
-                            height: `${randHeight}px`,
-                            animationDuration: `${randDur}s`,
-                            animationIterationCount: 'infinite'
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
+                      <div className="absolute bottom-6 flex items-end gap-[4px] h-8 justify-center w-full opacity-60">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15].map(i => {
+                          const randHeight = [12, 28, 16, 24, 8, 32, 20, 14, 26, 18, 10, 22, 15, 27, 9][i % 15];
+                          const randDur = [1.2, 0.8, 1.5, 0.9, 1.1, 1.4, 0.7, 1.3, 1.0, 1.2, 0.9, 1.4, 0.8, 1.1, 1.3][i % 15];
+                          return (
+                            <div 
+                              key={i} 
+                              className="w-[3px] bg-primary rounded-full animate-pulse" 
+                              style={{
+                                height: `${randHeight}px`,
+                                animationDuration: `${randDur}s`,
+                                animationIterationCount: 'infinite'
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

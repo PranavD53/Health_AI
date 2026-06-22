@@ -121,6 +121,16 @@ export default function GlobalAssistant() {
   }, [currentLanguage]);
 
   useEffect(() => {
+    const handleCallStateChange = () => {
+      setIsInCall(localStorage.getItem('is_in_call') === 'true');
+    };
+    window.addEventListener('call_state_change', handleCallStateChange);
+    return () => {
+      window.removeEventListener('call_state_change', handleCallStateChange);
+    };
+  }, []);
+
+  useEffect(() => {
     setMessages(prev => {
       if (prev.length === 0) {
         return [{ role: 'assistant', content: t('tarsGreetingInitial') }];

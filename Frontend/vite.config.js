@@ -26,6 +26,7 @@ export default defineConfig({
       '/feedback': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/reminders': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/tars': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/palettes': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/ws': { target: 'ws://127.0.0.1:8000', ws: true, changeOrigin: true },
     }
   },
