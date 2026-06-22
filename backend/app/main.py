@@ -316,14 +316,22 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = Query(
                     to_user_id = data.get("to_user_id")
                     signal_data = data.get("data")
                     if to_user_id:
+                        target_id = int(to_user_id)
+                        signal_type = "ice" if "ice" in (signal_data or {}) else "sdp" if "sdp" in (signal_data or {}) else "unknown"
+                        print(f"[WS Signal] user {user.id} -> user {target_id} ({signal_type})")
                         await manager.send_personal_json({
                             "event": "signal",
                             "from_user_id": user.id,
                             "data": signal_data
-                        }, int(to_user_id))
-            except Exception:
+                        }, target_id)
+            except json.JSONDecodeError:
                 pass
+            except Exception as e:
+                print(f"[WS] Error processing message from user {user.id}: {e}")
     except WebSocketDisconnect:
+        manager.disconnect(websocket, user.id)
+    except Exception as e:
+        print(f"[WS] Unexpected error for user {user.id}: {e}")
         manager.disconnect(websocket, user.id)
 
 
