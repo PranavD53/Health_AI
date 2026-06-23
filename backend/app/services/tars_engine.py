@@ -553,13 +553,41 @@ async def execute_tars_intent(
                 else:
                     message = reply
                 
-                if isinstance(message, str):
-                    message = message.replace("**", "").replace("*", "").strip()
+                # Extract parameters from non-JSON structured response via regex
+                action_params = {}
+                param_json_match = re.search(r'(?i)parameters:\s*(\{[\s\S]*?\})', normalized_reply)
+                if param_json_match:
+                    try:
+                        action_params = json.loads(param_json_match.group(1).strip())
+                    except Exception:
+                        pass
+                
+                if not action_params:
+                    p_name_match = re.search(r'(?i)(?:page_name|page|pageName):\s*([a-zA-Z0-9_-]+)', normalized_reply)
+                    spec_match = re.search(r'(?i)(?:specialization|speciality|specialityName|spec):\s*([a-zA-Z0-9_ -]+)', normalized_reply)
+                    if p_name_match:
+                        action_params["page_name"] = p_name_match.group(1).strip()
+                    if spec_match:
+                        action_params["specialization"] = spec_match.group(1).strip()
         except Exception as pe:
             logger.error(f"JSON parsing error: {pe}. Using raw reply.")
             message = reply
-            if isinstance(message, str):
-                message = message.replace("**", "").replace("*", "").strip()
+
+        # Scrub confidence score metrics, notes, and mismatched trailing brackets from message
+        if isinstance(message, str):
+            # Remove [Confidence: 0.X] or [confidence: X%] or [Confidence: 0.X/1.0]
+            message = re.sub(r'(?i)\[\s*confidence\s*:\s*[\d.%/]+\s*\]', '', message)
+            # Remove (Note: ...) or [Note: ...] or (note: ...) or [note: ...]
+            message = re.sub(r'(?i)\(\s*note\s*:\s*[\s\S]*?\)', '', message)
+            message = re.sub(r'(?i)\[\s*note\s*:\s*[\s\S]*?\]', '', message)
+            # Strip markdown bold/italic formatting
+            message = message.replace("**", "").replace("*", "")
+            message = message.strip()
+            # Clean mismatched trailing brackets left from action/confidence stripping
+            if message.endswith("]") and "[" not in message:
+                message = message[:-1].strip()
+            if message.endswith(")") and "(" not in message:
+                message = message[:-1].strip()
 
     # 4. Offline Fallback if no LLM response could be fetched
     if not message:
@@ -622,7 +650,22 @@ async def execute_tars_intent(
     # Structure action payload
     action_payload = None
     if action_type:
-        if action_type == 'OPEN_DOCTORS' or action_type == 'find_doctors':
+        if action_type in ['open_page', 'openpage', 'openPage', 'OPEN_PAGE']:
+            action_type = 'openPage'
+            p_name = action_params.get("page_name", "")
+            if p_name:
+                p_name_lower = p_name.lower().strip()
+                if "appoint" in p_name_lower or "doctor" in p_name_lower:
+                    action_params["page_name"] = "appointments"
+                elif "record" in p_name_lower or "prescription" in p_name_lower:
+                    action_params["page_name"] = "records"
+                elif "dash" in p_name_lower:
+                    action_params["page_name"] = "dashboard"
+                elif "setting" in p_name_lower or "profile" in p_name_lower:
+                    action_params["page_name"] = "settings"
+                elif "chat" in p_name_lower or "message" in p_name_lower:
+                    action_params["page_name"] = "chat"
+        elif action_type == 'OPEN_DOCTORS' or action_type == 'find_doctors':
             action_type = 'openPage'
             spec = action_params.get("specialization", "")
             action_params = {"page_name": "appointments", "specialization": spec}

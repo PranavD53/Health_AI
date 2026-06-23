@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
 import { useLanguage } from '../context/LanguageContext';
-import { resolveApiUrl } from '../utils/apiConfig';
+import { resolveMediaUrl } from '../utils/apiConfig';
 
 // Custom Localized Dictionary for Imaging Diagnostic Screen
 const pageTranslations = {
@@ -485,7 +485,7 @@ export default function ImagingDiagnostics() {
                     <div className="flex items-center gap-sm">
                       <div className="w-12 h-12 rounded-xl bg-surface-container-high overflow-hidden flex items-center justify-center border border-outline-variant/20 relative">
                         <img 
-                          src={resolveApiUrl(report.file_path)} 
+                          src={resolveMediaUrl(report.file_path)} 
                           alt="Thumbnail" 
                           className="w-full h-full object-cover"
                           onError={(e) => {
@@ -566,7 +566,7 @@ export default function ImagingDiagnostics() {
               <div className="grid grid-cols-1 md:grid-cols-12 gap-md">
                 <div className="md:col-span-5 bg-surface-container-high rounded-2xl overflow-hidden flex items-center justify-center border border-outline-variant/20 max-h-[200px]">
                   <img 
-                    src={resolveApiUrl(activeReport.file_path)} 
+                    src={resolveMediaUrl(activeReport.file_path)} 
                     alt="Diagnostic Scan" 
                     className="w-full h-full object-contain"
                     onError={(e) => {

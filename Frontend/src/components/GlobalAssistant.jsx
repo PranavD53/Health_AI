@@ -251,7 +251,8 @@ export default function GlobalAssistant() {
           voiceSocketRef.current.send(JSON.stringify({ 
             type: 'speech_stop', 
             groq_key: localStorage.getItem('tars_groq_key') || '', 
-            hf_key: localStorage.getItem('tars_hf_key') || '' 
+            hf_key: localStorage.getItem('tars_hf_key') || '',
+            language: currentLanguage
           }));
           stopListening();
           setLoading(true);

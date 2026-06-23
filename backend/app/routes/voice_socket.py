@@ -3,6 +3,7 @@
 
 import os
 import io
+import asyncio
 import wave
 import json
 import logging
@@ -18,6 +19,37 @@ import httpx
 from app.services.piper_tts import synthesize_speech_stream
 
 logger = logging.getLogger(__name__)
+
+def detect_transcription_language(transcription: str, client_language: str) -> str:
+    if not transcription:
+        return "en"
+    
+    # Normalize client language (e.g. 'en-US' -> 'en')
+    client_lang = "en"
+    if client_language:
+        client_lang = client_language.split("-")[0].strip().lower()
+        
+    # Check native script characters
+    if re.search(r'[\u0C00-\u0C7F]', transcription):
+        return "te"
+    if re.search(r'[\u0900-\u097F]', transcription):
+        return "hi"
+        
+    # Check Hinglish/Tinglish romanized text keywords
+    text_lower = transcription.lower()
+    hinglish_keywords = ["namaste", "aap", "chahiye", "hai", "kya", "mera", "hu", "ho", "bhai", "shukriya", "dost", "kar", "se", "ko", "par", "ek", "apko", "karo", "karna", "acha", "theek", "aapko", "karke"]
+    tinglish_keywords = ["namaskaram", "enti", "ela", "undhi", "avunu", "kadhu", "cheyyandi", "nenu", "miru", "naa", "bhayam", "gurinchi", "vundhi", "vundi", "cheyandi"]
+    
+    # Count occurrences as whole words
+    hi_matches = sum(1 for w in hinglish_keywords if f" {w} " in f" {text_lower} ")
+    te_matches = sum(1 for w in tinglish_keywords if f" {w} " in f" {text_lower} ")
+    
+    if hi_matches > te_matches and hi_matches > 0:
+        return "hi"
+    elif te_matches > hi_matches and te_matches > 0:
+        return "te"
+        
+    return client_lang
 
 router = APIRouter(prefix="/ws/tars", tags=["TARS Voice WebSocket"])
 
@@ -113,14 +145,10 @@ async def voice_websocket(websocket: WebSocket, token: Optional[str] = None, db:
                                 if response.status_code == 200:
                                     res_json = response.json()
                                     transcription = res_json.get("text", "").strip()
-                                    
-                                    # Simple language check from text
-                                    if re.search(r'[\u0C00-\u0C7F]', transcription):
-                                        detected_language = "te"
-                                    elif re.search(r'[\u0900-\u097F]', transcription):
-                                        detected_language = "hi"
-                                    else:
-                                        detected_language = "en"
+                                    detected_language = detect_transcription_language(
+                                        transcription, 
+                                        control.get("language")
+                                    )
                                 else:
                                     logger.error(f"Groq transcription error: {response.text}")
                         except Exception as groq_e:
@@ -134,7 +162,10 @@ async def voice_websocket(websocket: WebSocket, token: Optional[str] = None, db:
                             wav_io.seek(0)
                             segments, info = model.transcribe(wav_io, beam_size=5)
                             transcription = "".join(seg.text for seg in segments).strip()
-                            detected_language = info.language
+                            detected_language = detect_transcription_language(
+                                transcription,
+                                control.get("language") or info.language
+                            )
                         except Exception as local_e:
                             logger.error(f"Local faster-whisper failed: {local_e}")
                             await websocket.send_json({"type": "error", "message": "Voice transcription failed"})
@@ -194,7 +225,6 @@ async def voice_websocket(websocket: WebSocket, token: Optional[str] = None, db:
                         })
                         
                         # Stream TTS audio sentences to client
-                        import asyncio
                         spoken_index = 0
                         sentence_regex = re.compile(r'[^.?!।\n]+[.?!।\n]+')
                         

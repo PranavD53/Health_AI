@@ -16,6 +16,7 @@ export default defineConfig({
       '/appointment': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/records': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/uploads': { target: 'http://127.0.0.1:8000', changeOrigin: true },
+      '/imaging': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/notifications': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/audit': { target: 'http://127.0.0.1:8000', changeOrigin: true },
       '/admin/dashboard': { target: 'http://127.0.0.1:8000', changeOrigin: true },
