@@ -200,19 +200,28 @@ export function CallProvider({ children }) {
 
     // 2. Process TURN configuration from .env
     if (import.meta.env.VITE_TURN_URLS) {
-      const turnUrls = import.meta.env.VITE_TURN_URLS.split(',').map(u => u.trim());
-      const turnConfig = {
-        urls: turnUrls,
-      };
-      
-      if (import.meta.env.VITE_TURN_USERNAME) {
-        turnConfig.username = import.meta.env.VITE_TURN_USERNAME;
-      }
-      if (import.meta.env.VITE_TURN_CREDENTIAL) {
-        turnConfig.credential = import.meta.env.VITE_TURN_CREDENTIAL;
-      }
-      iceServers.push(turnConfig);
-      console.log("[WebRTC] TURN server configured.");
+      const turnUrls = import.meta.env.VITE_TURN_URLS
+        .split(',')
+        .map(u => u.trim())
+        .filter(Boolean);
+
+      turnUrls.forEach((url) => {
+        const turnConfig = {
+          urls: url,
+        };
+
+        if (import.meta.env.VITE_TURN_USERNAME) {
+          turnConfig.username = import.meta.env.VITE_TURN_USERNAME;
+        }
+
+        if (import.meta.env.VITE_TURN_CREDENTIAL) {
+          turnConfig.credential = import.meta.env.VITE_TURN_CREDENTIAL;
+        }
+
+        iceServers.push(turnConfig);
+      });
+
+      console.log("[WebRTC] TURN server configured.", turnUrls);
     } else {
       console.warn("[WebRTC] No TURN server configured. Production calls may fail on strict networks.");
     }
