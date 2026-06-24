@@ -171,7 +171,15 @@ export default function TopNavBar() {
   return (
     <>
       <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-desktop h-16 bg-surface border-b border-outline-variant/30 shadow-sm">
-        <div className="flex items-center gap-xl">
+        <div className="flex items-center gap-sm lg:gap-xl">
+          <button 
+            type="button"
+            onClick={() => window.dispatchEvent(new Event('toggle_mobile_sidebar'))}
+            className="p-2 text-on-surface-variant hover:text-primary transition-all duration-150 focus:outline-none rounded-full hover:bg-surface-container-high lg:hidden flex items-center justify-center mr-1 active:scale-95"
+            title="Toggle Menu"
+          >
+            <span className="material-symbols-outlined text-[22px]">menu</span>
+          </button>
           <span className="text-title-md font-bold text-primary tracking-tight">HealthAI</span>
         </div>
         

@@ -27,7 +27,30 @@ const pageTranslations = {
     viewReportBtn: "View Report",
     closeBtn: "Close",
     date: "Date Analyzed",
-    category: "Scan Category"
+    category: "Scan Category",
+    normal: "Normal",
+    low: "Low Severity",
+    moderate: "Moderate Severity",
+    high: "High Severity",
+    critical: "Critical",
+    dermatology: "Dermatologist",
+    otolaryngology: "ENT Specialist",
+    radiology: "Radiologist",
+    general: "General Physician",
+    uploadSuccess: "Diagnostic report processed successfully!",
+    uploadFailed: "Analysis failed: ",
+    deleteConfirm: "Are you sure you want to delete this diagnostic report?",
+    uploadLabel: "Upload Target Image",
+    fileTypesDesc: "Supports JPG, PNG, WEBP up to 10MB",
+    aiAssessment: "AI Smart Assessment",
+    aiAssessmentDesc: "This automated diagnostics system runs visual scans through deep learning architectures to isolate focal points, check dermatological asymmetry, detect posterior inflammation, or evaluate airspace lucency.",
+    safeAnon: "Safe and Anonymous",
+    safeAnonDesc: "Your uploaded images are secured and cataloged for routing under HIPAA compliant guidelines.",
+    instantBooking: "Instant Specialist Booking",
+    instantBookingDesc: "If visual signals indicate moderate to critical pathology, the system pre-fills routing details to let you book the correct specialist instantly.",
+    tarsAudio: "TARS Audio Output",
+    tarsAudioDesc: "TARS reads clinical outputs aloud and suggests routing actions using our real-time voice pipeline.",
+    modelActive: "AI Core Diagnostics Model Active"
   },
   es: {
     title: "Imágenes Médicas y Diagnóstico de Piel con IA",
@@ -50,7 +73,30 @@ const pageTranslations = {
     viewReportBtn: "Ver Informe",
     closeBtn: "Cerrar",
     date: "Fecha de Análisis",
-    category: "Categoría de Escaneo"
+    category: "Categoría de Escaneo",
+    normal: "Normal",
+    low: "Bajo",
+    moderate: "Moderado",
+    high: "Alto",
+    critical: "Crítico",
+    dermatology: "Dermatólogo",
+    otolaryngology: "Especialista ORL",
+    radiology: "Radiólogo",
+    general: "Médico General",
+    uploadSuccess: "Informe de diagnóstico procesado con éxito!",
+    uploadFailed: "Análisis fallido: ",
+    deleteConfirm: "¿Está seguro de que desea eliminar este informe?",
+    uploadLabel: "Subir imagen de destino",
+    fileTypesDesc: "Soporta JPG, PNG, WEBP hasta 10MB",
+    aiAssessment: "Evaluación inteligente de IA",
+    aiAssessmentDesc: "Este sistema de diagnóstico automatizado realiza escaneos visuales a través de arquitecturas de aprendizaje profundo para aislar puntos focales, verificar la asimetría dermatológica o evaluar la lucidez del espacio aéreo.",
+    safeAnon: "Seguro y Anónimo",
+    safeAnonDesc: "Sus imágenes cargadas están protegidas y catalogadas para su direccionamiento según las pautas de cumplimiento de HIPAA.",
+    instantBooking: "Reserva inmediata de especialista",
+    instantBookingDesc: "Si las señales visuales indican una patología moderada a crítica, el sistema preselecciona los detalles para reservar al especialista adecuado.",
+    tarsAudio: "Salida de audio de TARS",
+    tarsAudioDesc: "TARS lee los resultados clínicos en voz alta y sugiere acciones utilizando nuestra canalización de voz en tiempo real.",
+    modelActive: "Modelo de diagnóstico central de IA activo"
   },
   hi: {
     title: "एआई मेडिकल इमेजिंग और त्वचा निदान",
@@ -73,18 +119,116 @@ const pageTranslations = {
     viewReportBtn: "रिपोर्ट देखें",
     closeBtn: "बंद करें",
     date: "विश्लेषण की तिथि",
-    category: "स्कैन श्रेणी"
+    category: "स्कैन श्रेणी",
+    normal: "सामान्य",
+    low: "कम गंभीरता",
+    moderate: "मध्यम गंभीरता",
+    high: "उच्च गंभीरता",
+    critical: "गंभीर (क्रिटिकल)",
+    dermatology: "त्वचा विशेषज्ञ",
+    otolaryngology: "कान, नाक, गला विशेषज्ञ",
+    radiology: "रेडियोलॉजिस्ट",
+    general: "सामान्य चिकित्सक",
+    uploadSuccess: "नैदानिक रिपोर्ट सफलतापूर्वक संसाधित की गई!",
+    uploadFailed: "विश्लेषण विफल रहा: ",
+    deleteConfirm: "क्या आप वाकई इस नैदानिक रिपोर्ट को हटाना चाहते हैं?",
+    uploadLabel: "लक्ष्य छवि अपलोड करें",
+    fileTypesDesc: "JPG, PNG, WEBP का समर्थन 10MB तक",
+    aiAssessment: "एआई स्मार्ट मूल्यांकन",
+    aiAssessmentDesc: "यह स्वचालित निदान प्रणाली फोकल पॉइंट को अलग करने, त्वचा की विषमता की जांच करने, पीछे की सूजन का पता लगाने या वायुक्षेत्र ल्यूसी का मूल्यांकन करने के लिए गहन शिक्षण आर्किटेक्चर के माध्यम से दृश्य स्कैन चलाती है।",
+    safeAnon: "सुरक्षित और गुमनाम",
+    safeAnonDesc: "आपके अपलोड किए गए चित्र हिपा (HIPAA) अनुपालन दिशानिर्देशों के तहत सुरक्षित और कैटलॉग किए गए हैं।",
+    instantBooking: "तत्काल विशेषज्ञ बुकिंग",
+    instantBookingDesc: "यदि दृश्य संकेत मध्यम से गंभीर विकृति का संकेत देते हैं, तो सिस्टम रूटिंग विवरणों को पहले से भर देता है ताकि आप तुरंत सही विशेषज्ञ को बुक कर सकें।",
+    tarsAudio: "टार्स ऑडियो आउटपुट",
+    tarsAudioDesc: "टार्स नैदानिक परिणामों को जोर से पढ़ता है और हमारी रीयल-टाइम वॉयस पाइपलाइन का उपयोग करके रूटिंग क्रियाओं का सुझाव देता है।",
+    modelActive: "एआई कोर निदान मॉडल सक्रिय"
+  },
+  te: {
+    title: "AI మెడికల్ ఇమేజింగ్ & స్కిన్ డయాగ్నోస్టిక్స్",
+    subtitle: "ఆటోమేటెడ్ ప్రాథమిక అంచనా మరియు తక్షణ నిపుణుల సలహా కోసం క్లినికల్ ఫోటోలను అప్‌లోడ్ చేయండి.",
+    dropzonePlaceholder: "క్లినికల్ స్కాన్‌ను ఇక్కడ లాగి వదలండి, లేదా వెతకడానికి క్లిక్ చేయండి",
+    selectScanType: "డయాగ్నోస్టిక్ వర్గాన్ని ఎంచుకోండి",
+    skin: "చర్మ వ్యాధి",
+    throat: "గొంతు ఎరుపు",
+    xray: "ఎక్స్-రే / స్కాన్",
+    analyzeBtn: "క్లినికల్ స్కాన్ చేయి",
+    analyzing: "మల్టీమోడల్ ఇమేజ్ విశ్లేషణను ప్రాసెస్ చేస్తోంది...",
+    resultsTitle: "క్లినికల్ డయాగ్నోసిస్ నివేదిక",
+    severity: "తీవ్రత స్థాయి",
+    findings: "క్లినికల్ పరిశీలనలు & ఫలితాలు",
+    specialist: "సిఫార్సు చేయబడిన నిపుణుడు",
+    bookBtn: "నిపుణుడి అపాయింట్‌మెంట్ షెడ్యూల్ చేయి",
+    historyTitle: "డయాగ్నోస్టిక్ చరిత్ర",
+    noHistory: "డయాగ్నోస్టిక్స్ చరిత్ర కనుగొనబడలేదు. ప్రారంభించడానికి పైన ఒక స్కాన్‌ను అప్‌లోడ్ చేయండి.",
+    deleteBtn: "నివేదికను తొలగించు",
+    viewReportBtn: "నివేదిక చూడండి",
+    closeBtn: "మూసివేయి",
+    date: "విశ్లేషించిన తేదీ",
+    category: "స్కాన్ వర్గం",
+    normal: "సాధారణం",
+    low: "తక్కువ తీవ్రత",
+    moderate: "మధ్యస్థ తీవ్రత",
+    high: "ఎక్కువ తీవ్రత",
+    critical: "తీవ్రమైనది (క్రిటికల్)",
+    dermatology: "చర్మ నిపుణుడు (డెర్మటాలజిస్ట్)",
+    otolaryngology: "ENT నిపుణుడు",
+    radiology: "రేడియాలజిస్ట్",
+    general: "జనరల్ ఫిజీషియన్",
+    uploadSuccess: "డయాగ్నోస్టిక్ నివేదిక విజయవంతంగా ప్రాసెస్ చేయబడింది!",
+    uploadFailed: "విశ్లేషణ విఫలమైంది: ",
+    deleteConfirm: "మీరు ఖచ్చితంగా ఈ డయాగ్నోస్టిక్ నివేదికను తొలగించాలనుకుంటున్నారా?",
+    uploadLabel: "లక్ష్య చిత్రాన్ని అప్‌లోడ్ చేయండి",
+    fileTypesDesc: "10MB వరకు JPG, PNG, WEBP ఫైళ్లకు సపోర్ట్ చేస్తుంది",
+    aiAssessment: "AI స్మార్ట్ అంచనా",
+    aiAssessmentDesc: "ఈ ఆటోమేటెడ్ డయాగ్నోస్టిక్స్ సిస్టమ్ ఫోకల్ పాయింట్లను వేరు చేయడానికి, చర్మ అసమానతలను తనిఖీ చేయడానికి, గొంతు వెనుక భాగంలో మంటను గుర్తించడానికి లేదా ఎయిర్‌స్పేస్ లూసెన్సీని అంచనా వేయడానికి డీప్ లెర్నింగ్ ఆర్కిటెక్చర్ల ద్వారా విజువల్ స్కాన్‌లను నడుపుతుంది.",
+    safeAnon: "సురక్షితమైనది మరియు అనామకమైనది",
+    safeAnonDesc: "మీరు అప్‌లోడ్ చేసిన చిత్రాలు HIPAA నిబంధనల ప్రకారం సురక్షితంగా ఉంచబడతాయి.",
+    instantBooking: "తక్షణ నిపుణుల బుకింగ్",
+    instantBookingDesc: "విజువల్ సిగ్నల్స్ ఒక మోస్తరు లేదా తీవ్రమైన వ్యాధిని సూచిస్తే, తగిన నిపుణుడిని వెంటనే బుక్ చేసుకోవడానికి సిస్టమ్ రూటింగ్ వివరాలను స్వయంచాలకంగా పూరిస్తుంది.",
+    tarsAudio: "TARS ఆడియో అవుట్‌పుట్",
+    tarsAudioDesc: "TARS క్లినికల్ ఫలితాలను బిగ్గరగా చదువుతుంది మరియు మా రియల్ టైమ్ వాయిస్ పైప్‌లైన్ ఉపయోగించి తగిన చర్యలను సూచిస్తుంది.",
+    modelActive: "AI కోర్ డయాగ్నోస్టిక్స్ మోడల్ సక్రియంగా ఉంది"
   }
 };
 
 export default function ImagingDiagnostics() {
-  const { t } = useLanguage();
+  const { currentLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
   // Detect current language code
-  const currentLang = localStorage.getItem('app_lang') || 'en';
-  const localT = pageTranslations[currentLang] || pageTranslations['en'];
+  const localT = pageTranslations[currentLanguage] || pageTranslations['en'];
+
+  const translateScanType = (type) => {
+    if (!type) return '';
+    const lower = type.toLowerCase();
+    if (lower.includes('skin')) return localT.skin;
+    if (lower.includes('throat')) return localT.throat;
+    if (lower.includes('x-ray') || lower.includes('xray')) return localT.xray;
+    return type;
+  };
+
+  const translateSeverity = (sev) => {
+    if (!sev) return '';
+    const lower = sev.toLowerCase();
+    if (lower.includes('normal')) return localT.normal;
+    if (lower.includes('low')) return localT.low;
+    if (lower.includes('moderate')) return localT.moderate;
+    if (lower.includes('high')) return localT.high;
+    if (lower.includes('critical')) return localT.critical;
+    return sev;
+  };
+
+  const translateSpecialist = (spec) => {
+    if (!spec) return '';
+    const lower = spec.toLowerCase();
+    if (lower.includes('dermatology') || lower.includes('dermatologist')) return localT.dermatology;
+    if (lower.includes('otolaryngology') || lower.includes('ent')) return localT.otolaryngology;
+    if (lower.includes('radiology') || lower.includes('radiologist')) return localT.radiology;
+    if (lower.includes('general')) return localT.general;
+    return spec;
+  };
 
   const [diagnostics, setDiagnostics] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -289,7 +433,7 @@ export default function ImagingDiagnostics() {
             {/* Drag & Drop Upload Area */}
             <div className="flex-1 flex flex-col">
               <label className="text-title-sm font-bold text-on-surface mb-xs block">
-                Upload Target Image
+                {localT.uploadLabel}
               </label>
               
               <div
@@ -330,7 +474,7 @@ export default function ImagingDiagnostics() {
                     </div>
                     <div>
                       <p className="text-body-md font-bold text-on-surface">{localT.dropzonePlaceholder}</p>
-                      <p className="text-label-sm text-outline mt-2">Supports JPG, PNG, WEBP up to 10MB</p>
+                      <p className="text-label-sm text-outline mt-2">{localT.fileTypesDesc}</p>
                     </div>
                   </div>
                 )}
@@ -393,36 +537,35 @@ export default function ImagingDiagnostics() {
               <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                 <span className="material-symbols-outlined">biotech</span>
               </div>
-              <h3 className="text-title-md font-black text-on-surface">AI Smart Assessment</h3>
+              <h3 className="text-title-md font-black text-on-surface">{localT.aiAssessment}</h3>
             </div>
             
             <p className="text-body-sm text-outline leading-relaxed">
-              This automated diagnostics system runs visual scans through deep learning architectures 
-              to isolate focal points, check dermatological asymmetry, detect posterior inflammation, or evaluate airspace lucency.
+              {localT.aiAssessmentDesc}
             </p>
 
             <div className="space-y-sm pt-xs">
               <div className="flex gap-sm p-sm rounded-xl hover:bg-surface-container-high transition-colors">
                 <span className="material-symbols-outlined text-primary mt-0.5">verified_user</span>
                 <div>
-                  <h4 className="text-label-md font-bold text-on-surface">Safe and Anonymous</h4>
-                  <p className="text-label-sm text-outline">Your uploaded images are secured and cataloged for routing under HIPAA compliant guidelines.</p>
+                  <h4 className="text-label-md font-bold text-on-surface">{localT.safeAnon}</h4>
+                  <p className="text-label-sm text-outline">{localT.safeAnonDesc}</p>
                 </div>
               </div>
               
               <div className="flex gap-sm p-sm rounded-xl hover:bg-surface-container-high transition-colors">
                 <span className="material-symbols-outlined text-primary mt-0.5">swap_calls</span>
                 <div>
-                  <h4 className="text-label-md font-bold text-on-surface">Instant Specialist Booking</h4>
-                  <p className="text-label-sm text-outline">If visual signals indicate moderate to critical pathology, the system pre-fills routing details to let you book the correct specialist instantly.</p>
+                  <h4 className="text-label-md font-bold text-on-surface">{localT.instantBooking}</h4>
+                  <p className="text-label-sm text-outline">{localT.instantBookingDesc}</p>
                 </div>
               </div>
 
               <div className="flex gap-sm p-sm rounded-xl hover:bg-surface-container-high transition-colors">
                 <span className="material-symbols-outlined text-primary mt-0.5">quick_reference_all</span>
                 <div>
-                  <h4 className="text-label-md font-bold text-on-surface">TARS Audio Output</h4>
-                  <p className="text-label-sm text-outline">TARS reads clinical outputs aloud and suggests routing actions using our real-time voice pipeline.</p>
+                  <h4 className="text-label-md font-bold text-on-surface">{localT.tarsAudio}</h4>
+                  <p className="text-label-sm text-outline">{localT.tarsAudioDesc}</p>
                 </div>
               </div>
             </div>
@@ -430,7 +573,7 @@ export default function ImagingDiagnostics() {
 
           <div className="mt-lg border-t border-outline-variant/30 pt-md flex items-center gap-sm">
             <span className="w-2.5 h-2.5 rounded-full bg-success"></span>
-            <span className="text-label-sm font-bold text-outline">AI Core Diagnostics Model Active</span>
+            <span className="text-label-sm font-bold text-outline">{localT.modelActive}</span>
           </div>
         </div>
       </div>
@@ -477,7 +620,7 @@ export default function ImagingDiagnostics() {
                         })}
                       </span>
                       <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full border ${getSeverityColor(report.severity)}`}>
-                        {report.severity}
+                        {translateSeverity(report.severity)}
                       </span>
                     </div>
 
@@ -500,10 +643,10 @@ export default function ImagingDiagnostics() {
                       </div>
                       <div>
                         <h3 className="font-bold text-on-surface text-body-md group-hover:text-primary transition-colors leading-tight">
-                          {report.scan_type}
+                          {translateScanType(report.scan_type)}
                         </h3>
                         <p className="text-xs text-outline capitalize leading-none mt-1">
-                          {report.recommended_specialist}
+                          {translateSpecialist(report.recommended_specialist)}
                         </p>
                       </div>
                     </div>
@@ -546,7 +689,7 @@ export default function ImagingDiagnostics() {
             <div className="flex items-center justify-between border-b border-outline-variant/30 pb-sm">
               <div>
                 <span className="text-[10px] bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">
-                  {activeReport.scan_type}
+                  {translateScanType(activeReport.scan_type)}
                 </span>
                 <h3 className="text-title-lg font-black text-on-surface mt-1">
                   {localT.resultsTitle}
@@ -582,7 +725,7 @@ export default function ImagingDiagnostics() {
                     <span className="text-label-sm font-bold text-outline uppercase tracking-wider">{localT.severity}</span>
                     <div className="mt-1">
                       <span className={`text-xs font-black uppercase px-3 py-1.5 rounded-full border ${getSeverityColor(activeReport.severity)}`}>
-                        {activeReport.severity}
+                        {translateSeverity(activeReport.severity)}
                       </span>
                     </div>
                   </div>
@@ -591,7 +734,7 @@ export default function ImagingDiagnostics() {
                     <span className="text-label-sm font-bold text-outline uppercase tracking-wider">{localT.specialist}</span>
                     <div className="flex items-center gap-xs text-primary font-extrabold capitalize text-body-md mt-1">
                       <span className="material-symbols-outlined text-[18px]">medical_services</span>
-                      <span>{activeReport.recommended_specialist}</span>
+                      <span>{translateSpecialist(activeReport.recommended_specialist)}</span>
                     </div>
                   </div>
 

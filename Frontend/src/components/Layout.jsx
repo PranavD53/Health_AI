@@ -2,15 +2,93 @@ import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCall } from '../context/CallContext';
+import { useLanguage } from '../context/LanguageContext';
 import TopNavBar from './TopNavBar';
 import SideNavBar from './SideNavBar';
 import GlobalAssistant from './GlobalAssistant';
 import { applyTheme } from '../utils/theme';
 
+const callTranslations = {
+  en: {
+    loading: "HealthAI is loading...",
+    incomingCall: "Incoming Video Call",
+    invitation: "is inviting you to a secure video consultation...",
+    decline: "Decline Call",
+    accept: "Accept Call",
+    telehealthCall: "Telehealth Video Call",
+    mode: "Mode",
+    calling: "Calling",
+    waiting: "Waiting for patient to accept the invitation",
+    declined: "Call Declined",
+    declinedDesc: "The patient declined your video consultation invitation.",
+    ended: "Call Ended",
+    endedDesc: "The video consultation has been completed.",
+    connected: "Connected & Streaming Securely",
+    cameraOff: "Camera Off",
+    you: "You",
+    unmute: "Unmute Mic",
+    mute: "Mute Mic",
+    videoOn: "Turn Video On",
+    videoOff: "Turn Video Off",
+    endConsultation: "End Consultation"
+  },
+  hi: {
+    loading: "हेल्थएआई लोड हो रहा है...",
+    incomingCall: "आने वाली वीडियो कॉल",
+    invitation: "आपको एक सुरक्षित वीडियो परामर्श के लिए आमंत्रित कर रहा है...",
+    decline: "कॉल अस्वीकार करें",
+    accept: "कॉल स्वीकार करें",
+    telehealthCall: "टेलीहेल्थ वीडियो कॉल",
+    mode: "मोड",
+    calling: "कॉलिंग",
+    waiting: "मरीज द्वारा आमंत्रण स्वीकार करने की प्रतीक्षा की जा रही है",
+    declined: "कॉल अस्वीकार कर दी गई",
+    declinedDesc: "मरीज ने आपके वीडियो परामर्श आमंत्रण को अस्वीकार कर दिया।",
+    ended: "कॉल समाप्त",
+    endedDesc: "वीडियो परामर्श पूरा हो गया है।",
+    connected: "कनेक्टेड और सुरक्षित रूप से स्ट्रीमिंग",
+    cameraOff: "कैमरा बंद",
+    you: "आप",
+    unmute: "माइक चालू करें",
+    mute: "माइक म्यूट करें",
+    videoOn: "वीडियो चालू करें",
+    videoOff: "वीडियो बंद करें",
+    endConsultation: "परामर्श समाप्त करें"
+  },
+  te: {
+    loading: "హెల్త్ ఏఐ లోడ్ అవుతోంది...",
+    incomingCall: "ఇన్‌కమింగ్ వీడియో కాల్",
+    invitation: "మిమ్మల్ని సురక్షితమైన వీడియో సంప్రదింపులకు ఆహ్వానిస్తున్నారు...",
+    decline: "కాల్ తిరస్కరించు",
+    accept: "కాల్ అంగీకరించు",
+    telehealthCall: "టెలిహెల్త్ వీడియో కాల్",
+    mode: "మోడ్",
+    calling: "కాల్ చేస్తున్నారు",
+    waiting: "రోగి ఆహ్వానాన్ని అంగీకరించే వరకు వేచి చూస్తున్నారు",
+    declined: "కాల్ తిరస్కరించబడింది",
+    declinedDesc: "రోగి మీ వీడియో సంప్రదింపుల ఆహ్వానాన్ని తిరస్కరించారు.",
+    ended: "కాల్ ముగిసింది",
+    endedDesc: "వీడియో సంప్రదింపులు విజయవంతంగా పూర్తయినవి.",
+    connected: "కనెక్ట్ చేయబడింది & సురక్షితంగా ప్రసారం అవుతోంది",
+    cameraOff: "కెమెరా ఆఫ్",
+    you: "మీరు",
+    unmute: "మైక్ ఆన్ చేయి",
+    mute: "మైక్ మ్యూట్ చేయి",
+    videoOn: "వీడియో ఆన్ చేయి",
+    videoOff: "వీడియో ఆఫ్ చేయి",
+    endConsultation: "సంప్రదింపు ముగించు"
+  }
+};
+
 export default function Layout({ children }) {
   const { user, isVerified, loading } = useAuth();
+  const { currentLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
+
+  const t = (key) => {
+    return callTranslations[currentLanguage]?.[key] || callTranslations.en[key] || key;
+  };
 
   const {
     activeCall,
@@ -67,7 +145,7 @@ export default function Layout({ children }) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center space-y-4">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-primary font-bold">HealthAI is loading...</p>
+        <p className="text-primary font-bold">{t('loading')}</p>
       </div>
     );
   }
@@ -111,10 +189,10 @@ export default function Layout({ children }) {
 
             <div>
               <span className="text-[10px] bg-success-container text-on-success-container px-3 py-1 rounded-full font-bold uppercase tracking-wider animate-pulse">
-                Incoming Video Call
+                {t('incomingCall')}
               </span>
               <h3 className="text-lg font-black text-on-surface mt-3">{incomingCall.doctor_name}</h3>
-              <p className="text-xs text-outline mt-1">is inviting you to a secure video consultation...</p>
+              <p className="text-xs text-outline mt-1">{t('invitation')}</p>
             </div>
 
             <div className="flex items-center gap-xl mt-4 w-full justify-center">
@@ -122,7 +200,7 @@ export default function Layout({ children }) {
                 type="button"
                 onClick={handleRejectCall}
                 className="w-14 h-14 rounded-full bg-error hover:bg-error-container text-white flex items-center justify-center shadow-lg hover:shadow-error/30 active:scale-90 transition-all focus:outline-none"
-                title="Decline Call"
+                title={t('decline')}
               >
                 <span className="material-symbols-outlined text-lg">call_end</span>
               </button>
@@ -130,7 +208,7 @@ export default function Layout({ children }) {
                 type="button"
                 onClick={handleAcceptCall}
                 className="w-14 h-14 rounded-full bg-success hover:bg-success-container text-white flex items-center justify-center shadow-lg hover:shadow-success/30 active:scale-90 transition-all focus:outline-none"
-                title="Accept Call"
+                title={t('accept')}
               >
                 <span className="material-symbols-outlined text-lg">videocam</span>
               </button>
@@ -141,11 +219,11 @@ export default function Layout({ children }) {
 
       {/* 2. Active Video Call Window (Ongoing/Ringing Outbound) */}
       {activeCall && (
-        <div className="fixed inset-0 bg-slate-950/95 flex flex-col justify-between z-[9999] animate-in fade-in duration-300 text-white">
-          <div className="px-6 py-4 flex items-center justify-between border-b border-white/10 bg-slate-900/60 backdrop-blur-md">
+        <div className="fixed inset-0 md:inset-auto md:bottom-6 md:right-6 md:w-[380px] md:h-[540px] md:rounded-3xl md:border md:border-white/10 md:shadow-2xl overflow-hidden bg-slate-950/95 flex flex-col justify-between z-[9999] animate-in fade-in duration-300 text-white">
+          <div className="px-4 md:px-6 py-3 md:py-4 flex items-center justify-between border-b border-white/10 bg-slate-900/60 backdrop-blur-md">
             <div className="flex items-center gap-md">
               <span className="w-2.5 h-2.5 rounded-full bg-success animate-pulse"></span>
-              <h3 className="font-bold text-sm tracking-wide">Telehealth Video Call</h3>
+              <h3 className="font-bold text-sm tracking-wide">{t('telehealthCall')}</h3>
             </div>
             
             <div className="flex items-center gap-md">
@@ -154,33 +232,33 @@ export default function Layout({ children }) {
                   {formatTime(callDuration)}
                 </span>
               )}
-              <span className="text-xs text-slate-400 capitalize font-semibold bg-white/5 px-3 py-1 rounded-full">
-                {activeCall.role} Mode
+              <span className="text-[10px] md:text-xs text-slate-400 capitalize font-semibold bg-white/5 px-2 md:px-3 py-1 rounded-full">
+                {activeCall.role === 'doctor' ? (currentLanguage === 'hi' ? 'डॉक्टर' : currentLanguage === 'te' ? 'వైద్యుడు' : 'Doctor') : (currentLanguage === 'hi' ? 'मरीज' : currentLanguage === 'te' ? 'రోగి' : 'Patient')} {t('mode')}
               </span>
             </div>
           </div>
 
-          <div className="flex-1 relative flex items-center justify-center p-6 bg-slate-900">
-            <div className="w-full h-full max-w-5xl rounded-2xl overflow-hidden bg-slate-800 border border-white/5 flex flex-col items-center justify-center relative shadow-inner">
+          <div className="flex-1 relative flex items-center justify-center p-3 md:p-4 bg-slate-900 overflow-hidden">
+            <div className="w-full h-full rounded-2xl overflow-hidden bg-slate-800 border border-white/5 flex flex-col items-center justify-center relative shadow-inner">
               {callStatus === 'ringing' ? (
-                <div className="text-center flex flex-col items-center gap-md animate-pulse">
-                  <div className="w-20 h-20 bg-primary/20 text-primary border border-primary/30 rounded-full flex items-center justify-center text-2xl font-bold animate-bounce mb-2">
+                <div className="text-center flex flex-col items-center gap-md animate-pulse p-4">
+                  <div className="w-16 h-16 md:w-20 md:h-20 bg-primary/20 text-primary border border-primary/30 rounded-full flex items-center justify-center text-2xl font-bold animate-bounce mb-2">
                     {getInitials(activeCall.otherPartyName)}
                   </div>
-                  <h4 className="text-lg font-bold text-white">Calling {activeCall.otherPartyName}...</h4>
-                  <p className="text-xs text-slate-400">Waiting for patient to accept the invitation</p>
+                  <h4 className="text-base md:text-lg font-bold text-white">{t('calling')} {activeCall.otherPartyName}...</h4>
+                  <p className="text-xs text-slate-400">{t('waiting')}</p>
                 </div>
               ) : callStatus === 'declined' ? (
-                <div className="text-center flex flex-col items-center gap-md text-error">
+                <div className="text-center flex flex-col items-center gap-md text-error p-4">
                   <span className="material-symbols-outlined text-4xl animate-bounce">call_end</span>
-                  <h4 className="text-lg font-bold text-error">Call Declined</h4>
-                  <p className="text-xs text-slate-400">The patient declined your video consultation invitation.</p>
+                  <h4 className="text-base md:text-lg font-bold text-error">{t('declined')}</h4>
+                  <p className="text-xs text-slate-400">{t('declinedDesc')}</p>
                 </div>
               ) : callStatus === 'ended' ? (
-                <div className="text-center flex flex-col items-center gap-md text-slate-300">
+                <div className="text-center flex flex-col items-center gap-md text-slate-300 p-4">
                   <span className="material-symbols-outlined text-4xl">do_not_disturb_on</span>
-                  <h4 className="text-lg font-bold">Call Ended</h4>
-                  <p className="text-xs text-slate-400">The video consultation has been completed.</p>
+                  <h4 className="text-base md:text-lg font-bold">{t('ended')}</h4>
+                  <p className="text-xs text-slate-400">{t('endedDesc')}</p>
                 </div>
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-slate-950 relative">
@@ -189,7 +267,6 @@ export default function Layout({ children }) {
                       ref={(el) => {
                         if (el && el.srcObject !== remoteStream) {
                           el.srcObject = remoteStream;
-                          console.log("[Video] Remote video srcObject bound");
                         }
                       }}
                       autoPlay
@@ -197,20 +274,20 @@ export default function Layout({ children }) {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 relative">
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 relative p-4">
                       <div className="relative flex items-center justify-center mb-6">
-                        <div className="absolute w-32 h-32 bg-primary/10 rounded-full animate-ping duration-[3000ms]"></div>
-                        <div className="absolute w-28 h-28 bg-primary/20 rounded-full animate-pulse duration-[2000ms]"></div>
-                        <div className="w-24 h-24 rounded-full bg-slate-800 border-2 border-primary/30 flex items-center justify-center text-2xl font-bold text-primary z-10 shadow-lg">
+                        <div className="absolute w-24 h-24 md:w-32 md:h-32 bg-primary/10 rounded-full animate-ping duration-[3000ms]"></div>
+                        <div className="absolute w-20 h-20 md:w-28 md:h-28 bg-primary/20 rounded-full animate-pulse duration-[2000ms]"></div>
+                        <div className="w-16 h-16 md:w-24 md:h-24 rounded-full bg-slate-800 border-2 border-primary/30 flex items-center justify-center text-xl md:text-2xl font-bold text-primary z-10 shadow-lg">
                           {getInitials(activeCall.otherPartyName)}
                         </div>
                       </div>
                       
                       <div className="z-10 text-center">
-                        <h4 className="text-lg font-black text-white">{activeCall.otherPartyName}</h4>
+                        <h4 className="text-base md:text-lg font-black text-white">{activeCall.otherPartyName}</h4>
                         <p className="text-xs text-slate-400 mt-1 flex items-center justify-center gap-sm">
                           <span className="w-1.5 h-1.5 rounded-full bg-success animate-ping"></span>
-                          <span>Connected & Streaming Securely</span>
+                          <span>{t('connected')}</span>
                         </p>
                       </div>
 
@@ -237,18 +314,17 @@ export default function Layout({ children }) {
               )}
 
               {localStream && (
-                <div className="absolute bottom-4 right-4 w-40 h-52 md:w-48 md:h-64 rounded-xl border border-white/20 overflow-hidden shadow-2xl bg-black z-20 transition-all transform hover:scale-[1.02]">
+                <div className="absolute bottom-3 right-3 w-20 h-28 md:w-24 md:h-32 rounded-xl border border-white/20 overflow-hidden shadow-2xl bg-black z-20 transition-all transform hover:scale-[1.02]">
                   {isVideoOff ? (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-slate-400 text-center p-2">
-                      <span className="material-symbols-outlined text-lg mb-1">videocam_off</span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider">Camera Off</span>
+                      <span className="material-symbols-outlined text-[16px] md:text-lg mb-1">videocam_off</span>
+                      <span className="text-[8px] md:text-[10px] font-bold uppercase tracking-wider">{t('cameraOff')}</span>
                     </div>
                   ) : (
                     <video
                       ref={(el) => {
                         if (el && el.srcObject !== localStream) {
                           el.srcObject = localStream;
-                          console.log("[Video] Local video srcObject bound");
                         }
                       }}
                       autoPlay
@@ -257,28 +333,28 @@ export default function Layout({ children }) {
                       className="w-full h-full object-cover scale-x-[-1]"
                     />
                   )}
-                  <div className="absolute bottom-2 left-2 bg-slate-950/70 backdrop-blur-md px-2 py-0.5 rounded text-[9px] font-bold text-white uppercase tracking-wide">
-                    You
+                  <div className="absolute bottom-1.5 left-1.5 bg-slate-950/70 backdrop-blur-md px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-bold text-white uppercase tracking-wide">
+                    {t('you')}
                   </div>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="py-6 flex flex-col md:flex-row items-center justify-center gap-md border-t border-white/10 bg-slate-900/60 backdrop-blur-md w-full">
-            <div className="flex items-center gap-lg">
+          <div className="py-3 md:py-4 flex flex-row items-center justify-center gap-sm md:gap-md border-t border-white/10 bg-slate-900/60 backdrop-blur-md w-full">
+            <div className="flex items-center gap-md">
               <button
                 type="button"
                 onClick={toggleMute}
                 disabled={callStatus !== 'connected'}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                className={`w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all ${
                   isMuted 
                     ? 'bg-error hover:bg-error-container text-white' 
                     : 'bg-white/10 hover:bg-white/20 text-white active:scale-95'
                 } disabled:opacity-50`}
-                title={isMuted ? "Unmute Mic" : "Mute Mic"}
+                title={isMuted ? t('unmute') : t('mute')}
               >
-                <span className="material-symbols-outlined text-lg">
+                <span className="material-symbols-outlined text-[16px] md:text-lg">
                   {isMuted ? 'mic_off' : 'mic'}
                 </span>
               </button>
@@ -287,14 +363,14 @@ export default function Layout({ children }) {
                 type="button"
                 onClick={toggleVideo}
                 disabled={callStatus !== 'connected'}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                className={`w-10 h-10 md:w-11 md:h-11 rounded-full flex items-center justify-center transition-all ${
                   isVideoOff 
                     ? 'bg-error hover:bg-error-container text-white' 
                     : 'bg-white/10 hover:bg-white/20 text-white active:scale-95'
                 } disabled:opacity-50`}
-                title={isVideoOff ? "Turn Video On" : "Turn Video Off"}
+                title={isVideoOff ? t('videoOn') : t('videoOff')}
               >
-                <span className="material-symbols-outlined text-lg">
+                <span className="material-symbols-outlined text-[16px] md:text-lg">
                   {isVideoOff ? 'videocam_off' : 'videocam'}
                 </span>
               </button>
@@ -302,10 +378,10 @@ export default function Layout({ children }) {
               <button
                 type="button"
                 onClick={handleEndCall}
-                className="w-16 h-12 px-6 rounded-full bg-error hover:bg-error-container text-white flex items-center justify-center shadow-lg hover:shadow-error/30 active:scale-95 transition-all"
-                title="End Consultation"
+                className="w-12 h-10 md:w-14 md:h-11 rounded-full bg-error hover:bg-error-container text-white flex items-center justify-center shadow-lg hover:shadow-error/30 active:scale-95 transition-all"
+                title={t('endConsultation')}
               >
-                <span className="material-symbols-outlined text-lg">call_end</span>
+                <span className="material-symbols-outlined text-[16px] md:text-lg">call_end</span>
               </button>
             </div>
           </div>

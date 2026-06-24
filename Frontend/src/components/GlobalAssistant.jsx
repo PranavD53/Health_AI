@@ -443,9 +443,8 @@ export default function GlobalAssistant() {
     if (/[\u0C00-\u0C7F]/.test(str)) return 'te';
     if (/[\u0900-\u097F]/.test(str)) return 'hi';
     // If no native script is found, fallback to active settings/state to support Hinglish/Tinglish
-    const activeLang = localStorage.getItem('app_lang') || 'en';
-    if (language.startsWith('te') || activeLang === 'te') return 'te';
-    if (language.startsWith('hi') || activeLang === 'hi') return 'hi';
+    if (language.startsWith('te') || currentLanguage === 'te') return 'te';
+    if (language.startsWith('hi') || currentLanguage === 'hi') return 'hi';
     return 'en';
   };
 

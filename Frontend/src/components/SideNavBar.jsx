@@ -13,6 +13,17 @@ export default function SideNavBar() {
   const [sosSuccess, setSosSuccess] = useState(false);
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
   const [switching, setSwitching] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  useEffect(() => {
+    const handleToggle = () => setIsMobileOpen(prev => !prev);
+    window.addEventListener('toggle_mobile_sidebar', handleToggle);
+    return () => window.removeEventListener('toggle_mobile_sidebar', handleToggle);
+  }, []);
+
+  useEffect(() => {
+    setIsMobileOpen(false);
+  }, [location.pathname]);
 
   const { subscribe } = useWebSocket() || {};
 
@@ -100,7 +111,17 @@ export default function SideNavBar() {
 
   return (
     <>
-      <aside className="hidden lg:flex flex-col fixed left-0 top-16 h-[calc(100vh-64px)] p-md w-64 z-40 bg-surface-container-low border-r border-outline-variant/30">
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 top-16 bg-black/40 backdrop-blur-xs z-30 lg:hidden" 
+          onClick={() => setIsMobileOpen(false)} 
+        />
+      )}
+      <aside className={`${
+        isMobileOpen 
+          ? 'flex flex-col fixed left-0 top-16 h-[calc(100vh-64px)] w-64 z-40 bg-surface-container-low border-r border-outline-variant/30 p-md shadow-2xl animate-in slide-in-from-left duration-200 text-on-surface' 
+          : 'hidden lg:flex flex-col fixed left-0 top-16 h-[calc(100vh-64px)] p-md w-64 z-40 bg-surface-container-low border-r border-outline-variant/30'
+      }`}>
         <div className="mb-xl flex items-center gap-md px-2">
           <div className="w-10 h-10 rounded-lg bg-primary-fixed flex items-center justify-center text-primary shadow-sm">
             <span className="material-symbols-outlined text-[24px]">health_and_safety</span>
@@ -129,7 +150,7 @@ export default function SideNavBar() {
               </Link>
               <Link to="/imaging" className={getLinkClass('/imaging')}>
                 <span className="material-symbols-outlined">image_search</span>
-                <span className="text-label-md">Imaging Diagnostics</span>
+                <span className="text-label-md">{t('imaging')}</span>
               </Link>
               <Link to="/chat" className={getLinkClass('/chat')}>
                 <span className="material-symbols-outlined">chat</span>
