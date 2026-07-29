@@ -368,7 +368,7 @@ async def analyze_record(
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+                        "model": "llama-3.2-11b-vision-preview",
                         "messages": [
                             {"role": "system", "content": system_prompt},
                             {
@@ -579,7 +579,7 @@ async def generate_reminders_from_prescription(
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+                        "model": "llama-3.2-11b-vision-preview",
                         "messages": [
                             {"role": "system", "content": system_prompt},
                             {

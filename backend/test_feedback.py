@@ -1,5 +1,6 @@
 import os
 import shutil
+import datetime
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -107,9 +108,10 @@ def test_feedback_system():
         doctor_user_id = doctor_data["user_id"]
         
         # Book Appointment
+        future_date_str = (datetime.date.today() + datetime.timedelta(days=3)).strftime("%Y-%m-%d")
         book_resp = client.post("/appointment/book", headers=patient_headers, json={
             "doctor_id": doctor_id,
-            "date": "2026-07-21",
+            "date": future_date_str,
             "time": "10:00"
         })
         assert book_resp.status_code == 201

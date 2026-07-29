@@ -390,7 +390,7 @@ async def execute_tars_intent(
                 "parts": [{"text": current_msg}]
             })
             
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_api_key}"
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     url,

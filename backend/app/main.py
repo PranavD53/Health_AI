@@ -1125,7 +1125,7 @@ async def evaluate_confirmation(
     
     if has_gemini:
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     url,

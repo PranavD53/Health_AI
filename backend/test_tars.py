@@ -12,7 +12,7 @@ from app.database import SessionLocal
 from app import models
 from app.services.tars_engine import execute_tars_intent
 
-async def test_booking():
+async def run_test_booking():
     db = SessionLocal()
     try:
         # Find a patient user
@@ -36,4 +36,4 @@ async def test_booking():
         db.close()
 
 if __name__ == "__main__":
-    asyncio.run(test_booking())
+    asyncio.run(run_test_booking())

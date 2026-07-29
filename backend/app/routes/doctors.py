@@ -154,7 +154,7 @@ def translate_text_via_llm(name: str, specialization: str, location: str, lang: 
     # 1. Primary: Gemini 2.5 Flash
     if gemini_key and not gemini_key.startswith("your_"):
         try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
             with httpx.Client() as client:
                 res = client.post(
                     url,

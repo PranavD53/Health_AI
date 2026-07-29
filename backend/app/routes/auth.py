@@ -68,17 +68,11 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 # --- Helpers ---
-_HASH_CACHE = {}
-
 def get_password_hash(password: str) -> str:
-    if password in _HASH_CACHE:
-        return _HASH_CACHE[password]
     pwd_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt()
     hashed = bcrypt.hashpw(pwd_bytes, salt)
-    res = hashed.decode('utf-8')
-    _HASH_CACHE[password] = res
-    return res
+    return hashed.decode('utf-8')
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     pwd_bytes = plain_password.encode('utf-8')
