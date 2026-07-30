@@ -11,8 +11,8 @@ export default function AnimatedBackground() {
   const dnaPath1Ref = useRef(null);
   const dnaPath2Ref = useRef(null);
   const ecgPathRef = useRef(null);
+  const glowRef = useRef(null);
   const [prefersReduced, setPrefersReduced] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   // Generate DNA coordinates mathematically (100 nodes down the page)
   const numDnaNodes = 80;
@@ -36,7 +36,9 @@ export default function AnimatedBackground() {
 
   useEffect(() => {
     const handleMouseMove = (e) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
+      if (glowRef.current) {
+        glowRef.current.style.transform = `translate3d(${e.clientX - 300}px, ${e.clientY - 300}px, 0)`;
+      }
     };
     window.addEventListener('mousemove', handleMouseMove);
 
@@ -289,11 +291,14 @@ export default function AnimatedBackground() {
 
       {/* Dynamic Cursor Glow (Follows cursor in viewport) */}
       <div 
-        className="fixed w-[600px] h-[600px] rounded-full blur-[120px] pointer-events-none transition-all duration-200 ease-out z-0 opacity-[0.12] dark:opacity-[0.08]"
+        ref={glowRef}
+        className="fixed w-[600px] h-[600px] rounded-full blur-[120px] pointer-events-none transition-transform duration-300 ease-out z-0 opacity-[0.12] dark:opacity-[0.08]"
         style={{
           background: `radial-gradient(circle, var(--theme-secondary) 0%, transparent 70%)`,
-          left: `${mousePos.x - 300}px`,
-          top: `${mousePos.y - 300}px`,
+          left: 0,
+          top: 0,
+          transform: 'translate3d(-1000px, -1000px, 0)',
+          willChange: 'transform'
         }}
       />
     </div>

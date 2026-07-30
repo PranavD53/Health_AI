@@ -356,25 +356,12 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-outline-variant/20">
             
-            {/* Brand logo & Newsletter */}
+            {/* Brand logo */}
             <div className="lg:col-span-2 space-y-4">
               <h3 className="text-xl font-bold text-[var(--theme-primary)]">HealthAI</h3>
               <p className="font-inter text-xs text-on-surface-variant leading-relaxed max-w-sm">
                 Next-generation diagnostic checkers, clinical consultation portals, and secure patient timeline indexing.
               </p>
-              <div className="pt-2">
-                <p className="text-[10px] font-bold text-on-surface uppercase tracking-wider mb-2">Subscribe to newsletter</p>
-                <div className="flex max-w-xs gap-2">
-                  <input 
-                    type="email" 
-                    placeholder="Enter email address" 
-                    className="flex-1 py-1.5 px-3 border border-outline-variant rounded-lg bg-white dark:bg-[#0c0c17] text-xs text-on-surface focus:outline-none focus:border-[var(--theme-primary)]" 
-                  />
-                  <button className="px-3.5 py-1.5 bg-[var(--theme-primary)] text-white font-bold text-xs rounded-lg hover:opacity-90 active:scale-95 transition-all">
-                    Join
-                  </button>
-                </div>
-              </div>
             </div>
 
             {/* Sitemap Column 1 */}
