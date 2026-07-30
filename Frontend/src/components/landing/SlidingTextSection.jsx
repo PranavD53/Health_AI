@@ -31,13 +31,16 @@ export default function SlidingTextSection() {
   useEffect(() => {
     const ctx = gsap.context(() => {
       if (prefersReduced) {
-        gsap.set([line1Ref.current, line2Ref.current, line3Ref.current], { opacity: 1 });
+        gsap.set(line1Ref.current, { opacity: 1, color: 'var(--theme-primary)' });
+        gsap.set(line2Ref.current, { opacity: 1, color: 'var(--color-secondary)' });
+        gsap.set(line3Ref.current, { opacity: 1, color: 'var(--theme-accent)' });
         return;
       }
 
       if (isMobile) {
-        gsap.fromTo(line1Ref.current, { opacity: 0.15 }, {
+        gsap.fromTo(line1Ref.current, { opacity: 0.15, color: 'var(--color-on-surface)' }, {
           opacity: 1,
+          color: 'var(--theme-primary)',
           scrollTrigger: {
             trigger: line1Ref.current,
             start: 'top 80%',
@@ -45,8 +48,9 @@ export default function SlidingTextSection() {
             scrub: true
           }
         });
-        gsap.fromTo(line2Ref.current, { opacity: 0.15 }, {
+        gsap.fromTo(line2Ref.current, { opacity: 0.15, color: 'var(--color-on-surface)' }, {
           opacity: 1,
+          color: 'var(--color-secondary)',
           scrollTrigger: {
             trigger: line2Ref.current,
             start: 'top 80%',
@@ -54,8 +58,9 @@ export default function SlidingTextSection() {
             scrub: true
           }
         });
-        gsap.fromTo(line3Ref.current, { opacity: 0.15 }, {
+        gsap.fromTo(line3Ref.current, { opacity: 0.15, color: 'var(--color-on-surface)' }, {
           opacity: 1,
+          color: 'var(--theme-accent)',
           scrollTrigger: {
             trigger: line3Ref.current,
             start: 'top 80%',
@@ -84,29 +89,18 @@ export default function SlidingTextSection() {
         color: 'var(--theme-primary)',
         duration: 1
       });
-      tl.to(line1Ref.current, {
-        opacity: 0.45,
-        color: 'var(--theme-primary)',
-        duration: 1
-      });
 
       // Line 2: Designed for patients.
       tl.to(line2Ref.current, {
         opacity: 1,
-        color: 'var(--theme-secondary)',
+        color: 'var(--color-secondary)',
         duration: 1
       }, '-=0.3');
-      tl.to(line2Ref.current, {
-        opacity: 0.45,
-        color: 'var(--theme-secondary)',
-        duration: 1
-      });
 
       // Line 3: Powered by AI.
       tl.to(line3Ref.current, {
         opacity: 1,
         color: 'var(--theme-accent)',
-        textShadow: '0 0 25px var(--theme-accent)',
         duration: 1
       }, '-=0.3');
 
