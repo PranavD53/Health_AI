@@ -72,6 +72,16 @@ def startup_db_setup():
     finally:
         db.close()
 
+    # Performance §8: Load AI imaging models once at startup into memory
+    try:
+        from app.services.skin_ai import load_skin_model
+        from app.services.xray_ai import load_xray_model
+        load_skin_model()
+        load_xray_model()
+    except Exception as e:
+        print(f"Error initializing AI imaging models at startup: {e}")
+
+
 
 def seed_demo_users(db: Session):
     demo_users = [

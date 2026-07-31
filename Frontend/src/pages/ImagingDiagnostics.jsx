@@ -240,6 +240,7 @@ export default function ImagingDiagnostics() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [scanType, setScanType] = useState('Skin Condition');
+  const [loadingStepText, setLoadingStepText] = useState('1. Uploading Image...');
 
   // Report details state
   const [activeReport, setActiveReport] = useState(null);
@@ -248,6 +249,21 @@ export default function ImagingDiagnostics() {
   useEffect(() => {
     loadDiagnostics();
   }, []);
+
+  // Helper to parse embedded diagnostic metadata (top predictions, heuristic flag)
+  const parseReportMetadata = (findings) => {
+    if (!findings) return null;
+    const parts = findings.split('[Diagnostic Metadata:');
+    if (parts.length > 1) {
+      try {
+        const jsonStr = parts[1].split(']')[0].trim();
+        return JSON.parse(jsonStr);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  };
 
   // Listen for open_report search parameter to auto-open modal
   useEffect(() => {
@@ -321,6 +337,12 @@ export default function ImagingDiagnostics() {
     setAnalyzing(true);
     setError('');
     setSuccessMsg('');
+    setLoadingStepText("1. Uploading Image...");
+
+    // Sequential loading step transitions (§6)
+    const t1 = setTimeout(() => setLoadingStepText("2. Running AI Model..."), 500);
+    const t2 = setTimeout(() => setLoadingStepText("3. Analyzing..."), 1200);
+    const t3 = setTimeout(() => setLoadingStepText("4. Generating Report..."), 2000);
 
     try {
       const formData = new FormData();
@@ -347,8 +369,12 @@ export default function ImagingDiagnostics() {
       loadDiagnostics();
     } catch (err) {
       console.error(err);
-      setError(localT.uploadFailed + (err.message || err));
+      const errMsg = err.message || err.toString();
+      setError(errMsg);
     } finally {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
       setAnalyzing(false);
     }
   };
@@ -517,7 +543,7 @@ export default function ImagingDiagnostics() {
               {analyzing ? (
                 <>
                   <div className="w-5 h-5 border-2 border-on-primary border-t-transparent rounded-full animate-spin"></div>
-                  <span>{localT.analyzing}</span>
+                  <span>{loadingStepText}</span>
                 </>
               ) : (
                 <>
@@ -681,7 +707,13 @@ export default function ImagingDiagnostics() {
       </div>
 
       {/* Modal Dialog for Diagnostic Detail */}
-      {showModal && activeReport && (
+      {showModal && activeReport && (() => {
+        const reportMeta = parseReportMetadata(activeReport.findings);
+        const topPreds = reportMeta?.top_predictions || [];
+        const isHeuristic = reportMeta?.is_heuristic || activeReport.scan_type.toLowerCase().includes('throat');
+        const isXray = activeReport.scan_type.toLowerCase().includes('xray') || activeReport.scan_type.toLowerCase().includes('x-ray');
+
+        return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
           <div className="bg-surface-container-lowest border border-outline-variant/30 rounded-3xl p-lg w-full max-w-2xl max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col space-y-md scale-in">
             
@@ -744,6 +776,47 @@ export default function ImagingDiagnostics() {
                 </div>
               </div>
 
+              {/* Top-3 Differential Predictions Breakdown (§1, §2) */}
+              {topPreds.length > 0 && (
+                <div className="space-y-xs bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-md">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-label-md font-extrabold text-on-surface uppercase tracking-wide flex items-center gap-xs">
+                      <span className="material-symbols-outlined text-[16px] text-primary">stacked_bar_chart</span>
+                      <span>Top Differential Predictions</span>
+                    </h4>
+                    {isXray && (
+                      <span className="text-[10px] text-outline italic">Independent Sigmoid Probabilities</span>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-sm pt-xs">
+                    {topPreds.slice(0, 3).map((item, idx) => (
+                      <div key={idx} className="p-sm bg-surface-container-low rounded-xl border border-outline-variant/20 flex flex-col space-y-1">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-xs font-bold text-xs text-on-surface">
+                            <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] flex items-center justify-center font-black">
+                              #{idx + 1}
+                            </span>
+                            <span>{item.label}</span>
+                          </div>
+                          <div className="flex items-center gap-xs">
+                            <span className="text-xs font-extrabold text-primary">{item.confidence}%</span>
+                            <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${getSeverityColor(item.severity)}`}>
+                              {translateSeverity(item.severity)}
+                            </span>
+                          </div>
+                        </div>
+                        {item.recommendation && (
+                          <p className="text-[11px] text-outline pl-6 leading-tight">
+                            {item.recommendation}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Findings text */}
               <div className="space-y-xs bg-surface-container-low border border-outline-variant/30 rounded-2xl p-md">
                 <h4 className="text-label-md font-extrabold text-on-surface uppercase tracking-wide">
@@ -752,6 +825,28 @@ export default function ImagingDiagnostics() {
                 <div className="text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
                   {activeReport.findings ? activeReport.findings.split('[Diagnostic')[0].trim() : ''}
                 </div>
+              </div>
+
+              {/* Prominent Medical Disclaimer Banner (§11) */}
+              <div className={`p-md rounded-2xl border text-xs leading-relaxed space-y-xs ${
+                isHeuristic
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-200'
+                  : 'bg-primary/5 border-primary/20 text-on-surface-variant'
+              }`}>
+                <div className="flex items-center gap-xs font-black uppercase text-[11px] tracking-wider text-primary">
+                  <span className="material-symbols-outlined text-[16px]">info</span>
+                  <span>Medical & Clinical Disclaimer</span>
+                </div>
+                <p>
+                  This AI-generated result is a preliminary screening aid only and is not a medical diagnosis. 
+                  Confidence scores reflect model output on limited datasets and may not generalize to your specific case. 
+                  Please consult a licensed <strong>{translateSpecialist(activeReport.recommended_specialist)}</strong> for an accurate clinical assessment.
+                </p>
+                {isHeuristic && (
+                  <p className="font-bold text-[11px] text-amber-600 dark:text-amber-400">
+                    ⚡ Note: Throat tab results are rule-based (heuristic), not machine-learning-based.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -787,7 +882,8 @@ export default function ImagingDiagnostics() {
 
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Global CSS for laser scanning line animation */}
       <style>{`

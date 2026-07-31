@@ -123,175 +123,75 @@ async def analyze_imaging(
             f.write(content)
         web_path = f"/uploads/{unique_filename}"
         
-        # Base64 encode for API payloads
+        # Base64 encode for API payload / DB thumbnail recovery
         encoded_data = base64.b64encode(content).decode("utf-8")
         mime_type = file.content_type or "image/jpeg"
 
         # Anti-tampering check (informational/logged)
         fraud_status, fraud_reason = check_file_status(content, file.filename, file_extension)
 
-        # Analysis Variables
-        findings = ""
-        severity = "Normal"
-        specialist = "general"
-        analyzed_by = "Offline Heuristics"
-
-        # 1. Try Gemini 2.5 Flash
-        gemini_key = os.getenv("GEMINI_API_KEY", "")
-        has_gemini = gemini_key and not gemini_key.startswith("your_")
-        
-        if has_gemini:
-            try:
-                system_instruction = (
-                    "You are an expert AI clinical diagnostic assistant. "
-                    f"Analyze the uploaded image representing a '{scan_type}' scan. "
-                    "Provide a professional clinical diagnostic report describing findings and observations. "
-                    "Crucial Medication Rule: If the determined severity of the condition is Normal, Low, or Moderate, you MUST suggest appropriate, safe over-the-counter (OTC) or mild medicines (such as paracetamol for mild fever/pain, throat lozenges for sore throat, topical calamine or 1% hydrocortisone cream for skin rashes) directly inside the findings text.\n"
-                    "Select the appropriate severity (Normal, Low, Moderate, High, Critical) and recommend the "
-                    "most suitable specialist field (cardiology, dermatology, general, neurology, pediatrics) for patient routing.\n"
-                    "Respond ONLY in JSON matching the specified schema."
-                )
-                
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        url,
-                        headers={"Content-Type": "application/json"},
-                        json={
-                            "contents": [
-                                {
-                                    "parts": [
-                                        {"text": system_instruction},
-                                        {
-                                            "inlineData": {
-                                                "mimeType": mime_type,
-                                                "data": encoded_data
-                                            }
-                                        }
-                                    ]
-                                }
-                            ],
-                            "generationConfig": {
-                                "responseMimeType": "application/json",
-                                "responseSchema": {
-                                    "type": "OBJECT",
-                                    "properties": {
-                                        "findings": {"type": "STRING"},
-                                        "severity": {"type": "STRING"},
-                                        "recommended_specialist": {"type": "STRING"}
-                                    },
-                                    "required": ["findings", "severity", "recommended_specialist"]
-                                }
-                            }
-                        },
-                        timeout=12.0
-                    )
-                    
-                    if response.status_code == 200:
-                        res_obj = response.json()
-                        parts = res_obj.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])
-                        if parts:
-                            raw_text = parts[0].get("text", "").strip()
-                            data = clean_json_response(raw_text)
-                            findings = data.get("findings", "")
-                            severity = data.get("severity", "Normal")
-                            specialist = data.get("recommended_specialist", "general")
-                            analyzed_by = "Gemini 2.5 Flash"
-            except Exception as e:
-                print(f"Gemini Imaging diagnostic error: {e}")
-
-        # 2. Try Groq Llama 3.2 Vision Fallback
-        groq_key = os.getenv("GROQ_API_KEY", "")
-        has_groq = groq_key and not groq_key.startswith("your_")
-        
-        if not findings and has_groq:
-            try:
-                url = "https://api.groq.com/openai/v1/chat/completions"
-                headers = {
-                    "Authorization": f"Bearer {groq_key}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "llama-3.2-11b-vision-preview",
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": (
-                                        "You are an expert AI clinical diagnostic assistant. "
-                                        f"Analyze this image representing a '{scan_type}' scan. "
-                                        "Return a JSON object containing:\n"
-                                        "1. 'findings': Detailed clinical observations. Crucial Medication Rule: If the determined severity of the condition is Normal, Low, or Moderate, you MUST suggest appropriate, safe over-the-counter (OTC) or mild medicines (such as paracetamol for mild fever/pain, throat lozenges for sore throat, topical calamine or 1% hydrocortisone cream for skin rashes) directly inside the findings text.\n"
-                                        "2. 'severity': One of 'Normal', 'Low', 'Moderate', 'High', 'Critical'.\n"
-                                        "3. 'recommended_specialist': One of 'cardiology', 'dermatology', 'general', 'neurology', 'pediatrics'.\n"
-                                        "Respond ONLY with a valid JSON object. Do not include markdown formatting or code blocks."
-                                    )
-                                },
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:{mime_type};base64,{encoded_data}"
-                                    }
-                                }
-                            ]
-                        }
-                    ],
-                    "response_format": {"type": "json_object"},
-                    "temperature": 0.2
-                }
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(url, headers=headers, json=payload, timeout=12.0)
-                    if response.status_code == 200:
-                        res_obj = response.json()
-                        raw_text = res_obj.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                        data = clean_json_response(raw_text)
-                        findings = data.get("findings", "")
-                        severity = data.get("severity", "Normal")
-                        specialist = data.get("recommended_specialist", "general")
-                        analyzed_by = "Groq Llama 3.2 Vision"
-            except Exception as e:
-                print(f"Groq Vision imaging diagnostic error: {e}")
-
-        # 3. Offline Heuristic Fallback
-        if not findings:
-            heuristic_data = run_offline_heuristics(scan_type, file.filename)
-            findings = heuristic_data["findings"]
-            severity = heuristic_data["severity"]
-            specialist = heuristic_data["recommended_specialist"]
-            analyzed_by = "Offline Heuristic Engine"
-
-        # Validate and sanitize values
-        valid_severities = ["Normal", "Low", "Moderate", "High", "Critical"]
-        valid_specialists = ["cardiology", "dermatology", "general", "neurology", "pediatrics"]
-        
-        # Capitalize severity correctly
-        severity_formatted = severity.strip().capitalize()
-        if severity_formatted not in valid_severities:
-            # check case insensitive
-            match = [v for v in valid_severities if v.lower() == severity_formatted.lower()]
-            severity = match[0] if match else "Moderate"
-        else:
-            severity = severity_formatted
-
-        specialist_formatted = specialist.strip().lower()
-        if specialist_formatted not in valid_specialists:
-            if "derma" in specialist_formatted:
-                specialist = "dermatology"
-            elif "cardio" in specialist_formatted:
-                specialist = "cardiology"
-            elif "neuro" in specialist_formatted:
-                specialist = "neurology"
-            elif "pediat" in specialist_formatted:
-                specialist = "pediatrics"
+        # Route prediction based on scan category
+        scan_lower = scan_type.lower()
+        try:
+            if "skin" in scan_lower or "derma" in scan_lower:
+                from app.services.skin_ai import predict_skin
+                pred_res = predict_skin(content)
+                analyzed_by = "LaurianeMD/vit-skin-disease (ViT)"
+            elif "x-ray" in scan_lower or "xray" in scan_lower or "chest" in scan_lower:
+                from app.services.xray_ai import predict_xray
+                pred_res = predict_xray(content)
+                analyzed_by = "hiroaki-f/my_chest_xray_model (ViT NIH ChestX-ray14)"
+            elif "throat" in scan_lower or "redness" in scan_lower or "pharynx" in scan_lower:
+                from app.services.throat_ai import predict_throat
+                pred_res = predict_throat(content)
+                analyzed_by = "Deterministic Feature Heuristic Engine"
             else:
-                specialist = "general"
-        else:
-            specialist = specialist_formatted
+                # Default to skin service if unmapped
+                from app.services.skin_ai import predict_skin
+                pred_res = predict_skin(content)
+                analyzed_by = "LaurianeMD/vit-skin-disease (ViT)"
+        except ValueError as val_err:
+            # Specific validation / image rejection error (e.g. Throat blur or invalid aspect ratio)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(val_err)
+            )
+        except RuntimeError as rt_err:
+            # Model startup or uninitialized singleton failure
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Diagnostics temporarily unavailable for this tab. Please try again later."
+            )
+        except Exception as pred_err:
+            print(f"Prediction layer error ({scan_type}): {pred_err}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Unable to analyze image. Please try another image."
+            )
 
-        # Removed model metadata to satisfy user request
-        pass
+        # Extract normalized prediction components
+        condition = pred_res.get("condition", "Analyzed Condition")
+        confidence = pred_res.get("confidence", 0.0)
+        severity = pred_res.get("severity", "Moderate")
+        specialist = pred_res.get("specialist", "general")
+        recommendation = pred_res.get("recommendation", "")
+        top_predictions = pred_res.get("top_predictions", [])
+        is_heuristic = pred_res.get("is_heuristic", False)
+
+        # Format findings text and embed structured metadata
+        metadata_dict = {
+            "top_predictions": top_predictions,
+            "is_heuristic": is_heuristic,
+            "analyzed_by": analyzed_by,
+            "confidence": confidence
+        }
+        
+        findings_text = (
+            f"Primary Finding: {condition} (Confidence: {confidence:.1f}%)\n"
+            f"Severity Level: {severity}\n"
+            f"Clinical Recommendation: {recommendation}\n\n"
+            f"[Diagnostic Metadata: {json.dumps(metadata_dict)}]"
+        )
 
         # Save to Database
         new_diagnostic = models.MedicalImagingDiagnostic(
@@ -301,7 +201,7 @@ async def analyze_imaging(
             file_type=mime_type,
             file_data=encoded_data,
             scan_type=scan_type,
-            findings=findings,
+            findings=findings_text,
             severity=severity,
             recommended_specialist=specialist
         )
@@ -314,7 +214,7 @@ async def analyze_imaging(
             db,
             current_user.id,
             "ANALYZE_IMAGING",
-            f"Analyzed imaging diagnostic scan ID {new_diagnostic.id}. Scan type: {scan_type}. Model: {analyzed_by}. Severity: {severity}. Recommended specialist: {specialist}."
+            f"Analyzed imaging diagnostic scan ID {new_diagnostic.id}. Scan type: {scan_type}. Engine: {analyzed_by}. Severity: {severity}."
         )
 
         return new_diagnostic
