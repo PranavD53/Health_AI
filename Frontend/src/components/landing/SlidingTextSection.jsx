@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useLanguage } from '../../context/LanguageContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
 export default function SlidingTextSection() {
+  const { t } = useLanguage();
   const containerRef = useRef(null);
   const pinWrapperRef = useRef(null);
   const line1Ref = useRef(null);
@@ -117,15 +119,15 @@ export default function SlidingTextSection() {
         <div className="max-w-4xl mx-auto flex flex-col justify-center space-y-8 md:space-y-12 select-none">
           
           <h2 ref={line1Ref} className="font-jakarta text-4xl sm:text-5xl md:text-7xl font-extrabold leading-tight text-on-surface opacity-[0.35] transition-all duration-300">
-            Built for doctors.
+            {t('slidingLine1')}
           </h2>
           
           <h2 ref={line2Ref} className="font-jakarta text-4xl sm:text-5xl md:text-7xl font-extrabold leading-tight text-on-surface opacity-[0.35] transition-all duration-300">
-            Designed for patients.
+            {t('slidingLine2')}
           </h2>
           
           <h2 ref={line3Ref} className="font-jakarta text-4xl sm:text-5xl md:text-7xl font-extrabold leading-tight text-on-surface opacity-[0.35] transition-all duration-300">
-            Powered by AI.
+            {t('slidingLine3')}
           </h2>
           
         </div>

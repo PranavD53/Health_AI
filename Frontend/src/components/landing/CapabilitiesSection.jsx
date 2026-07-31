@@ -2,11 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useLanguage } from '../../context/LanguageContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
 export default function CapabilitiesSection() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const containerRef = useRef(null);
   const [prefersReduced, setPrefersReduced] = useState(false);
 
@@ -47,39 +49,39 @@ export default function CapabilitiesSection() {
   const features = [
     {
       icon: 'psychology',
-      title: 'AI Symptom Checker',
-      desc: 'Analyze symptoms and receive instant, personalized triage advice with list of potential causes powered by secure medical AI.',
-      tag: 'Triage'
+      titleKey: 'featureTriageTitle',
+      descKey: 'featureTriageDesc',
+      tagKey: 'featureTriage'
     },
     {
       icon: 'video_call',
-      title: 'Virtual Consultation',
-      desc: 'Consult directly with certified healthcare professionals via low-latency, HIPAA-compliant video calls and private chat sessions.',
-      tag: 'Telemedicine'
+      titleKey: 'featureTelemedTitle',
+      descKey: 'featureTelemedDesc',
+      tagKey: 'featureTelemed'
     },
     {
       icon: 'pill',
-      title: 'Medication Management',
-      desc: 'Set smart pill reminders, track dosage history, and receive automated warnings for drug-to-drug interactions.',
-      tag: 'Rx Safety'
+      titleKey: 'featureRxSafetyTitle',
+      descKey: 'featureRxSafetyDesc',
+      tagKey: 'featureRxSafety'
     },
     {
       icon: 'analytics',
-      title: 'Report Analysis',
-      desc: 'Dissect complex lab reports or test documents instantly to receive plain-language summaries of medical terminology.',
-      tag: 'Diagnostics'
+      titleKey: 'featureDiagTitle',
+      descKey: 'featureDiagDesc',
+      tagKey: 'featureDiag'
     },
     {
       icon: 'favorite',
-      title: 'Health Monitoring',
-      desc: 'Sync and track wearable health data including heart rates, step logs, blood oxygen levels, and weekly sleep analytics.',
-      tag: 'Vitals Sync'
+      titleKey: 'featureVitalsTitle',
+      descKey: 'featureVitalsDesc',
+      tagKey: 'featureVitals'
     },
     {
       icon: 'emergency_share',
-      title: 'Emergency Guidance',
-      desc: 'Instant access to emergency protocols, first-aid directives, and immediate routing to the nearest hospital facility.',
-      tag: '24/7 Care'
+      titleKey: 'featureEmergencyTitle',
+      descKey: 'featureEmergencyDesc',
+      tagKey: 'featureEmergency'
     }
   ];
 
@@ -98,13 +100,13 @@ export default function CapabilitiesSection() {
         {/* Header */}
         <div className="text-center max-w-2xl mx-auto mb-20 space-y-3">
           <span className="text-[var(--theme-primary)] font-bold text-xs uppercase tracking-widest block">
-            Capabilities
+            {t('landingCapabilities')}
           </span>
           <h2 className="font-jakarta text-3xl md:text-5xl font-extrabold text-on-surface tracking-tight leading-tight">
-            Intelligent Health Services
+            {t('landingIntelligentHealth')}
           </h2>
           <p className="font-inter text-sm md:text-base text-on-surface-variant leading-relaxed">
-            Discover a unified platform designed to streamline diagnostic triaging, clinical communications, and daily medical logs.
+            {t('landingServicesSubtitle')}
           </p>
         </div>
 
@@ -122,16 +124,16 @@ export default function CapabilitiesSection() {
                     <span className="material-symbols-outlined text-[22px] select-none">{feat.icon}</span>
                   </div>
                   <span className="px-2.5 py-1 rounded-full bg-surface-container-high text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">
-                    {feat.tag}
+                    {t(feat.tagKey)}
                   </span>
                 </div>
 
                 {/* Typography */}
                 <h3 className="font-jakarta text-lg font-bold text-on-surface mb-3 group-hover:text-[var(--theme-primary)] transition-colors duration-200">
-                  {feat.title}
+                  {t(feat.titleKey)}
                 </h3>
                 <p className="font-inter text-xs md:text-sm text-on-surface-variant leading-relaxed mb-6">
-                  {feat.desc}
+                  {t(feat.descKey)}
                 </p>
               </div>
 
@@ -140,7 +142,7 @@ export default function CapabilitiesSection() {
                 onClick={() => navigate('/register')}
                 className="flex items-center gap-1.5 text-xs font-bold text-[var(--theme-primary)] cursor-pointer group/link hover:opacity-85"
               >
-                Learn more 
+                {t('learnMore')}
                 <span className="material-symbols-outlined text-xs transition-transform duration-200 group-hover/link:translate-x-1">
                   arrow_forward
                 </span>
@@ -152,20 +154,20 @@ export default function CapabilitiesSection() {
         {/* Statistics & Badges summary */}
         <div className="mt-20 pt-10 border-t border-outline-variant/30 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           <div>
-            <h4 className="font-jakarta text-3xl font-extrabold text-on-surface">99.4%</h4>
-            <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-1">AI Checker Accuracy</p>
+            <h4 className="font-jakarta text-3xl font-extrabold text-on-surface">{t('statCheckerAccuracyVal')}</h4>
+            <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-1">{t('statCheckerAccuracyLbl')}</p>
           </div>
           <div>
-            <h4 className="font-jakarta text-3xl font-extrabold text-on-surface">150k+</h4>
-            <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-1">Consultations</p>
+            <h4 className="font-jakarta text-3xl font-extrabold text-on-surface">{t('statConsultationsVal')}</h4>
+            <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-1">{t('statConsultationsLbl')}</p>
           </div>
           <div>
-            <h4 className="font-jakarta text-3xl font-extrabold text-on-surface">&lt;2 Min</h4>
-            <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-1">Average Response</p>
+            <h4 className="font-jakarta text-3xl font-extrabold text-on-surface">{t('statResponseVal')}</h4>
+            <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-1">{t('statResponseLbl')}</p>
           </div>
           <div>
-            <h4 className="font-jakarta text-3xl font-extrabold text-on-surface">HIPAA</h4>
-            <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-1">Compliant Architecture</p>
+            <h4 className="font-jakarta text-3xl font-extrabold text-on-surface">{t('statArchitectureVal')}</h4>
+            <p className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider mt-1">{t('statArchitectureLbl')}</p>
           </div>
         </div>
 

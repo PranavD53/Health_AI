@@ -2,11 +2,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useLanguage } from '../../context/LanguageContext';
 
 gsap.registerPlugin(ScrollTrigger);
 
 export default function HeroSection() {
   const navigate = useNavigate();
+  const { currentLanguage, t } = useLanguage();
   const containerRef = useRef(null);
   const pinWrapperRef = useRef(null);
   const headlineRef = useRef(null);
@@ -81,20 +83,28 @@ export default function HeroSection() {
             {/* Trust badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--theme-primary)]/10 border border-[var(--theme-primary)]/20 text-xs font-semibold text-[var(--theme-primary)] tracking-wide animate-pulse">
               <span className="material-symbols-outlined text-[14px]">verified</span>
-              Next-Gen Medical Intelligence
+              {t('trustBadge')}
             </div>
 
             {/* Headline */}
             <h1 ref={headlineRef} className="font-jakarta text-4xl sm:text-5xl md:text-[54px] font-extrabold text-on-surface leading-[1.12] tracking-tight">
-              Healthcare <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)]">
-                Reimagined with AI
-              </span>
+              {currentLanguage === 'en' ? (
+                <>
+                  Healthcare <br />
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)]">
+                    Reimagined with AI
+                  </span>
+                </>
+              ) : (
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)]">
+                  {t('heroTitle')}
+                </span>
+              )}
             </h1>
 
             {/* Subtext */}
             <p ref={subtextRef} className="font-inter text-base md:text-lg text-on-surface-variant leading-relaxed max-w-xl">
-              Connect with practitioners, analyze diagnostics reports, check symptoms instantly, and manage your medical records through an intelligent, HIPAA-compliant patient dashboard.
+              {t('heroSubtext')}
             </p>
 
             {/* CTAs */}
@@ -103,7 +113,7 @@ export default function HeroSection() {
                 onClick={() => navigate('/register')}
                 className="px-8 py-3.5 bg-[var(--theme-primary)] hover:opacity-90 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-[0.98] focus:outline-none w-full sm:w-auto text-center"
               >
-                Get Started Free
+                {t('btnGetStarted')}
               </button>
               <button
                 onClick={() => {
@@ -112,7 +122,7 @@ export default function HeroSection() {
                 }}
                 className="px-8 py-3.5 bg-surface-container-high border border-outline/35 hover:bg-surface-container-highest text-on-surface rounded-2xl font-semibold transition-all active:scale-[0.98] focus:outline-none w-full sm:w-auto text-center"
               >
-                Explore Features
+                {t('btnExploreFeatures')}
               </button>
             </div>
           </div>
@@ -132,13 +142,13 @@ export default function HeroSection() {
                     SJ
                   </div>
                   <div>
-                    <h4 className="font-bold text-xs text-on-surface">Sarah Jenkins</h4>
+                    <h4 className="font-bold text-xs text-on-surface">{t('testimonialJenkinsName')}</h4>
                     <p className="text-[10px] text-on-surface-variant font-medium">Patient ID: #HA-9821</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="text-[10px] text-emerald-500 font-bold tracking-wide uppercase">Connected</span>
+                  <span className="text-[10px] text-emerald-500 font-bold tracking-wide uppercase">{t('mockupConnected')}</span>
                 </div>
               </div>
 
@@ -148,7 +158,7 @@ export default function HeroSection() {
                 {/* Vitals widget */}
                 <div className="bg-surface-container-low border border-outline-variant/40 rounded-2xl p-4 flex flex-col justify-between h-36">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Live Heart Rate</span>
+                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{t('mockupHeartRate')}</span>
                     <span className="material-symbols-outlined text-rose-500 text-lg">favorite</span>
                   </div>
                   <div className="my-2">
@@ -179,7 +189,7 @@ export default function HeroSection() {
                 {/* Patient Health Score Widget */}
                 <div className="bg-surface-container-low border border-outline-variant/40 rounded-2xl p-4 flex flex-col justify-between h-36">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">Health Index</span>
+                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{t('mockupHealthIndex')}</span>
                     <span className="material-symbols-outlined text-[var(--theme-primary)] text-lg">show_chart</span>
                   </div>
                   <div className="flex items-baseline gap-2">
@@ -189,7 +199,7 @@ export default function HeroSection() {
                     </span>
                   </div>
                   <div className="text-[10px] text-on-surface-variant font-medium leading-normal mb-1">
-                    Vitals stable. Activity levels are optimal. Sleep quality rose 8% this week.
+                    {t('mockupVitalsStatus')}
                   </div>
                 </div>
 
@@ -197,18 +207,18 @@ export default function HeroSection() {
                 <div className="md:col-span-2 bg-surface-container-low border border-outline-variant/40 rounded-2xl p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="material-symbols-outlined text-[var(--theme-primary)] text-lg">psychology</span>
-                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">AI Report Dissection</span>
+                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">{t('mockupReportDissection')}</span>
                   </div>
                   <div className="space-y-2">
                     <div className="bg-white dark:bg-black/25 border border-outline-variant/20 rounded-xl p-3">
                       <p className="text-[11px] font-semibold text-on-surface leading-relaxed">
-                        <span className="text-[var(--theme-primary)] font-bold">Clinical Analysis:</span> CBC report shows mild iron-deficiency anemia (Hb: 10.8 g/dL). Sleep disruption noted. Recommended iron-rich diet & schedule virtual checkup.
+                        {t('mockupAnalysisDesc')}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <span className="px-2 py-0.5 rounded-full bg-[var(--theme-primary)]/10 text-[9px] font-bold text-[var(--theme-primary)]">Hb: 10.8 g/dL (Low)</span>
-                      <span className="px-2 py-0.5 rounded-full bg-[var(--theme-secondary)]/10 text-[9px] font-bold text-[var(--theme-secondary)]">Ferritin: 12 ng/mL</span>
-                      <span className="px-2 py-0.5 rounded-full bg-[var(--theme-accent)]/10 text-[9px] font-bold text-[var(--theme-accent)]">Action Required</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[var(--theme-primary)]/10 text-[9px] font-bold text-[var(--theme-primary)]">{t('mockupHbLabel')}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[var(--theme-secondary)]/10 text-[9px] font-bold text-[var(--theme-secondary)]">{t('mockupFerritinLabel')}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[var(--theme-accent)]/10 text-[9px] font-bold text-[var(--theme-accent)]">{t('mockupActionReq')}</span>
                     </div>
                   </div>
                 </div>

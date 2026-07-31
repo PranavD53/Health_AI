@@ -2,8 +2,10 @@ import React, { useState, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Login() {
+  const { t } = useLanguage();
   const { login, checkAuth } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -35,10 +37,10 @@ export default function Login() {
     try {
       await api.forgotPassword(forgotEmail);
       setForgotOtpSent(true);
-      setForgotSuccess("A 6-digit verification code has been dispatched to your email address.");
+      setForgotSuccess(t("forgotSuccessMsg"));
     } catch (err) {
       console.error(err);
-      setForgotError(err.message || "Failed to send verification code. Check email address.");
+      setForgotError(err.message || t("forgotErrorMsg"));
     } finally {
       setForgotLoading(false);
     }
@@ -54,7 +56,7 @@ export default function Login() {
       navigate('/dashboard');
     } catch (err) {
       console.error(err);
-      setForgotError(err.message || "Invalid OTP code. Please retry.");
+      setForgotError(err.message || t("forgotVerifyError"));
     } finally {
       setForgotLoading(false);
     }
@@ -76,7 +78,7 @@ export default function Login() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to login. Please check credentials.");
+      setError(err.message || t("loginErrorMsg"));
     } finally {
       setLoading(false);
     }
@@ -94,8 +96,8 @@ export default function Login() {
             <h1 className="text-white font-headline-lg text-headline-lg tracking-tight">HealthAI</h1>
           </div>
           <div className="max-w-md">
-            <h2 className="text-white font-display-lg text-4xl mb-md leading-tight">Precision Intelligence for Human Wellness.</h2>
-            <p className="text-primary-fixed font-body-lg text-body-lg opacity-80">Access your clinical dashboard, patient records, and AI-driven diagnostic tools with enterprise-grade security.</p>
+            <h2 className="text-white font-display-lg text-4xl mb-md leading-tight">{t("authTitle")}</h2>
+            <p className="text-primary-fixed font-body-lg text-body-lg opacity-80">{t("authDesc")}</p>
           </div>
         </div>
         <div className="relative z-10">
@@ -132,11 +134,11 @@ export default function Login() {
           {showForgot ? (
             <div className="space-y-lg animate-in fade-in duration-200">
               <header className="mb-xl text-center lg:text-left">
-                <h3 className="text-on-surface font-headline-lg text-headline-lg mb-xs">Reset Access</h3>
+                <h3 className="text-on-surface font-headline-lg text-headline-lg mb-xs">{t("forgotHeader")}</h3>
                 <p className="text-on-surface-variant font-body-md text-body-md">
                   {!forgotOtpSent 
-                    ? "Enter your email address to receive a verification OTP." 
-                    : "Enter the 6-digit OTP code sent to your email to sign in directly."}
+                    ? t("forgotSubtitle") 
+                    : t("otpSubtitle")}
                 </p>
               </header>
 
@@ -157,7 +159,7 @@ export default function Login() {
               {!forgotOtpSent ? (
                 <form onSubmit={handleRequestForgotOtp} className="space-y-lg">
                   <div className="space-y-xs">
-                    <label className="text-label-md font-label-md text-on-surface ml-unit">Email Address</label>
+                    <label className="text-label-md font-label-md text-on-surface ml-unit">{t("labelEmail")}</label>
                     <div className="relative cursor-text" onClick={() => forgotEmailInputRef.current?.focus()}>
                       <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline select-none">mail</span>
                       <input 
@@ -167,8 +169,8 @@ export default function Login() {
                         type="email" 
                         value={forgotEmail}
                         onChange={(e) => setForgotEmail(e.target.value)}
-                        className="w-full pl-[48px] pr-md py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-sm"
-                        placeholder="name@example.com"
+                        className="w-full pl-[48px] pr-md py-3 rounded-lg border border-outline-variant bg-surface focus-visible:border-secondary outline-none text-sm"
+                        placeholder={t("placeholderEmail")}
                       />
                     </div>
                   </div>
@@ -183,7 +185,7 @@ export default function Login() {
                     ) : (
                       <>
                         <span className="material-symbols-outlined">send</span>
-                        Send OTP Login Code
+                        {t("btnSendCode")}
                       </>
                     )}
                   </button>
@@ -191,7 +193,7 @@ export default function Login() {
               ) : (
                 <form onSubmit={handleVerifyForgotOtp} className="space-y-lg">
                   <div className="space-y-xs">
-                    <label className="text-label-md font-label-md text-on-surface ml-unit">Verification OTP Code</label>
+                    <label className="text-label-md font-label-md text-on-surface ml-unit">{t("otpEnterMsg")}</label>
                     <div className="relative cursor-text" onClick={() => forgotOtpInputRef.current?.focus()}>
                       <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline select-none">key</span>
                       <input 
@@ -218,7 +220,7 @@ export default function Login() {
                     ) : (
                       <>
                         <span className="material-symbols-outlined">verified_user</span>
-                        Verify & Sign In Directly
+                        {t("btnVerifyCode")}
                       </>
                     )}
                   </button>
@@ -237,15 +239,15 @@ export default function Login() {
                   }}
                   className="text-xs font-bold text-outline hover:text-on-surface hover:underline focus:outline-none"
                 >
-                  Back to Sign In
+                  {t("btnBackToLogin")}
                 </button>
               </div>
             </div>
           ) : (
             <>
               <header className="mb-xl text-center lg:text-left">
-                <h3 className="text-on-surface font-headline-lg text-headline-lg mb-xs">Welcome back</h3>
-                <p className="text-on-surface-variant font-body-md text-body-md">Enter your credentials to access your clinical workspace.</p>
+                <h3 className="text-on-surface font-headline-lg text-headline-lg mb-xs">{t("loginHeader")}</h3>
+                <p className="text-on-surface-variant font-body-md text-body-md">{t("loginSubtitle")}</p>
               </header>
 
               {error && (
@@ -258,7 +260,7 @@ export default function Login() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-lg">
             <div className="space-y-xs">
-              <label className="text-label-md font-label-md text-on-surface ml-unit">Email Address</label>
+              <label className="text-label-md font-label-md text-on-surface ml-unit">{t("labelEmail")}</label>
               <div className="relative cursor-text" onClick={() => emailInputRef.current?.focus()}>
                 <span className="material-symbols-outlined absolute left-md top-1/2 -translate-y-1/2 text-outline select-none">mail</span>
                 <input 
@@ -269,20 +271,20 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-[48px] pr-md py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all text-sm"
-                  placeholder="name@example.com"
+                  placeholder={t("placeholderEmail")}
                 />
               </div>
             </div>
 
              <div className="space-y-xs">
               <div className="flex justify-between items-center px-unit">
-                <label className="text-label-md font-label-md text-on-surface">Password</label>
+                <label className="text-label-md font-label-md text-on-surface">{t("labelPassword")}</label>
                 <button 
                   type="button"
                   onClick={() => { setShowForgot(true); setError(''); }}
                   className="text-xs font-bold text-primary hover:underline focus:outline-none"
                 >
-                  Forgot Password?
+                  {t("btnForgot")}
                 </button>
               </div>
               <div className="relative cursor-text" onClick={(e) => {
@@ -298,7 +300,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-[48px] pr-[44px] py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-all text-sm"
-                  placeholder="Enter your password"
+                  placeholder={t("placeholderPassword")}
                 />
                 <button
                   type="button"
@@ -322,7 +324,7 @@ export default function Login() {
               ) : (
                 <>
                   <span className="material-symbols-outlined">login</span>
-                  Sign In
+                  {t("btnSignIn")}
                 </>
               )}
             </button>
@@ -330,9 +332,9 @@ export default function Login() {
 
           <footer className="mt-xl text-center">
             <p className="text-body-md text-on-surface-variant">
-              Don't have an account?{' '}
+              {t("textNoAccount")}{' '}
               <Link to="/register" className="text-secondary font-bold hover:underline">
-                Register account
+                {t("linkRegister")}
               </Link>
             </p>
           </footer>

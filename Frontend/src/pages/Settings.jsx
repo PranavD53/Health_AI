@@ -3,9 +3,11 @@ import { api } from '../services/api';
 import { applyTheme } from '../utils/theme';
 import { resolveMediaUrl } from '../utils/apiConfig';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Settings() {
   const { user, checkAuth } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saveLoading, setSaveLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -190,7 +192,7 @@ export default function Settings() {
       await checkAuth();
     } catch (err) {
       console.error(err);
-      setAdminRequestError(err.message || 'Failed to submit promotion request.');
+      setAdminRequestError(err.message || t('promotionRequestFailed'));
     } finally {
       setAdminRequestLoading(false);
     }
@@ -244,7 +246,7 @@ export default function Settings() {
       }
     } catch (err) {
       console.error(err);
-      setError("Failed to load profile settings.");
+      setError(t('profileLoadFailed') || "Failed to load profile settings.");
     } finally {
       setLoading(false);
     }
@@ -341,7 +343,7 @@ export default function Settings() {
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       console.error(err);
-      setError("Failed to save settings: " + err.message);
+      setError((t('settingsUpdateFailed') || "Failed to update settings") + ": " + err.message);
     } finally {
       setSaveLoading(false);
     }
@@ -360,9 +362,9 @@ export default function Settings() {
     <div className="space-y-xl animate-in fade-in duration-300">
       <header>
         <h2 className="text-on-surface font-headline-lg text-headline-lg">
-          Profile Settings
+          {t('profileSettings')}
         </h2>
-        <p className="text-on-surface-variant font-body-md text-body-md">Modify your personal settings, health attributes, and contact address details.</p>
+        <p className="text-on-surface-variant font-body-md text-body-md">{t('profileSettingsSubtitle')}</p>
       </header>
 
       {error && (
@@ -375,7 +377,7 @@ export default function Settings() {
       {success && (
         <div className="p-4 bg-success/10 text-success rounded-xl flex items-center gap-sm font-bold text-sm">
           <span className="material-symbols-outlined">check_circle</span>
-          <p>Profile details saved successfully!</p>
+          <p>{t('profileSaveSuccess')}</p>
         </div>
       )}
 
@@ -385,7 +387,7 @@ export default function Settings() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Full Name</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('fullName')}</label>
                   <input 
                     required
                     type="text" 
@@ -396,7 +398,7 @@ export default function Settings() {
                 </div>
                 
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Date of Birth</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('dob')}</label>
                   <input 
                     type="date" 
                     value={dob}
@@ -408,20 +410,20 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Gender</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('gender')}</label>
                   <select 
                     value={gender}
                     onChange={(e) => setGender(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:border-secondary text-sm font-semibold"
                   >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
+                    <option value="Male">{t('male')}</option>
+                    <option value="Female">{t('female')}</option>
+                    <option value="Other">{t('other')}</option>
                   </select>
                 </div>
                 
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Height (cm)</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('heightCm')}</label>
                   <input 
                     type="number" 
                     value={height}
@@ -432,7 +434,7 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Weight (kg)</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('weightKg')}</label>
                   <input 
                     type="number" 
                     value={weight}
@@ -444,7 +446,7 @@ export default function Settings() {
               </div>
 
               <div className="space-y-xs">
-                <label className="text-xs font-bold text-primary ml-unit">Allergies</label>
+                <label className="text-xs font-bold text-primary ml-unit">{t('allergies')}</label>
                 <input 
                   type="text" 
                   value={allergies}
@@ -455,7 +457,7 @@ export default function Settings() {
               </div>
 
               <div className="space-y-xs">
-                <label className="text-xs font-bold text-primary ml-unit">Existing Medical Conditions</label>
+                <label className="text-xs font-bold text-primary ml-unit">{t('existingConditions')}</label>
                 <textarea 
                   rows="2"
                   value={conditions}
@@ -466,7 +468,7 @@ export default function Settings() {
               </div>
 
               <div className="space-y-xs">
-                <label className="text-xs font-bold text-primary ml-unit">Home Address (Required for Emergency SOS Broadcasting)</label>
+                <label className="text-xs font-bold text-primary ml-unit">{t('homeAddress')}</label>
                 <textarea 
                   required
                   rows="2"
@@ -483,7 +485,7 @@ export default function Settings() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Full Name</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('fullName')}</label>
                   <input 
                     required
                     type="text" 
@@ -494,7 +496,7 @@ export default function Settings() {
                 </div>
 
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Doctor ID / License Number *</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('doctorIdLicense')}</label>
                   <input 
                     required
                     type="text" 
@@ -505,7 +507,7 @@ export default function Settings() {
                 </div>
               </div>
               <div className="space-y-xs">
-                <label className="text-xs font-bold text-primary ml-unit">Clinic Location Room</label>
+                <label className="text-xs font-bold text-primary ml-unit">{t('clinicLocationRoom')}</label>
                 <input 
                   required
                   type="text" 
@@ -517,23 +519,23 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Specialization</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('specialization')}</label>
                   <select 
                     value={specialization}
                     onChange={(e) => setSpecialization(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:border-secondary text-sm font-semibold"
                   >
-                    <option value="Cardiology">Cardiology</option>
-                    <option value="Dermatology">Dermatology</option>
-                    <option value="General Medicine">General Medicine</option>
-                    <option value="Neurology">Neurology</option>
-                    <option value="Pediatrics">Pediatrics</option>
-                    <option value="Other">Other (Specify below)</option>
+                    <option value="Cardiology">{t('Cardiology')}</option>
+                    <option value="Dermatology">{t('Dermatology')}</option>
+                    <option value="General Medicine">{t('General Medicine')}</option>
+                    <option value="Neurology">{t('Neurology')}</option>
+                    <option value="Pediatrics">{t('Pediatrics')}</option>
+                    <option value="Other">{t('other')}</option>
                   </select>
                 </div>
                 
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Experience (Years)</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('experienceYears')}</label>
                   <input 
                     required
                     type="number" 
@@ -546,7 +548,7 @@ export default function Settings() {
 
               {specialization === 'Other' && (
                 <div className="space-y-xs animate-in slide-in-from-top-4 duration-150">
-                  <label className="text-xs font-bold text-primary ml-unit">Specify Specialization *</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('specifySpecialization') || 'Specify Specialization *'}</label>
                   <input 
                     required
                     type="text" 
@@ -559,7 +561,7 @@ export default function Settings() {
               )}
 
               <div className="space-y-xs">
-                <label className="text-xs font-bold text-primary ml-unit">Clinic Full Address</label>
+                <label className="text-xs font-bold text-primary ml-unit">{t('clinicFullAddress')}</label>
                 <textarea 
                   required
                   rows="3"
@@ -574,7 +576,7 @@ export default function Settings() {
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-primary flex items-center gap-xs">
                     <span className="material-symbols-outlined text-[16px] text-secondary">pin_drop</span>
-                    Clinic GPS Location (For emergency SOS routing)
+                    {t('clinicGpsLocation')}
                   </label>
                   <button
                     type="button"
@@ -605,14 +607,14 @@ export default function Settings() {
                     ) : (
                       <>
                         <span className="material-symbols-outlined text-[12px]">my_location</span>
-                        Get GPS Location
+                        {t('getGpsLocation')}
                       </>
                     )}
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-md pt-2">
                   <div className="space-y-xs">
-                    <label className="text-[10px] font-bold text-outline uppercase">Latitude</label>
+                    <label className="text-[10px] font-bold text-outline uppercase">{t('latitude')}</label>
                     <input 
                       type="number"
                       step="any"
@@ -623,7 +625,7 @@ export default function Settings() {
                     />
                   </div>
                   <div className="space-y-xs">
-                    <label className="text-[10px] font-bold text-outline uppercase">Longitude</label>
+                    <label className="text-[10px] font-bold text-outline uppercase">{t('longitude')}</label>
                     <input 
                       type="number"
                       step="any"

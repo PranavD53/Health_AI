@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage, translations } from '../context/LanguageContext';
 import AnimatedBackground from '../components/landing/AnimatedBackground';
 import HeroSection from '../components/landing/HeroSection';
 import SlidingTextSection from '../components/landing/SlidingTextSection';
@@ -14,6 +15,7 @@ gsap.registerPlugin(ScrollTrigger);
 export default function Landing() {
   const navigate = useNavigate();
   const { theme, setTheme, customColors, setCustomColor, recentPalettes, applyPaletteFromHistory } = useTheme();
+  const { currentLanguage, setCurrentLanguage, t } = useLanguage();
   const [showPaletteMenu, setShowPaletteMenu] = useState(false);
 
   // Initialize Lenis Smooth Scroll & Sync with GSAP ScrollTrigger
@@ -213,6 +215,28 @@ export default function Landing() {
                 </div>
               )}
             </div>
+
+            {/* Language Selector Dropdown */}
+            <div className="flex items-center">
+              <select
+                value={currentLanguage}
+                onChange={(e) => setCurrentLanguage(e.target.value)}
+                className="text-xs border border-white/20 rounded-xl px-2.5 py-1 bg-white/10 dark:bg-black/20 font-semibold text-on-surface focus:outline-none transition-colors hover:border-[var(--theme-primary)] cursor-pointer"
+              >
+                {Object.keys(translations).map((lang) => {
+                  const languageNames = {
+                    en: "English",
+                    hi: "Hindi (हिन्दी)",
+                    te: "Telugu (తెలుగు)"
+                  };
+                  return (
+                    <option key={lang} value={lang} className="bg-white dark:bg-[#111024] text-on-surface">
+                      {languageNames[lang] || lang.toUpperCase()}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
           </div>
           
           <div className="flex items-center gap-4">
@@ -220,13 +244,13 @@ export default function Landing() {
               onClick={() => navigate('/login')}
               className="px-6 py-2 text-on-surface dark:text-white font-semibold hover:text-[var(--theme-primary)] transition-colors focus:outline-none"
             >
-              Login
+              {t('btnSignIn')}
             </button>
             <button
               onClick={() => navigate('/register')}
               className="px-6 py-2 bg-[var(--theme-primary)] hover:opacity-90 text-white rounded-xl font-semibold transition-all shadow-md active:scale-95 focus:outline-none"
             >
-              Register
+              {t('registerTitle')}
             </button>
           </div>
         </div>
@@ -306,9 +330,9 @@ export default function Landing() {
       <div className="relative z-10 w-full bg-[var(--theme-background)] py-20 border-t border-outline-variant/30">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
-            <span className="text-[var(--theme-primary)] font-bold text-xs uppercase tracking-widest block">Testimonials</span>
-            <h2 className="font-jakarta text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight">Trusted by Doctors & Patients</h2>
-            <p className="font-inter text-sm text-on-surface-variant">Hear from qualified clinical specialists and active patients using HealthAI.</p>
+            <span className="text-[var(--theme-primary)] font-bold text-xs uppercase tracking-widest block">{t('testimonialTitle')}</span>
+            <h2 className="font-jakarta text-3xl md:text-4xl font-extrabold text-on-surface tracking-tight">{t('testimonialSubtitle')}</h2>
+            <p className="font-inter text-sm text-on-surface-variant">{t('testimonialDesc')}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -317,15 +341,15 @@ export default function Landing() {
             <div className="bg-white dark:bg-[#0c0c17] border border-outline-variant/50 rounded-2xl p-8 shadow-sm relative">
               <span className="material-symbols-outlined text-4xl text-[var(--theme-primary)]/20 absolute top-4 right-6 select-none">format_quote</span>
               <p className="font-inter text-sm text-on-surface-variant leading-relaxed italic mb-6">
-                "HealthAI has transformed the way I connect with my patients. The automated AI report analysis saves hours of manual diagnostic reading, allowing me to focus on high-impact treatments during virtual calls."
+                {t('testimonialVanceQuote')}
               </p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[var(--theme-primary)] to-[var(--theme-secondary)] flex items-center justify-center text-white font-bold text-xs">
                   AV
                 </div>
                 <div>
-                  <h4 className="font-jakarta text-sm font-bold text-on-surface">Dr. Alisha Vance, MD</h4>
-                  <p className="text-[10px] text-on-surface-variant font-medium">Chief of Cardiology, Vanguard Health</p>
+                  <h4 className="font-jakarta text-sm font-bold text-on-surface">{t('testimonialVanceName')}</h4>
+                  <p className="text-[10px] text-on-surface-variant font-medium">{t('testimonialVanceRole')}</p>
                 </div>
               </div>
             </div>
@@ -334,15 +358,15 @@ export default function Landing() {
             <div className="bg-white dark:bg-[#0c0c17] border border-outline-variant/50 rounded-2xl p-8 shadow-sm relative">
               <span className="material-symbols-outlined text-4xl text-[var(--theme-primary)]/20 absolute top-4 right-6 select-none">format_quote</span>
               <p className="font-inter text-sm text-on-surface-variant leading-relaxed italic mb-6">
-                "The AI symptom checker is absolutely incredible. It gave my family clear triage advice when my son had a high fever at midnight, helping us understand whether to wait or head to the emergency room."
+                {t('testimonialJenkinsQuote')}
               </p>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[var(--theme-secondary)] to-[var(--theme-accent)] flex items-center justify-center text-white font-bold text-xs">
                   SJ
                 </div>
                 <div>
-                  <h4 className="font-jakarta text-sm font-bold text-on-surface">Sarah Jenkins</h4>
-                  <p className="text-[10px] text-on-surface-variant font-medium">Verified Platform User since 2024</p>
+                  <h4 className="font-jakarta text-sm font-bold text-on-surface">{t('testimonialJenkinsName')}</h4>
+                  <p className="text-[10px] text-on-surface-variant font-medium">{t('testimonialJenkinsRole')}</p>
                 </div>
               </div>
             </div>
@@ -360,26 +384,26 @@ export default function Landing() {
             <div className="lg:col-span-2 space-y-4">
               <h3 className="text-xl font-bold text-[var(--theme-primary)]">HealthAI</h3>
               <p className="font-inter text-xs text-on-surface-variant leading-relaxed max-w-sm">
-                Next-generation diagnostic checkers, clinical consultation portals, and secure patient timeline indexing.
+                {t('footerBrandDesc')}
               </p>
             </div>
 
             {/* Sitemap Column 1 */}
             <div className="space-y-3">
-              <h4 className="text-[10px] font-bold text-on-surface uppercase tracking-wider">Features</h4>
+              <h4 className="text-[10px] font-bold text-on-surface uppercase tracking-wider">{t('footerFeatures')}</h4>
               <ul className="space-y-2 text-xs font-semibold text-on-surface-variant">
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Symptom Checker</span></li>
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Doctor Booking</span></li>
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Vitals Timeline</span></li>
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Lab Summarizer</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('featureTriageTitle')}</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('tarsSuggestionBookVisitText')}</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('featureVitalsTitle')}</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('featureDiagTitle')}</span></li>
               </ul>
             </div>
 
             {/* Sitemap Column 2 */}
             <div className="space-y-3">
-              <h4 className="text-[10px] font-bold text-on-surface uppercase tracking-wider">Compliance</h4>
+              <h4 className="text-[10px] font-bold text-on-surface uppercase tracking-wider">{t('footerCompliance')}</h4>
               <ul className="space-y-2 text-xs font-semibold text-on-surface-variant">
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">HIPAA Standards</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('statArchitectureLbl')} Standards</span></li>
                 <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">SOC2 Audits</span></li>
                 <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Encryption Key Management</span></li>
                 <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Audit Records</span></li>
@@ -388,7 +412,7 @@ export default function Landing() {
 
             {/* Sitemap Column 3 */}
             <div className="space-y-3">
-              <h4 className="text-[10px] font-bold text-on-surface uppercase tracking-wider">Support</h4>
+              <h4 className="text-[10px] font-bold text-on-surface uppercase tracking-wider">{t('footerSupport')}</h4>
               <ul className="space-y-2 text-xs font-semibold text-on-surface-variant">
                 <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Knowledge Base</span></li>
                 <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Clinic Directory</span></li>
@@ -402,10 +426,10 @@ export default function Landing() {
           {/* Legal disclaimer and copyrights */}
           <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-[10px] text-on-surface-variant/80 font-medium max-w-2xl text-center md:text-left leading-normal">
-              Disclaimer: HealthAI symptom checker provides diagnostic triaging advice for informational purposes only. It does not replace the professional clinical judgment, physical examination, or treatment recommendation of a certified medical practitioner.
+              {t('footerDisclaimer')}
             </p>
             <p className="text-[10px] text-on-surface-variant/75 font-semibold whitespace-nowrap">
-              &copy; 2026 HealthAI Inc. All rights reserved.
+              {t('footerCopyright')}
             </p>
           </div>
         </div>

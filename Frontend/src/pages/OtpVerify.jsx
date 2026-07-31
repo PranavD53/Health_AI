@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function OtpVerify() {
   const navigate = useNavigate();
   const location = useLocation();
   const { checkAuth } = useAuth();
+  const { t } = useLanguage();
   
   const [email, setEmail] = useState('');
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
@@ -66,7 +68,7 @@ export default function OtpVerify() {
     
     const code = otpDigits.join('');
     if (code.length < 6) {
-      setError("Please enter all 6 digits");
+      setError(t("otpEnterMsg"));
       return;
     }
 
@@ -83,7 +85,7 @@ export default function OtpVerify() {
       }, 1500);
     } catch (err) {
       console.error(err);
-      setError(err.message || "Invalid OTP code. Please try again.");
+      setError(err.message || t("forgotVerifyError"));
     } finally {
       setLoading(false);
     }
@@ -93,10 +95,10 @@ export default function OtpVerify() {
     setError('');
     try {
       await api.resendOtp(email);
-      alert("A verification code has been resent to your email address.");
+      alert(t("otpResendSuccess"));
     } catch (err) {
       console.error(err);
-      setError(err.message || "Failed to resend verification code.");
+      setError(err.message || t("otpResendFailed"));
     }
   };
 
@@ -107,9 +109,9 @@ export default function OtpVerify() {
           <div className="w-16 h-16 bg-primary-fixed text-primary rounded-full flex items-center justify-center mx-auto mb-lg">
             <span className="material-symbols-outlined text-[36px]">mail</span>
           </div>
-          <h3 className="text-on-surface font-headline-lg text-headline-lg mb-xs">Email Verification</h3>
+          <h3 className="text-on-surface font-headline-lg text-headline-lg mb-xs">{t("otpHeader")}</h3>
           <p className="text-on-surface-variant font-body-md text-body-md">
-            We sent a verification code to <br />
+            {t("otpSubtitle")} <br />
             <strong className="text-secondary">{email}</strong>
           </p>
         </header>
@@ -154,7 +156,7 @@ export default function OtpVerify() {
             ) : (
               <>
                 <span className="material-symbols-outlined">verified</span>
-                Verify Code
+                {t("btnVerify")}
               </>
             )}
           </button>
@@ -167,7 +169,7 @@ export default function OtpVerify() {
               onClick={handleResendOtp}
               className="text-secondary font-bold hover:underline mt-sm"
             >
-              Resend OTP Code
+              {t("btnResendOtp")}
             </button>
           </p>
         </footer>

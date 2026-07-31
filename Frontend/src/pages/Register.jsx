@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function Register() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('patient'); // patient, doctor
+  const { t } = useLanguage();
 
   // Input refs for container-click focus shifting
   const emailRef = useRef(null);
@@ -204,8 +206,8 @@ export default function Register() {
             <h1 className="text-white font-headline-lg text-headline-lg tracking-tight">HealthAI</h1>
           </div>
           <div className="max-w-md">
-            <h2 className="text-white font-display-lg text-4xl mb-md leading-tight">Join HealthAI.</h2>
-            <p className="text-primary-fixed font-body-lg text-body-lg opacity-80 font-normal">Create an account to manage appointments, access clinical results, and collaborate with health professionals.</p>
+            <h2 className="text-white font-display-lg text-4xl mb-md leading-tight">{t("registerTitle")}</h2>
+            <p className="text-primary-fixed font-body-lg text-body-lg opacity-80 font-normal">{t("registerSubtitle")}</p>
           </div>
         </div>
         <div className="absolute bottom-0 right-0 w-full h-full -z-10 mix-blend-overlay">
@@ -220,8 +222,8 @@ export default function Register() {
       <main className="w-full lg:w-[55%] h-screen overflow-y-auto p-margin-mobile md:p-2xl bg-surface-container-lowest flex flex-col items-center animate-in fade-in duration-300">
         <div className="w-full max-w-lg my-auto py-xl">
           <header className="mb-xl text-center lg:text-left">
-            <h3 className="text-on-surface font-headline-lg text-headline-lg mb-xs">Create Account</h3>
-            <p className="text-on-surface-variant font-body-md text-body-md">Get started by choosing your profile role.</p>
+            <h3 className="text-on-surface font-headline-lg text-headline-lg mb-xs">{t("registerTitle")}</h3>
+            <p className="text-on-surface-variant font-body-md text-body-md">{t("registerSubtitle")}</p>
           </header>
 
           {/* Tabs */}
@@ -235,7 +237,7 @@ export default function Register() {
               }`}
             >
               <span className="material-symbols-outlined text-[20px]">person</span>
-              Patient Registration
+              {t("tabPatient")}
             </button>
             <button 
               onClick={() => { setActiveTab('doctor'); setError(''); }}
@@ -246,7 +248,7 @@ export default function Register() {
               }`}
             >
               <span className="material-symbols-outlined text-[20px]">medical_services</span>
-              Doctor Onboarding
+              {t("tabDoctor")}
             </button>
           </div>
 
@@ -260,7 +262,7 @@ export default function Register() {
           {activeTab === 'patient' ? (
             <form onSubmit={handlePatientSubmit} className="space-y-lg">
               <div className="space-y-xs">
-                <label className="text-label-md font-label-md text-on-surface ml-unit">Email Address</label>
+                <label className="text-label-md font-label-md text-on-surface ml-unit">{t("labelEmail")}</label>
                 <div className="relative cursor-text" onClick={() => emailRef.current?.focus()}>
                   <input 
                     ref={emailRef}
@@ -270,13 +272,13 @@ export default function Register() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full px-4 py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none transition-all text-sm"
-                    placeholder="patient@example.com"
+                    placeholder={t("placeholderEmail")}
                   />
                 </div>
               </div>
 
               <div className="space-y-xs">
-                <label className="text-label-md font-label-md text-on-surface ml-unit">Password</label>
+                <label className="text-label-md font-label-md text-on-surface ml-unit">{t("labelPassword")}</label>
                 <div className="relative cursor-text" onClick={(e) => {
                   if (!e.target.closest('button')) {
                     passwordRef.current?.focus();
@@ -289,7 +291,7 @@ export default function Register() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full pl-4 pr-[44px] py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none transition-all text-sm"
-                    placeholder="Choose a strong password"
+                    placeholder={t("placeholderPassword")}
                   />
                   <button
                     type="button"
@@ -304,7 +306,7 @@ export default function Register() {
               </div>
 
               <div className="space-y-xs">
-                <label className="text-label-md font-label-md text-on-surface ml-unit">Confirm Password</label>
+                <label className="text-label-md font-label-md text-on-surface ml-unit">{t("labelConfirmPassword")}</label>
                 <div className="relative cursor-text" onClick={(e) => {
                   if (!e.target.closest('button')) {
                     confirmPasswordRef.current?.focus();
@@ -317,7 +319,7 @@ export default function Register() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className="w-full pl-4 pr-[44px] py-3 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none transition-all text-sm"
-                    placeholder="Re-enter password"
+                    placeholder={t("placeholderPassword")}
                   />
                   <button
                     type="button"
@@ -341,7 +343,7 @@ export default function Register() {
                 ) : (
                   <>
                     <span className="material-symbols-outlined">how_to_reg</span>
-                    Register Account
+                    {t("btnRegister")}
                   </>
                 )}
               </button>
@@ -351,7 +353,7 @@ export default function Register() {
               {/* Auth Credentials */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div className="space-y-xs">
-                  <label className="text-label-md font-label-md text-on-surface ml-unit">Email</label>
+                  <label className="text-label-md font-label-md text-on-surface ml-unit">{t("labelEmail")}</label>
                   <div className="relative cursor-text" onClick={() => docEmailRef.current?.focus()}>
                     <input 
                       ref={docEmailRef}
@@ -361,12 +363,12 @@ export default function Register() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
-                      placeholder="doctor@example.com"
+                      placeholder={t("placeholderEmail")}
                     />
                   </div>
                 </div>
                 <div className="space-y-xs">
-                  <label className="text-label-md font-label-md text-on-surface ml-unit">Full Name (including Dr.)</label>
+                  <label className="text-label-md font-label-md text-on-surface ml-unit">{t("fullName")}</label>
                   <div className="relative cursor-text" onClick={() => docNameRef.current?.focus()}>
                     <input 
                       ref={docNameRef}
@@ -375,7 +377,7 @@ export default function Register() {
                       value={doctorName}
                       onChange={(e) => setDoctorName(e.target.value)}
                       className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
-                      placeholder="Dr. Elizabeth Blackwell"
+                      placeholder={t("doctorRegPlaceholderName")}
                     />
                   </div>
                 </div>
@@ -383,7 +385,7 @@ export default function Register() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div className="space-y-xs">
-                  <label className="text-label-md font-label-md text-on-surface ml-unit">Password</label>
+                  <label className="text-label-md font-label-md text-on-surface ml-unit">{t("labelPassword")}</label>
                   <div className="relative cursor-text" onClick={(e) => {
                     if (!e.target.closest('button')) {
                       docPasswordRef.current?.focus();
@@ -396,7 +398,7 @@ export default function Register() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="w-full pl-4 pr-[44px] py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
-                      placeholder="Password"
+                      placeholder={t("placeholderPassword")}
                     />
                     <button
                       type="button"
@@ -410,7 +412,7 @@ export default function Register() {
                   </div>
                 </div>
                 <div className="space-y-xs">
-                  <label className="text-label-md font-label-md text-on-surface ml-unit">Confirm Password</label>
+                  <label className="text-label-md font-label-md text-on-surface ml-unit">{t("labelConfirmPassword")}</label>
                   <div className="relative cursor-text" onClick={(e) => {
                     if (!e.target.closest('button')) {
                       docConfirmPasswordRef.current?.focus();
@@ -423,7 +425,7 @@ export default function Register() {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       className="w-full pl-4 pr-[44px] py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
-                      placeholder="Confirm Password"
+                      placeholder={t("placeholderPassword")}
                     />
                     <button
                       type="button"
@@ -441,22 +443,22 @@ export default function Register() {
               {/* Specialization & Experience */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div className="space-y-xs">
-                  <label className="text-label-md font-label-md text-on-surface ml-unit">Specialization</label>
+                  <label className="text-label-md font-label-md text-on-surface ml-unit">{t("specialization")}</label>
                   <select 
                     value={specialization}
                     onChange={(e) => setSpecialization(e.target.value)}
                     className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:border-secondary outline-none text-xs"
                   >
-                    <option value="Cardiology">Cardiology</option>
-                    <option value="Dermatology">Dermatology</option>
-                    <option value="General Medicine">General Medicine</option>
-                    <option value="Neurology">Neurology</option>
-                    <option value="Pediatrics">Pediatrics</option>
-                    <option value="Other">Other (Specify below)</option>
+                    <option value="Cardiology">{t("Cardiology")}</option>
+                    <option value="Dermatology">{t("Dermatology")}</option>
+                    <option value="General Medicine">{t("General Medicine")}</option>
+                    <option value="Neurology">{t("Neurology")}</option>
+                    <option value="Pediatrics">{t("Pediatrics")}</option>
+                    <option value="Other">{t("other")}</option>
                   </select>
                 </div>
                 <div className="space-y-xs">
-                  <label className="text-label-md font-label-md text-on-surface ml-unit">Experience (Years)</label>
+                  <label className="text-label-md font-label-md text-on-surface ml-unit">{t("doctorRegExp")}</label>
                   <input 
                     required
                     type="number" 
@@ -483,7 +485,7 @@ export default function Register() {
               )}
 
               <div className="space-y-xs">
-                <label className="text-label-md font-label-md text-on-surface ml-unit">Clinic Location Room/Building</label>
+                <label className="text-label-md font-label-md text-on-surface ml-unit">{t("doctorRegLocation")}</label>
                 <input 
                   required
                   type="text" 
@@ -495,7 +497,7 @@ export default function Register() {
               </div>
 
               <div className="space-y-xs">
-                <label className="text-label-md font-label-md text-on-surface ml-unit">Clinic Full Address</label>
+                <label className="text-label-md font-label-md text-on-surface ml-unit">{t("doctorRegAddress")}</label>
                 <textarea 
                   required
                   rows="2"
@@ -511,7 +513,7 @@ export default function Register() {
                 <div className="flex justify-between items-center">
                   <label className="text-xs font-bold text-primary flex items-center gap-xs">
                     <span className="material-symbols-outlined text-[16px] text-secondary">pin_drop</span>
-                    Clinic GPS Location (For emergency SOS routing)
+                    {t("doctorRegGps")}
                   </label>
                   <button
                     type="button"
@@ -542,14 +544,14 @@ export default function Register() {
                     ) : (
                       <>
                         <span className="material-symbols-outlined text-[12px]">my_location</span>
-                        Get GPS Location
+                        {t("doctorRegGetGps")}
                       </>
                     )}
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-md pt-2">
                   <div className="space-y-xs">
-                    <label className="text-[10px] font-bold text-outline uppercase">Latitude</label>
+                    <label className="text-[10px] font-bold text-outline uppercase">{t("doctorRegLat")}</label>
                     <input 
                       type="number"
                       step="any"
@@ -560,7 +562,7 @@ export default function Register() {
                     />
                   </div>
                   <div className="space-y-xs">
-                    <label className="text-[10px] font-bold text-outline uppercase">Longitude</label>
+                    <label className="text-[10px] font-bold text-outline uppercase">{t("doctorRegLng")}</label>
                     <input 
                       type="number"
                       step="any"
@@ -571,11 +573,13 @@ export default function Register() {
                     />
                   </div>
                 </div>
-                <div id="doctor-map" className="border border-outline-variant/50 shadow-sm" style={{ height: '220px', width: '100%', borderRadius: '12px', marginTop: '12px', zIndex: 1 }} />
+                <div id="doctor-map" className="border border-outline-variant/50 shadow-sm" style={{ height: '220px', width: '100%', borderRadius: '12px', marginTop: '12px', zIndex: 1 }}>
+                  {!mapLoaded && <div className="text-xs p-4 text-center">{t("doctorRegMapLoading")}</div>}
+                </div>
               </div>
 
               <div className="space-y-xs">
-                <label className="text-label-md font-label-md text-on-surface ml-unit">Medical License Number / Unique Doctor ID *</label>
+                <label className="text-label-md font-label-md text-on-surface ml-unit">{t("doctorRegLicense")} *</label>
                 <div className="relative cursor-text" onClick={() => docLicenseRef.current?.focus()}>
                   <input 
                     ref={docLicenseRef}
@@ -592,11 +596,11 @@ export default function Register() {
               {/* Upload Documents */}
               <div className="space-y-md border border-dashed border-outline-variant p-4 rounded-xl bg-surface">
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary block">Upload Medical License (PDF/Image) *</label>
+                  <label className="text-xs font-bold text-primary block">{t("doctorRegChooseLicense")}</label>
                   <label className="flex items-center justify-between border border-outline-variant rounded-lg px-4 py-2.5 bg-surface hover:bg-surface-container-low cursor-pointer transition-colors text-xs text-on-surface-variant font-medium">
                     <span className="flex items-center gap-xs truncate max-w-[80%]">
                       <span className="material-symbols-outlined text-[18px] text-secondary">cloud_upload</span>
-                      <span className="truncate">{licenseDocument ? licenseDocument.name : "Choose medical license..."}</span>
+                      <span className="truncate">{licenseDocument ? licenseDocument.name : t("doctorRegChooseLicense")}</span>
                     </span>
                     <span className="px-2.5 py-1 bg-secondary-container text-on-secondary-container rounded font-bold text-[10px] shrink-0">Browse</span>
                     <input 
@@ -610,11 +614,11 @@ export default function Register() {
                 </div>
 
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary block">Upload Profile Photo (Optional)</label>
+                  <label className="text-xs font-bold text-primary block">{t("doctorRegChoosePhoto")}</label>
                   <label className="flex items-center justify-between border border-outline-variant rounded-lg px-4 py-2.5 bg-surface hover:bg-surface-container-low cursor-pointer transition-colors text-xs text-on-surface-variant font-medium">
                     <span className="flex items-center gap-xs truncate max-w-[80%]">
                       <span className="material-symbols-outlined text-[18px] text-secondary">photo_camera</span>
-                      <span className="truncate">{profilePicture ? profilePicture.name : "Choose profile photo..."}</span>
+                      <span className="truncate">{profilePicture ? profilePicture.name : t("doctorRegChoosePhoto")}</span>
                     </span>
                     <span className="px-2.5 py-1 bg-secondary-container text-on-secondary-container rounded font-bold text-[10px] shrink-0">Browse</span>
                     <input 
@@ -637,7 +641,7 @@ export default function Register() {
                 ) : (
                   <>
                     <span className="material-symbols-outlined">verified_user</span>
-                    Submit Doctor Application
+                    {t("btnRegister")}
                   </>
                 )}
               </button>
@@ -646,9 +650,9 @@ export default function Register() {
 
           <footer className="mt-xl text-center">
             <p className="text-body-md text-on-surface-variant">
-              Already have an account?{' '}
+              {t("textHaveAccount")}{' '}
               <Link to="/login" className="text-primary font-bold hover:underline">
-                Sign In
+                {t("linkLogin")}
               </Link>
             </p>
           </footer>
