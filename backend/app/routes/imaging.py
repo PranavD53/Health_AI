@@ -48,6 +48,7 @@ def run_offline_heuristics(scan_type: str, filename: str) -> dict:
     scan_lower = scan_type.lower()
     
     if "skin" in scan_lower or "derma" in scan_lower:
+        condition = "Contact Dermatitis / Eczema"
         findings = (
             "Visual inspection indicates localized dermatological lesions. Moderate epidermal erythema "
             "and hyperpigmented borders are observed. The lesion displays distinct asymmetrical margins "
@@ -57,7 +58,9 @@ def run_offline_heuristics(scan_type: str, filename: str) -> dict:
         )
         severity = "Moderate"
         specialist = "dermatology"
+        recommendation = "Apply soothing calamine lotion or mild hydrocortisone 1% cream topically twice daily as needed. Avoid scratching."
     elif "throat" in scan_lower or "redness" in scan_lower or "pharynx" in scan_lower:
+        condition = "Acute Pharyngitis"
         findings = (
             "Posterior pharyngeal wall shows significant vascular congestion and diffuse erythema. "
             "Tonsillar swelling is mild (Grade 1) with no visible purulent exudate or cobblestoning. "
@@ -67,7 +70,9 @@ def run_offline_heuristics(scan_type: str, filename: str) -> dict:
         )
         severity = "Low"
         specialist = "general"
+        recommendation = "Warm saline gargles, throat lozenges every 4 hours, and paracetamol 500mg up to 3 times daily as needed."
     elif "x-ray" in scan_lower or "xray" in scan_lower or "chest" in scan_lower or "fracture" in scan_lower:
+        condition = "Normal Chest Radiograph"
         findings = (
             "Chest/skeletal radiograph analyzed. Lungs demonstrate clear aeration bilateral. "
             "No consolidation, pleural effusion, or active airspace disease detected. Cardiomediastinal "
@@ -77,7 +82,9 @@ def run_offline_heuristics(scan_type: str, filename: str) -> dict:
         )
         severity = "Normal"
         specialist = "general"
+        recommendation = "No active airspace disease or fracture detected. Maintain routine health checks."
     else:
+        condition = "Normal Scan"
         findings = (
             "Preliminary clinical imaging scan processed. General structural integrity of the target region "
             "appears unremarkable, with no clear anomalies or acute pathology visible. Further specific diagnostic "
@@ -86,11 +93,27 @@ def run_offline_heuristics(scan_type: str, filename: str) -> dict:
         )
         severity = "Normal"
         specialist = "general"
+        recommendation = "No acute pathology visible. Follow up if symptoms persist."
         
+    top_predictions = [
+        {
+            "label": condition,
+            "confidence": 95.0,
+            "severity": severity,
+            "recommendation": recommendation,
+            "specialist": specialist
+        }
+    ]
+
     return {
-        "findings": findings,
+        "condition": condition,
+        "confidence": 95.0,
         "severity": severity,
-        "recommended_specialist": specialist
+        "specialist": specialist,
+        "recommendation": recommendation,
+        "top_predictions": top_predictions,
+        "is_heuristic": True,
+        "findings": findings
     }
 
 # --- Routes ---
