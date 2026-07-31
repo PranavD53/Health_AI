@@ -317,8 +317,8 @@ export default function DoctorSearch() {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-on-surface text-base">{doc.name}</h3>
-                      <p className="text-xs text-secondary font-bold">{doc.specialization}</p>
+                      <h3 className="font-bold text-on-surface text-base">{t(doc.name)}</h3>
+                      <p className="text-xs text-secondary font-bold">{t(doc.specialization) || doc.specialization}</p>
                       <p className="text-[10px] text-outline font-semibold mb-1">{doc.experience_years} Years Experience</p>
                       <div className="flex items-center gap-xs mt-0.5">
                         <span className="material-symbols-outlined text-[16px] text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
@@ -350,7 +350,7 @@ export default function DoctorSearch() {
                   <div className="px-lg pb-md pt-xs border-t border-outline-variant/20 bg-surface-container-lowest/60 space-y-xs animate-in slide-in-from-top duration-150">
                     <p className="text-[10px] text-outline font-bold uppercase tracking-wider">Clinical Details & Guidelines</p>
                     <p className="text-xs text-on-surface leading-relaxed font-medium">
-                      Dr. {doc.name.split(' ').pop()} provides comprehensive care in {doc.specialization} at the {doc.location} clinic. Consultation documents, prescriptions, and diagnostics are saved securely to your HealthAI account.
+                      Dr. {t(doc.name.split(' ').pop())} provides comprehensive care in {t(doc.specialization) || doc.specialization} at the {doc.location} clinic. Consultation documents, prescriptions, and diagnostics are saved securely to your HealthAI account.
                     </p>
                   </div>
                 )}
@@ -433,8 +433,8 @@ export default function DoctorSearch() {
                     )}
                   </div>
                   <div>
-                    <h4 className="font-bold text-on-surface">{bookingDoc.name}</h4>
-                    <p className="text-xs text-secondary font-semibold">{bookingDoc.specialization}</p>
+                    <h4 className="font-bold text-on-surface">{t(bookingDoc.name)}</h4>
+                    <p className="text-xs text-secondary font-semibold">{t(bookingDoc.specialization) || bookingDoc.specialization}</p>
                   </div>
                 </div>
 
@@ -500,9 +500,9 @@ export default function DoctorSearch() {
               <div>
                 <h3 className="font-bold text-primary text-title-md flex items-center gap-xs">
                   <span className="material-symbols-outlined text-secondary">rate_review</span>
-                  Reviews for {reviewsDoc.name}
+                  Reviews for {t(reviewsDoc.name)}
                 </h3>
-                <p className="text-xs text-outline font-semibold mt-0.5">{reviewsDoc.specialization} specialist</p>
+                <p className="text-xs text-outline font-semibold mt-0.5">{t(reviewsDoc.specialization) || reviewsDoc.specialization} specialist</p>
               </div>
               <button 
                 onClick={() => { setReviewsDoc(null); setReviewsList([]); }}

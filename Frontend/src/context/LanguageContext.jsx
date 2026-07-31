@@ -147,7 +147,39 @@ export const translations = {
     tarsSuggestionFindDoctorText: "Find general doctors",
     tarsSuggestionBookVisitText: "Book appointment",
     tarsSuggestionViewRecordsText: "View my medical records",
-    tarsSuggestionFileComplaintText: "I want to submit a complaint"
+    tarsSuggestionFileComplaintText: "I want to submit a complaint",
+    
+    // Doctor Workspace Dashboard Details
+    workspaceSubtitle: "Manage active patient emergencies, upcoming consultations, and clinical records.",
+    totalPatients: "Total Patients",
+    todaysVisits: "Today's Visits",
+    pendingConsults: "Pending Consults",
+    averageRatingLabel: "Average Rating",
+    patientsDirectory: "Patients Directory",
+    upcomingConsultations: "Upcoming Consultations",
+    urgentSurgeryReassign: "Urgent Surgery: Reassign",
+    noApptsScheduled: "No upcoming patient visits scheduled.",
+    noPatientsRegistered: "No patients registered in the directory.",
+    submitLeaveRequest: "Submit Leave Request",
+    startDate: "Start Date",
+    endDate: "End Date",
+    reasonLabel: "Reason",
+    reasonPlaceholder: "e.g. Attending conference, urgent medical leave",
+    submitRequestBtn: "Submit Request",
+    leaveRequestsLog: "Leave Requests Log",
+    approvedStatus: "approved",
+    pendingStatus: "pending",
+    rejectedStatus: "rejected",
+    
+    // Consultation Reminders
+    consultationReminders: "Consultation Reminders",
+    patientNameLabel: "Consultation / Patient Name",
+    patientNamePlaceholder: "e.g. Patient: John Doe",
+    prepNotesLabel: "Preparation / Notes",
+    prepNotesPlaceholder: "e.g. Review heart logs",
+    timeLabel: "Time",
+    notifyViaLabel: "Notify Via",
+    noConsultationRemindersConfigured: "No consultation reminders configured."
   },
   hi: {
     // Nav / Sidebar
@@ -290,7 +322,39 @@ export const translations = {
     tarsSuggestionFindDoctorText: "सामान्य डॉक्टर खोजें",
     tarsSuggestionBookVisitText: "अपॉइंटमेंट बुक करें",
     tarsSuggestionViewRecordsText: "मेरे चिकित्सा रिकॉर्ड देखें",
-    tarsSuggestionFileComplaintText: "मैं एक शिकायत दर्ज करना चाहता हूँ"
+    tarsSuggestionFileComplaintText: "मैं एक शिकायत दर्ज करना चाहता हूँ",
+    
+    // Doctor Workspace Dashboard Details
+    workspaceSubtitle: "सक्रिय रोगी आपातकालीन स्थितियों, आगामी नियुक्तियों और नैदानिक रिकॉर्ड का प्रबंधन करें।",
+    totalPatients: "कुल मरीज़",
+    todaysVisits: "आज की नियुक्तियाँ",
+    pendingConsults: "लंबित परामर्श",
+    averageRatingLabel: "औसत रेटिंग",
+    patientsDirectory: "रोगी निर्देशिका",
+    upcomingConsultations: "आगामी परामर्श",
+    urgentSurgeryReassign: "आपातकालीन सर्जरी: पुनः सौंपें",
+    noApptsScheduled: "कोई आगामी रोगी नियुक्तियाँ निर्धारित नहीं हैं।",
+    noPatientsRegistered: "निर्देशिका में कोई मरीज़ पंजीकृत नहीं हैं।",
+    submitLeaveRequest: "अवकाश अनुरोध सबमिट करें",
+    startDate: "प्रारंभ तिथि",
+    endDate: "समाप्ति तिथि",
+    reasonLabel: "कारण",
+    reasonPlaceholder: "जैसे: सम्मेलन में भाग लेना, तत्काल चिकित्सा अवकाश",
+    submitRequestBtn: "अनुरोध सबमिट करें",
+    leaveRequestsLog: "अवकाश अनुरोध लॉग",
+    approvedStatus: "स्वीकृत",
+    pendingStatus: "लंबित",
+    rejectedStatus: "अस्वीकृत",
+    
+    // Consultation Reminders
+    consultationReminders: "परामर्श अनुस्मारक",
+    patientNameLabel: "परामर्श / रोगी का नाम",
+    patientNamePlaceholder: "जैसे: रोगी: जॉन डो",
+    prepNotesLabel: "तैयारी / नोट्स",
+    prepNotesPlaceholder: "जैसे: हृदय लॉग की समीक्षा करें",
+    timeLabel: "समय",
+    notifyViaLabel: "इसके माध्यम से सूचित करें",
+    noConsultationRemindersConfigured: "कोई परामर्श अनुस्मारक कॉन्फ़िगर नहीं किया गया है।"
   },
   te: {
     // Nav / Sidebar
@@ -433,7 +497,80 @@ export const translations = {
     tarsSuggestionFindDoctorText: "వైద్యుడిని కనుగొనండి",
     tarsSuggestionBookVisitText: "అపాయింట్మెంట్ బుక్ చేయి",
     tarsSuggestionViewRecordsText: "నా వైద్య రికార్డులు చూడండి",
-    tarsSuggestionFileComplaintText: "నేను ఒక ఫిర్యాదు చేయాలనుకుంటున్నాను"
+    tarsSuggestionFileComplaintText: "నేను ఒక ఫిర్యాదు చేయాలనుకుంటున్నాను",
+    
+    // Doctor Workspace Dashboard Details
+    workspaceSubtitle: "సక్రియ రోగి అత్యవసర పరిస్థితులు, రాబోయే సంప్రదింపులు మరియు క్లినికల్ రికార్డులను నిర్వహించండి.",
+    totalPatients: "మొత్తం రోగులు",
+    todaysVisits: "ఈరోజు సందర్శనలు",
+    pendingConsults: "పెండింగ్ సంప్రదింపులు",
+    averageRatingLabel: "సగటు రేటింగ్",
+    patientsDirectory: "రోగుల డైరెక్టరీ",
+    upcomingConsultations: "రాబోయే సంప్రదింపులు",
+    urgentSurgeryReassign: "అత్యవసర శస్త్రచికిత్స: తిరిగి కేటాయించు",
+    noApptsScheduled: "రాబోయే రోగి సందర్శనలు ఏవీ షెడ్యూల్ చేయబడలేదు.",
+    noPatientsRegistered: "డైరెక్టరీలో రోగులు ఎవరూ నమోదు చేయబడలేదు.",
+    submitLeaveRequest: "సెలవు అభ్యర్థనను సమర్పించండి",
+    startDate: "ప్రారంభ తేదీ",
+    endDate: "ముగింపు తేదీ",
+    reasonLabel: "కారణం",
+    reasonPlaceholder: "ఉదా. సమావేశానికి హాజరుకావడం, అత్యవసర వైద్య సెలవు",
+    submitRequestBtn: "అభ్యర్థనను సమర్పించండి",
+    leaveRequestsLog: "సెలవు అభ్యర్థనల లాగ్",
+    approvedStatus: "ఆమోదించబడింది",
+    pendingStatus: "పెండింగ్",
+    rejectedStatus: "తిరస్కరించబడింది",
+    
+    // Consultation Reminders
+    consultationReminders: "సంప్రదింపుల రిమైండర్‌లు",
+    patientNameLabel: "సంప్రదింపులు / రోగి పేరు",
+    patientNamePlaceholder: "ఉదా. రోగి: జాన్ డో",
+    prepNotesLabel: "తయారీ / నోట్స్",
+    prepNotesPlaceholder: "ఉదా. హృదయ రికార్డులను సమీక్షించండి",
+    timeLabel: "సమయం",
+    notifyViaLabel: "దీని ద్వారా తెలియజేయి",
+    noConsultationRemindersConfigured: "సంప్రదింపుల రిమైండర్‌లు ఏవీ కాన్ఫిగర్ చేయబడలేదు."
+  }
+};
+
+const nameTranslations = {
+  hi: {
+    "sarah johnson": "सराह जॉनसन",
+    "sarah jenkins": "सराह जेनकिन्स",
+    "john doe": "जॉन डो",
+    "harrington": "हैरिंगटन",
+    "harika dantula": "हरिका दंतुला",
+    "sricharan pranav": "श्रीचरण प्रणव",
+    "pranav": "प्रणव",
+    "alice smith": "एलिस स्मिथ",
+    "bob johnson": "बॉब जॉनसन",
+    "charlie brown": "चार्ली ब्राउन",
+    "diana prince": "डायना प्रिंस",
+    "evan wright": "एवन राइट",
+    "urgent medical leave": "आपातकालीन चिकित्सा अवकाश",
+    "family issues": "पारिवारिक मुद्दे",
+    "urgent surgery: reassign": "आपातकालीन सर्जरी: पुनः सौंपें",
+    "no upcoming patient visits scheduled.": "कोई आगामी रोगी नियुक्तियाँ निर्धारित नहीं हैं।",
+    "no consultation reminders configured.": "कोई परामर्श अनुस्मारक कॉन्फ़िगर नहीं किया गया है।"
+  },
+  te: {
+    "sarah johnson": "సారా జాన్సన్",
+    "sarah jenkins": "సారా జెంకిన్స్",
+    "john doe": "జాన్ డో",
+    "harrington": "హారింగ్టన్",
+    "harika dantula": "హరికా దంతుల",
+    "sricharan pranav": "శ్రీచరణ్ ప్రణవ్",
+    "pranav": "ప్రణవ్",
+    "alice smith": "ఆలిస్ స్మిత్",
+    "bob johnson": "బాబ్ జాన్సన్",
+    "charlie brown": "చార్లీ బ్రౌన్",
+    "diana prince": "డయానా ప్రిన్స్",
+    "evan wright": "ఇవాన్ రైట్",
+    "urgent medical leave": "అత్యవసర వైద్య సెలవు",
+    "family issues": "కుటుంబ సమస్యలు",
+    "urgent surgery: reassign": "అత్యవసర శస్త్రచికిత్స: తిరిగి కేటాయించు",
+    "no upcoming patient visits scheduled.": "రాబోయే రోగి సందర్శనలు ఏవీ షెడ్యూల్ చేయబడలేదు.",
+    "no consultation reminders configured.": "సంప్రదింపుల రిమైండర్‌లు ఏవీ కాన్ఫిగర్ చేయబడలేదు."
   }
 };
 
@@ -447,8 +584,46 @@ export const LanguageProvider = ({ children }) => {
   }, [currentLanguage]);
 
   const t = (key) => {
+    if (!key || typeof key !== 'string') return key;
+    
+    // Check if the key exists directly in translations
     const langDict = translations[currentLanguage] || translations['en'];
-    return langDict[key] || translations['en'][key] || key;
+    if (langDict[key]) return langDict[key];
+    
+    // Perform case-insensitive match or custom name transliteration
+    const normalizedKey = key.trim().toLowerCase();
+    
+    if (currentLanguage !== 'en' && nameTranslations[currentLanguage]) {
+      let isDoctor = false;
+      let cleanName = key.trim();
+      
+      if (normalizedKey.startsWith("dr.") || normalizedKey.startsWith("dr ")) {
+        isDoctor = true;
+        cleanName = cleanName.replace(/^dr\.?\s+/i, "");
+      }
+      
+      const cleanNormalized = cleanName.toLowerCase();
+      const nameDict = nameTranslations[currentLanguage];
+      let translated = nameDict[cleanNormalized];
+      
+      if (!translated) {
+        const words = cleanNormalized.split(/\s+/);
+        const translatedWords = words.map(w => nameDict[w] || w);
+        if (translatedWords.some((w, idx) => w !== words[idx])) {
+          translated = translatedWords.join(" ");
+        }
+      }
+      
+      if (translated) {
+        if (isDoctor) {
+          const prefix = currentLanguage === 'hi' ? "डॉ. " : "డా. ";
+          return prefix + translated;
+        }
+        return translated;
+      }
+    }
+
+    return translations['en'][key] || key;
   };
 
   return (

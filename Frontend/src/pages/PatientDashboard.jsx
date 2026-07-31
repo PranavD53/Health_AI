@@ -270,10 +270,10 @@ export default function PatientDashboard() {
                       title="Click to chat with this doctor"
                     >
                       <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors flex items-center gap-xs">
-                        {appt.doctor?.name || 'Doctor'}
+                        {t(appt.doctor?.name) || 'Doctor'}
                         <span className="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chat</span>
                       </h4>
-                      <p className="text-xs text-outline font-semibold mb-xs">{appt.doctor?.specialization || 'Specialist'}</p>
+                      <p className="text-xs text-outline font-semibold mb-xs">{t(appt.doctor?.specialization) || appt.doctor?.specialization || 'Specialist'}</p>
                       <div className="flex gap-md text-xs text-on-surface-variant font-medium">
                         <span className="flex items-center gap-xs">
                           <span className="material-symbols-outlined text-[16px] text-secondary">calendar_month</span>
@@ -323,10 +323,10 @@ export default function PatientDashboard() {
                         title="Click to chat with this doctor"
                       >
                         <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors flex items-center gap-xs">
-                          {appt.doctor?.name || 'Doctor'}
+                          {t(appt.doctor?.name) || 'Doctor'}
                           <span className="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chat</span>
                         </h4>
-                        <p className="text-xs text-outline font-semibold mb-xs">{appt.doctor?.specialization || 'Specialist'}</p>
+                        <p className="text-xs text-outline font-semibold mb-xs">{t(appt.doctor?.specialization) || appt.doctor?.specialization || 'Specialist'}</p>
                         <div className="flex gap-md text-xs text-on-surface-variant font-medium">
                           <span className="flex items-center gap-xs">
                             <span className="material-symbols-outlined text-[16px] text-secondary">calendar_month</span>
@@ -607,8 +607,8 @@ export default function PatientDashboard() {
                     <span className="material-symbols-outlined text-2xl text-outline font-fill fill-1">person</span>
                   </div>
                   <div>
-                    <h4 className="font-bold text-on-surface">{currentFeedbackAppt.doctor?.name || 'Doctor'}</h4>
-                    <p className="text-xs text-secondary font-semibold">{currentFeedbackAppt.doctor?.specialization}</p>
+                    <h4 className="font-bold text-on-surface">{t(currentFeedbackAppt.doctor?.name) || 'Doctor'}</h4>
+                    <p className="text-xs text-secondary font-semibold">{t(currentFeedbackAppt.doctor?.specialization) || currentFeedbackAppt.doctor?.specialization}</p>
                     <p className="text-[10px] text-outline font-medium mt-0.5">Consultation date: {currentFeedbackAppt.date} at {currentFeedbackAppt.time}</p>
                   </div>
                 </div>

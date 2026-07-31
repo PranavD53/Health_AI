@@ -187,9 +187,9 @@ export default function AdminDashboard() {
     <div className="space-y-xl animate-in fade-in duration-300">
       <header>
         <h2 className="text-on-surface font-headline-lg text-headline-lg">
-          {t('adminPortal')}
+          {t('adminPortal') || 'Administration Portal'}
         </h2>
-        <p className="text-on-surface-variant font-body-md text-body-md">Configure user access roles, verify clinician documents, and inspect feedback complaints.</p>
+        <p className="text-on-surface-variant font-body-md text-body-md">{t('adminSubtitle') || 'Configure user access roles, verify clinician documents, and inspect feedback complaints.'}</p>
       </header>
 
       {error && (
@@ -218,7 +218,7 @@ export default function AdminDashboard() {
               <span className="material-symbols-outlined">person</span>
             </div>
           </div>
-          <p className="text-xs text-outline font-semibold uppercase">Total Patients</p>
+          <p className="text-xs text-outline font-semibold uppercase">{t('totalPatients')}</p>
           <h2 className="text-2xl font-bold text-primary">{dashboardData?.total_patients}</h2>
         </div>
 
@@ -232,7 +232,7 @@ export default function AdminDashboard() {
               <span className="material-symbols-outlined">medical_services</span>
             </div>
           </div>
-          <p className="text-xs text-outline font-semibold uppercase">Total Doctors</p>
+          <p className="text-xs text-outline font-semibold uppercase">{t('totalDoctors') || 'Total Doctors'}</p>
           <h2 className="text-2xl font-bold text-primary">{dashboardData?.total_doctors}</h2>
         </div>
 
@@ -246,7 +246,7 @@ export default function AdminDashboard() {
               <span className="material-symbols-outlined">pending_actions</span>
             </div>
           </div>
-          <p className="text-xs text-outline font-semibold uppercase">Pending Approvals</p>
+          <p className="text-xs text-outline font-semibold uppercase">{t('pendingApprovals') || 'Pending Approvals'}</p>
           <h2 className="text-2xl font-bold text-primary">{dashboardData?.pending_verifications}</h2>
         </div>
 
@@ -260,7 +260,7 @@ export default function AdminDashboard() {
               <span className="material-symbols-outlined">network_check</span>
             </div>
           </div>
-          <p className="text-xs text-outline font-semibold uppercase">Active Sessions</p>
+          <p className="text-xs text-outline font-semibold uppercase">{t('activeSessions') || 'Active Sessions'}</p>
           <h2 className="text-2xl font-bold text-primary">{dashboardData?.active_sessions}</h2>
         </div>
       </div>
@@ -274,7 +274,7 @@ export default function AdminDashboard() {
               }`}
           >
             <span className="material-symbols-outlined">verified_user</span>
-            Verification Queue ({dashboardData?.verification_queue?.length || 0})
+            {t('verifications') || 'Verifications'} ({dashboardData?.verification_queue?.length || 0})
           </button>
 
           <button
@@ -283,7 +283,7 @@ export default function AdminDashboard() {
               }`}
           >
             <span className="material-symbols-outlined">group</span>
-            User Management ({dashboardData?.users?.length || 0})
+            {t('usersDirectory') || 'Users Directory'} ({dashboardData?.users?.length || 0})
           </button>
 
           <button
@@ -292,7 +292,7 @@ export default function AdminDashboard() {
               }`}
           >
             <span className="material-symbols-outlined">support_agent</span>
-            Patient Complaints ({complaints.filter(c => c.status === 'pending').length || 0})
+            {t('complaints') || 'Complaints'} ({complaints.filter(c => c.status === 'pending').length || 0})
           </button>
 
           <button
@@ -301,7 +301,7 @@ export default function AdminDashboard() {
               }`}
           >
             <span className="material-symbols-outlined">rate_review</span>
-            Review Moderation ({feedbacks.length || 0})
+            {t('reviewModeration') || 'Review Moderation'} ({feedbacks.length || 0})
           </button>
 
           <button
@@ -310,7 +310,7 @@ export default function AdminDashboard() {
               }`}
           >
             <span className="material-symbols-outlined">calendar_today</span>
-            Doctor Leaves ({leaveRequests.filter(l => l.status === 'pending').length || 0})
+            {t('leaveRequests') || 'Leave Requests'} ({leaveRequests.filter(l => l.status === 'pending').length || 0})
           </button>
         </div>
 
@@ -328,8 +328,8 @@ export default function AdminDashboard() {
                   {dashboardData?.verification_queue?.map(req => (
                     <div key={req.id} className="py-md flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
                       <div>
-                        <h4 className="font-bold text-on-surface">{req.doctor_name}</h4>
-                        <p className="text-xs text-secondary font-semibold">{req.specialization} | Experience: {req.experience_years} Years</p>
+                        <h4 className="font-bold text-on-surface">{t(req.doctor_name)}</h4>
+                        <p className="text-xs text-secondary font-semibold">{t(req.specialization) || req.specialization} | Experience: {req.experience_years} Years</p>
                         {req.license_number && (
                           <p className="text-xs text-primary font-bold mt-xs">License: {req.license_number}</p>
                         )}
@@ -357,14 +357,14 @@ export default function AdminDashboard() {
                           onClick={() => handleVerifyDoctor(req.id, 'verified')}
                           className="px-3 py-1.5 bg-success text-white text-xs font-bold rounded-lg hover:opacity-90 focus:outline-none"
                         >
-                          Approve
+                          {t('approveBtn') || 'Approve'}
                         </button>
 
                         <button
                           onClick={() => handleVerifyDoctor(req.id, 'rejected')}
                           className="px-3 py-1.5 bg-error text-on-error text-xs font-bold rounded-lg hover:opacity-90 focus:outline-none"
                         >
-                          Reject
+                          {t('rejectBtn') || 'Reject'}
                         </button>
                       </div>
                     </div>
@@ -380,10 +380,10 @@ export default function AdminDashboard() {
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="border-b border-outline-variant/30 text-outline">
-                    <th className="py-3 font-semibold">User Email</th>
-                    <th className="py-3 font-semibold">Role</th>
-                    <th className="py-3 font-semibold">Status</th>
-                    <th className="py-3 font-semibold text-right">Actions</th>
+                    <th className="py-3 font-semibold">{t('userEmail') || 'User Email'}</th>
+                    <th className="py-3 font-semibold">{t('role') || 'Role'}</th>
+                    <th className="py-3 font-semibold">{t('status') || 'Status'}</th>
+                    <th className="py-3 font-semibold text-right">{t('actions') || 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
@@ -394,7 +394,7 @@ export default function AdminDashboard() {
                           <span>{u.email}</span>
                           {u.role === 'doctor' && u.doctor_name && (
                             <span className="text-xs text-secondary font-semibold">
-                              {u.doctor_name} ({u.specialization || 'General'})
+                              {t(u.doctor_name)} ({t(u.specialization) || u.specialization || 'General'})
                             </span>
                           )}
                         </div>
@@ -485,7 +485,7 @@ export default function AdminDashboard() {
                             className={`px-2.5 py-1 text-xs font-bold rounded-lg ${u.is_active ? 'border border-error/20 text-error hover:bg-error/5' : 'bg-primary text-white hover:opacity-95'
                               }`}
                           >
-                            {u.is_active ? 'Deactivate' : 'Activate'}
+                            {u.is_active ? (t('deactivate') || 'Deactivate') : (t('activate') || 'Activate')}
                           </button>
                           {u.id !== user?.id && (
                             <button
@@ -493,7 +493,7 @@ export default function AdminDashboard() {
                               className="px-2.5 py-1 bg-error hover:bg-error/95 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-0.5 animate-in fade-in duration-200"
                             >
                               <span className="material-symbols-outlined text-[12px]">delete</span>
-                              Delete User
+                              {t('deleteUser') || 'Delete User'}
                             </button>
                           )}
                         </div>
@@ -644,19 +644,19 @@ export default function AdminDashboard() {
                     <tbody className="divide-y divide-outline-variant/10">
                       {leaveRequests.map(lr => (
                         <tr key={lr.id} className="align-middle">
-                          <td className="py-3 font-bold text-on-surface">{lr.doctor_name}</td>
-                          <td className="py-3 text-secondary font-semibold">{lr.specialization}</td>
+                          <td className="py-3 font-bold text-on-surface">{t(lr.doctor_name)}</td>
+                          <td className="py-3 text-secondary font-semibold">{t(lr.specialization) || lr.specialization}</td>
                           <td className="py-3 font-semibold text-on-surface">{lr.start_date} to {lr.end_date}</td>
-                          <td className="py-3 italic max-w-xs truncate">{lr.reason || 'No reason provided'}</td>
+                          <td className="py-3 italic max-w-xs truncate">{t(lr.reason) || lr.reason || 'No reason provided'}</td>
                           <td className="py-3">
-                            <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold text-center inline-block capitalize ${
-                              lr.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
-                              lr.status === 'rejected' ? 'bg-error-container text-on-error-container' :
-                              'bg-surface-container text-outline animate-pulse'
-                            }`}>
-                              {lr.status}
-                            </span>
-                          </td>
+                             <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold text-center inline-block capitalize ${
+                               lr.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
+                               lr.status === 'rejected' ? 'bg-error-container text-on-error-container' :
+                               'bg-surface-container text-outline animate-pulse'
+                             }`}>
+                               {t(lr.status + 'Status') || lr.status}
+                             </span>
+                           </td>
                           <td className="py-3 text-right">
                             {lr.status === 'pending' && (
                               <div className="flex justify-end gap-sm">

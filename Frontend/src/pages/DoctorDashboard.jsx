@@ -158,9 +158,9 @@ export default function DoctorDashboard() {
     <div className="space-y-xl animate-in fade-in duration-300">
       <header>
         <h2 className="text-on-surface font-headline-lg text-headline-lg">
-          {t('workspace')}
+          {t('workspace') || 'Doctor Workspace'}
         </h2>
-        <p className="text-on-surface-variant font-body-md text-body-md">Manage active patient emergencies, upcoming consultations, and clinical records.</p>
+        <p className="text-on-surface-variant font-body-md text-body-md">{t('workspaceSubtitle')}</p>
       </header>
 
       {error && (
@@ -185,7 +185,7 @@ export default function DoctorDashboard() {
               <div key={alert.id} className="p-md bg-white border border-error/30 rounded-xl shadow-sm flex flex-col justify-between interactive-card">
                 <div className="space-y-xs">
                   <div className="flex justify-between items-start">
-                    <span className="text-sm font-bold text-primary">{alert.patient_name}</span>
+                    <span className="text-sm font-bold text-primary">{t(alert.patient_name)}</span>
                     <span className="px-2 py-0.5 bg-error text-on-error text-[10px] rounded font-bold uppercase">Active SOS</span>
                   </div>
                   <p className="text-xs text-on-surface font-medium flex items-center gap-xs">
@@ -237,7 +237,7 @@ export default function DoctorDashboard() {
               <span className="material-symbols-outlined text-[28px]">group</span>
             </div>
             <div>
-              <span className="text-xs text-outline font-semibold uppercase block">Total Patients</span>
+              <span className="text-xs text-outline font-semibold uppercase block">{t('totalPatients')}</span>
               <span className="text-2xl font-bold text-primary">{dashboardData?.total_patients}</span>
             </div>
           </div>
@@ -255,7 +255,7 @@ export default function DoctorDashboard() {
               <span className="material-symbols-outlined text-[28px]">today</span>
             </div>
             <div>
-              <span className="text-xs text-outline font-semibold uppercase block">Today's Visits</span>
+              <span className="text-xs text-outline font-semibold uppercase block">{t('todaysVisits')}</span>
               <span className="text-2xl font-bold text-primary">{dashboardData?.today_appointments?.length}</span>
             </div>
           </div>
@@ -273,7 +273,7 @@ export default function DoctorDashboard() {
               <span className="material-symbols-outlined text-[28px]">pending_actions</span>
             </div>
             <div>
-              <span className="text-xs text-outline font-semibold uppercase block">Pending Consults</span>
+              <span className="text-xs text-outline font-semibold uppercase block">{t('pendingConsults')}</span>
               <span className="text-2xl font-bold text-primary">{dashboardData?.pending_appointments}</span>
             </div>
           </div>
@@ -289,7 +289,7 @@ export default function DoctorDashboard() {
               <span className="material-symbols-outlined text-[28px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
             </div>
             <div>
-              <span className="text-xs text-outline font-semibold uppercase block">Average Rating</span>
+              <span className="text-xs text-outline font-semibold uppercase block">{t('averageRatingLabel') || 'Average Rating'}</span>
               <div className="flex items-baseline gap-xs">
                 <span className="text-2xl font-bold text-primary">
                   {analytics ? analytics.average_doctor : (dashboardData?.rating || 4.9)}
@@ -309,7 +309,7 @@ export default function DoctorDashboard() {
             <h3 className="text-title-md font-bold text-primary mb-md flex flex-col sm:flex-row sm:items-center justify-between gap-sm">
               <span className="flex items-center gap-xs">
                 <span className="material-symbols-outlined text-secondary font-bold">calendar_month</span>
-                Upcoming Consultations
+                {t('upcomingConsultations')}
                 {filterType !== 'all' && (
                   <span className="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded font-bold capitalize">
                     Filtered: {filterType}
@@ -338,7 +338,7 @@ export default function DoctorDashboard() {
                   title="Single one-stop button to reassign all your visits due to urgent surgery"
                 >
                   <span className="material-symbols-outlined text-[14px]">medical_services</span>
-                  Urgent Surgery: Reassign
+                  {t('urgentSurgeryReassign')}
                 </button>
                 {filterType !== 'all' && (
                   <button 
@@ -355,7 +355,7 @@ export default function DoctorDashboard() {
               <div className="p-xl border border-dashed border-outline-variant rounded-xl text-center text-outline">
                 <p className="text-sm font-semibold">
                   {filterType === 'all' 
-                    ? "No upcoming patient visits scheduled." 
+                    ? t('noApptsScheduled') 
                     : `No upcoming visits matching filter: ${filterType}`}
                 </p>
               </div>
@@ -365,7 +365,7 @@ export default function DoctorDashboard() {
                   <div key={appt.id} className="p-md border border-outline-variant/50 rounded-xl bg-surface-container-lowest flex flex-col md:flex-row justify-between items-start md:items-center gap-md">
                     <div>
                       <h4 className="font-bold text-on-surface flex items-center gap-sm">
-                        Patient: {appt.patient_name}
+                        Patient: {t(appt.patient_name)}
                         <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase border ${
                           appt.priority === 'High' 
                             ? 'bg-error-container text-on-error-container border-error/20' 
@@ -441,7 +441,7 @@ export default function DoctorDashboard() {
           <div ref={patientsSectionRef} className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg flex flex-col interactive-card">
             <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
               <span className="material-symbols-outlined text-secondary">group</span>
-              Patients Directory
+              {t('patientsDirectory')}
             </h3>
 
             <div className="space-y-md overflow-y-auto max-h-[300px]">
@@ -452,14 +452,14 @@ export default function DoctorDashboard() {
                   className="p-md border border-outline-variant/30 rounded-xl hover:border-secondary cursor-pointer hover:bg-surface-container-high/40 active:scale-[0.99] transition-all"
                   title={`Chat with ${p.name}`}
                 >
-                  <h4 className="font-bold text-on-surface text-sm">{p.name}</h4>
+                  <h4 className="font-bold text-on-surface text-sm">{t(p.name)}</h4>
                   <p className="text-xs text-on-surface-variant mt-xs">
                     Gender: {p.gender || 'Not specified'} | Age: {p.age || 'Not specified'}
                   </p>
                 </div>
               ))}
               {dashboardData?.patient_summaries?.length === 0 && (
-                <p className="text-center text-xs text-outline py-xl">No patients registered in the directory.</p>
+                <p className="text-center text-xs text-outline py-xl">{t('noPatientsRegistered')}</p>
               )}
             </div>
           </div>
@@ -468,7 +468,7 @@ export default function DoctorDashboard() {
           <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card space-y-md">
             <h3 className="text-title-md font-bold text-primary flex items-center gap-xs border-b border-outline-variant/20 pb-2">
               <span className="material-symbols-outlined text-secondary">notifications_active</span>
-              Consultation Reminders
+              {t('consultationReminders')}
             </h3>
             <form onSubmit={async (e) => {
               e.preventDefault();
@@ -494,22 +494,22 @@ export default function DoctorDashboard() {
               }
             }} className="space-y-sm text-xs">
               <div className="space-y-xs">
-                <label className="font-bold text-outline uppercase block">Consultation / Patient Name</label>
-                <input required type="text" name="medicine_name" placeholder="e.g. Patient: John Doe" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                <label className="font-bold text-outline uppercase block">{t('patientNameLabel')}</label>
+                <input required type="text" name="medicine_name" placeholder={t('patientNamePlaceholder')} className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-sm">
                 <div className="space-y-xs">
-                  <label className="font-bold text-outline uppercase block">Preparation / Notes</label>
-                  <input required type="text" name="dosage" placeholder="e.g. Review heart logs" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                  <label className="font-bold text-outline uppercase block">{t('prepNotesLabel')}</label>
+                  <input required type="text" name="dosage" placeholder={t('prepNotesPlaceholder')} className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
                 </div>
                 <div className="space-y-xs">
-                  <label className="font-bold text-outline uppercase block">Time</label>
+                  <label className="font-bold text-outline uppercase block">{t('timeLabel')}</label>
                   <input required type="time" name="time" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-sm">
                 <div className="space-y-xs">
-                  <label className="font-bold text-outline uppercase block">Notify Via</label>
+                  <label className="font-bold text-outline uppercase block">{t('notifyViaLabel')}</label>
                   <select name="method" defaultValue="app" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none font-bold">
                     <option value="app">In-App Notification</option>
                     <option value="email">Email Alert</option>
@@ -528,7 +528,7 @@ export default function DoctorDashboard() {
 
             {/* Reminders List */}
             {reminders.length === 0 ? (
-              <p className="text-center text-xs text-outline py-2">No consultation reminders configured.</p>
+              <p className="text-center text-xs text-outline py-2">{t('noConsultationRemindersConfigured') || t('no consultation reminders configured.')}</p>
             ) : (
               <div className="pt-2 border-t border-outline-variant/30 space-y-2">
                 <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">Your Schedule Log</span>
@@ -543,11 +543,11 @@ export default function DoctorDashboard() {
                             {rem.method === 'email' ? 'mail' : rem.method === 'sms' ? 'sms' : 'notifications'}
                           </span>
                           <span className={`font-bold text-xs ${rem.is_active ? 'text-on-surface' : 'text-outline line-through'}`}>
-                            {rem.medicine_name}
+                            {t(rem.medicine_name)}
                           </span>
                         </div>
                         <p className="text-[9px] text-on-surface-variant">
-                          Notes: {rem.dosage} | Time: {rem.time}
+                          Notes: {t(rem.dosage) || rem.dosage} | Time: {rem.time}
                         </p>
                       </div>
                       
@@ -601,7 +601,7 @@ export default function DoctorDashboard() {
           <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card space-y-md">
             <h3 className="text-title-md font-bold text-primary flex items-center gap-xs border-b border-outline-variant/20 pb-2">
               <span className="material-symbols-outlined text-secondary">calendar_today</span>
-              Submit Leave Request
+              {t('submitLeaveRequest')}
             </h3>
             <form onSubmit={async (e) => {
               e.preventDefault();
@@ -619,33 +619,33 @@ export default function DoctorDashboard() {
             }} className="space-y-sm text-xs">
               <div className="grid grid-cols-2 gap-sm">
                 <div className="space-y-xs">
-                  <label className="font-bold text-outline uppercase block">Start Date</label>
+                  <label className="font-bold text-outline uppercase block">{t('startDate')}</label>
                   <input required type="date" name="start_date" min={getMinLeaveDate()} className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
                 </div>
                 <div className="space-y-xs">
-                  <label className="font-bold text-outline uppercase block">End Date</label>
+                  <label className="font-bold text-outline uppercase block">{t('endDate')}</label>
                   <input required type="date" name="end_date" min={getMinLeaveDate()} className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
                 </div>
               </div>
               <div className="space-y-xs">
-                <label className="font-bold text-outline uppercase block">Reason</label>
-                <textarea required name="reason" rows="2" placeholder="e.g. Attending conference, urgent medical leave" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                <label className="font-bold text-outline uppercase block">{t('reasonLabel')}</label>
+                <textarea required name="reason" rows="2" placeholder={t('reasonPlaceholder')} className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
               </div>
               <button type="submit" className="w-full bg-primary hover:bg-primary/95 text-white py-2 rounded font-bold shadow-md transition active:scale-[0.98]">
-                Submit Request
+                {t('submitRequestBtn')}
               </button>
             </form>
 
             {/* Leave requests logs */}
             {dashboardData?.leave_requests && dashboardData.leave_requests.length > 0 && (
               <div className="pt-2 border-t border-outline-variant/30 space-y-xs">
-                <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">Leave Requests Log</span>
+                <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">{t('leaveRequestsLog')}</span>
                 <div className="space-y-2 max-h-[150px] overflow-y-auto pr-xs">
                   {dashboardData.leave_requests.map(req => (
                     <div key={req.id} className="p-2 border border-outline-variant/20 rounded bg-surface-container-low flex justify-between items-center text-[10px]">
                       <div>
                         <span className="font-bold text-on-surface">{req.start_date} to {req.end_date}</span>
-                        <p className="text-outline italic truncate max-w-[130px]">{req.reason}</p>
+                        <p className="text-outline italic truncate max-w-[130px]">{t(req.reason) || req.reason}</p>
                       </div>
                       <span className={`px-2 py-0.5 rounded font-bold uppercase text-[8px] ${
                         req.status === 'approved' 
@@ -654,7 +654,7 @@ export default function DoctorDashboard() {
                           ? 'bg-error-container text-on-error-container' 
                           : 'bg-surface-container text-outline'
                       }`}>
-                        {req.status}
+                        {t(req.status + 'Status') || req.status}
                       </span>
                     </div>
                   ))}
