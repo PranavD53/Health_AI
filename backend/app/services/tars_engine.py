@@ -91,6 +91,132 @@ def detect_user_message_language(message: str, client_language: str) -> str:
     return client_lang
 
 
+def extract_clean_message(reply: str) -> Dict[str, Any]:
+    intent = "common_help"
+    action_type = None
+    action_params = {}
+    message = ""
+    confidence = 0.9
+    
+    clean_reply = reply.strip()
+    
+    # Remove markdown code block symbols
+    if clean_reply.startswith("```"):
+        lines = clean_reply.split("\n")
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines[-1].startswith("```"):
+            lines = lines[:-1]
+        clean_reply = "\n".join(lines).strip()
+
+    # Try parsing as JSON first
+    parsed_json = None
+    start_idx = clean_reply.find('{')
+    end_idx = clean_reply.rfind('}')
+    if start_idx != -1 and end_idx != -1:
+        json_str = clean_reply[start_idx:end_idx+1]
+        try:
+            parsed_json = json.loads(json_str)
+        except Exception:
+            # Try fixing common malformed JSON issues like trailing commas or missing confidence values
+            fixed_json_str = re.sub(r'"confidence"\s*:\s*}(?=\s*$)', '"confidence": 0.95}', json_str)
+            fixed_json_str = re.sub(r'"confidence"\s*:\s*,\s*}', '"confidence": 0.95}', fixed_json_str)
+            fixed_json_str = re.sub(r',\s*}(?=\s*$)', '}', fixed_json_str)
+            try:
+                parsed_json = json.loads(fixed_json_str)
+            except Exception:
+                pass
+
+    if parsed_json:
+        intent = parsed_json.get("intent", "common_help")
+        action_type = parsed_json.get("action", "")
+        action_params = parsed_json.get("parameters", {})
+        message = parsed_json.get("message", "")
+        confidence = parsed_json.get("confidence", 0.9)
+    else:
+        # Fallback to key-value extraction using regex
+        normalized_reply = re.sub(r'(?i)\*\*(intent|action|parameters|message|confidence|disclaimer)\*\*:', r'\1:', clean_reply)
+        normalized_reply = re.sub(r'(?i)\*(intent|action|parameters|message|confidence|disclaimer)\*:', r'\1:', normalized_reply)
+        
+        intent_match = re.search(r'(?i)intent:\s*"?([^"\n]+)"?', normalized_reply)
+        action_match = re.search(r'(?i)action:\s*"?([^"\n]+)"?', normalized_reply)
+        message_match = re.search(r'(?i)message:\s*"?([\s\S]*?)"?(?=\n\s*(?:intent|action|parameters|confidence|disclaimer):|$)', normalized_reply)
+        confidence_match = re.search(r'(?i)confidence:\s*([\d.]+)', normalized_reply)
+        
+        if message_match:
+            message = message_match.group(1).strip()
+            intent = intent_match.group(1).strip() if intent_match else "common_help"
+            action_type = action_match.group(1).strip() if action_match else ""
+            try:
+                confidence = float(confidence_match.group(1).strip()) if confidence_match else 0.9
+            except Exception:
+                confidence = 0.9
+        else:
+            # If everything else fails, extract the message text from any double-quoted block inside the response
+            msg_double_quote_match = re.search(r'"message"\s*:\s*"([^"]+)"', clean_reply)
+            if msg_double_quote_match:
+                message = msg_double_quote_match.group(1).strip()
+            else:
+                # Fallback: clean the reply from any JSON brackets, keywords, or labels
+                message = clean_reply
+                # If there is a JSON block inside, take the text before it
+                if "{" in message:
+                    parts = message.split("{")
+                    before_json = parts[0].replace("JSON Response:", "").replace("json", "").strip()
+                    if len(before_json) > 10:
+                        message = before_json
+                
+                # Scrub other labels
+                message = re.sub(r'(?i)\b(?:intent|action|parameters|confidence|disclaimer|page_name|specialization)\b.*', '', message)
+                message = re.sub(r'[{}\[\]"\'_:-]', ' ', message)
+                message = re.sub(r'\s+', ' ', message).strip()
+                
+        # Extract parameters from non-JSON structured response via regex if needed
+        action_params = {}
+        param_json_match = re.search(r'(?i)parameters:\s*(\{[\s\S]*?\})', normalized_reply)
+        if param_json_match:
+            try:
+                action_params = json.loads(param_json_match.group(1).strip())
+            except Exception:
+                pass
+        
+        if not action_params:
+            p_name_match = re.search(r'(?i)(?:page_name|page|pageName):\s*([a-zA-Z0-9_-]+)', normalized_reply)
+            spec_match = re.search(r'(?i)(?:specialization|speciality|specialityName|spec):\s*([a-zA-Z0-9_ -]+)', normalized_reply)
+            if p_name_match:
+                action_params["page_name"] = p_name_match.group(1).strip()
+            if spec_match:
+                action_params["specialization"] = spec_match.group(1).strip()
+
+    # Double check that we scrub any confidence scores or AI measures from the message field
+    if isinstance(message, str):
+        message = re.sub(r'(?i)\[\s*confidence\s*:\s*[\d.%/]+\s*\]', '', message)
+        message = re.sub(r'(?i)(?:with\s+)?(?:\d+(?:\.\d+)?%|\b0\.\d+|\b1\.0)(?:\s+)?(?:confidence|accuracy)\b', '', message)
+        message = re.sub(r'(?i)\bconfidence(?:\s+score)?(?:\s*:\s*|\s+is\s+)[\d.%/]+', '', message)
+        message = re.sub(r'(?i)\b(?:intent|classification|llm|ai|model|action)\b(?:\s+is\s+|\s*:\s*)[\w_]+', '', message)
+        message = re.sub(r'(?i)\[\s*(?:confidence|score|note|action|intent)[\s\S]*?\]', '', message)
+        message = re.sub(r'(?i)\(\s*(?:confidence|score|note|action|intent)[\s\S]*?\)', '', message)
+        message = re.sub(r'(?i)\(\s*note\s*:\s*[\s\S]*?\)', '', message)
+        message = re.sub(r'(?i)\[\s*note\s*:\s*[\s\S]*?\]', '', message)
+        # Strip trailing mismatched brackets or quotes
+        message = message.replace("**", "").replace("*", "")
+        message = message.strip()
+        if message.endswith("]") and "[" not in message:
+            message = message[:-1].strip()
+        if message.endswith(")") and "(" not in message:
+            message = message[:-1].strip()
+        if message.endswith('"') and '"' not in message[:-1]:
+            message = message[:-1].strip()
+        
+    return {
+        "intent": intent,
+        "action": action_type,
+        "parameters": action_params,
+        "message": message,
+        "confidence": confidence
+    }
+
+
 async def execute_tars_intent(
     message: str,
     current_user: models.User,
@@ -352,7 +478,7 @@ async def execute_tars_intent(
         "Rules:\n"
         "1. Act as a voice assistant, not a chatbot. Keep responses short and natural (maximum 2 sentences, 40 words max).\n"
         "2. Never perform actions outside the user's role. If the requested action is not allowed under their role, politely deny it in the 'message' field and return empty action.\n"
-        "3. You must classify user intent and return a JSON object with 'intent', 'action', 'parameters', 'message', and 'confidence'. However, you must NEVER mention confidence scores, AI metrics, LLM terms, classification details, or intent/action names within the 'message' field. The 'message' field must remain strictly human-like, conversational, and direct.\n"
+        "3. You must classify user intent and return a JSON object with 'intent', 'action', 'parameters', 'message', and 'confidence'. The JSON 'confidence' field must always be a valid floating-point number (e.g. 0.95 or 1.0). You must return ONLY the raw JSON object, without any markdown code block formatting (like ```json), without any conversational prefix, suffix, label, or preamble. Do not explain your choices. Your response must be directly parseable as a JSON object. However, you must NEVER mention confidence scores, AI metrics, LLM terms, classification details, or intent/action names within the 'message' field. The 'message' field must remain strictly human-like, conversational, and direct.\n"
         "4. Clinic hours are strictly between 08:00 and 20:00. If the user requests an appointment time outside this window (e.g., at 10pm / 22:00), or if the requested appointment date is less than 2 days in the future (relative to the CURRENT DATE AND TIME provided), you must politely deny the request in the 'message' field (explaining the 2-day advance or clinic hour restriction) and set the 'action' field to an empty string \"\" (do NOT return createAppointment).\n"
         "5. For greetings, symptom checking, or health questions, do NOT execute any action (set the 'action' field to empty string \"\"), and provide a supportive reply or medical advice in the 'message' field. Crucial Medication Rule: If the symptoms represent a mild or low severity condition (like mild fever, minor sore throat, simple cough, mild skin itching), you MUST suggest appropriate, safe over-the-counter (OTC) or mild medicines (such as paracetamol for fever, throat lozenges for sore throat, antihistamines for allergies, or topical calamine/emollients for skin itching) directly inside the message response, while advising them to consult a doctor if symptoms persist.\n"
         "6. If the user wants to book a visit or find a doctor, and their previous messages or current query relate to a specific organ or condition (like heart/cardiology, skin/dermatology, children/pediatrics, brain/neurology, or general symptoms), specify the appropriate specialization (e.g. 'Cardiology', 'Dermatology', 'Pediatrics', 'Neurology', 'General Medicine') in the 'specialization' parameter of the action (under action: openPage / page_name: appointments).\n"
@@ -544,93 +670,12 @@ async def execute_tars_intent(
     confidence = 0.0
 
     if reply:
-        clean_reply = reply.strip()
-        if clean_reply.startswith("```"):
-            lines = clean_reply.split("\n")
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            if lines[-1].startswith("```"):
-                lines = lines[:-1]
-            clean_reply = "\n".join(lines).strip()
-        
-        try:
-            start_idx = clean_reply.find('{')
-            end_idx = clean_reply.rfind('}')
-            if start_idx != -1 and end_idx != -1:
-                json_str = clean_reply[start_idx:end_idx+1]
-                parsed_json = json.loads(json_str)
-                intent = parsed_json.get("intent", "")
-                action_type = parsed_json.get("action", "")
-                action_params = parsed_json.get("parameters", {})
-                message = parsed_json.get("message", "")
-                confidence = parsed_json.get("confidence", 0.0)
-                if isinstance(message, str):
-                    message = message.replace("**", "").replace("*", "").strip()
-            else:
-                # Normalize clean_reply: remove bold asterisks around key labels (e.g. **message**: -> message:)
-                normalized_reply = re.sub(r'(?i)\*\*(intent|action|parameters|message|confidence|disclaimer)\*\*:', r'\1:', clean_reply)
-                normalized_reply = re.sub(r'(?i)\*(intent|action|parameters|message|confidence|disclaimer)\*:', r'\1:', normalized_reply)
-                
-                # Try parsing key-value pairs via regex if the LLM output is not JSON
-                intent_match = re.search(r'(?i)intent:\s*(.*)', normalized_reply)
-                action_match = re.search(r'(?i)action:\s*(.*)', normalized_reply)
-                message_match = re.search(r'(?i)message:\s*([\s\S]*?)(?=\n\s*(?:intent|action|parameters|confidence|disclaimer):|$)', normalized_reply)
-                confidence_match = re.search(r'(?i)confidence:\s*([\d.]+)', normalized_reply)
-                
-                if message_match:
-                    message = message_match.group(1).strip()
-                    intent = intent_match.group(1).strip() if intent_match else ""
-                    action_type = action_match.group(1).strip() if action_match else ""
-                    try:
-                        confidence = float(confidence_match.group(1).strip()) if confidence_match else 0.0
-                    except Exception:
-                        confidence = 0.0
-                else:
-                    message = reply
-                
-                # Extract parameters from non-JSON structured response via regex
-                action_params = {}
-                param_json_match = re.search(r'(?i)parameters:\s*(\{[\s\S]*?\})', normalized_reply)
-                if param_json_match:
-                    try:
-                        action_params = json.loads(param_json_match.group(1).strip())
-                    except Exception:
-                        pass
-                
-                if not action_params:
-                    p_name_match = re.search(r'(?i)(?:page_name|page|pageName):\s*([a-zA-Z0-9_-]+)', normalized_reply)
-                    spec_match = re.search(r'(?i)(?:specialization|speciality|specialityName|spec):\s*([a-zA-Z0-9_ -]+)', normalized_reply)
-                    if p_name_match:
-                        action_params["page_name"] = p_name_match.group(1).strip()
-                    if spec_match:
-                        action_params["specialization"] = spec_match.group(1).strip()
-        except Exception as pe:
-            logger.error(f"JSON parsing error: {pe}. Using raw reply.")
-            message = reply
-
-        # Scrub confidence score metrics, notes, and mismatched trailing brackets from message
-        if isinstance(message, str):
-            # Remove [Confidence: 0.X] or [confidence: X%] or [Confidence: 0.X/1.0]
-            message = re.sub(r'(?i)\[\s*confidence\s*:\s*[\d.%/]+\s*\]', '', message)
-            # Remove any confidence score or accuracy mentions (e.g. "with 90% confidence", "confidence: 0.9")
-            message = re.sub(r'(?i)(?:with\s+)?(?:\d+(?:\.\d+)?%|\b0\.\d+|\b1\.0)(?:\s+)?(?:confidence|accuracy)\b', '', message)
-            message = re.sub(r'(?i)\bconfidence(?:\s+score)?(?:\s*:\s*|\s+is\s+)[\d.%/]+', '', message)
-            # Remove system classification/intent/model/action references
-            message = re.sub(r'(?i)\b(?:intent|classification|llm|ai|model|action)\b(?:\s+is\s+|\s*:\s*)[\w_]+', '', message)
-            # Remove any notes and bracketed text remnants
-            message = re.sub(r'(?i)\[\s*(?:confidence|score|note|action|intent)[\s\S]*?\]', '', message)
-            message = re.sub(r'(?i)\(\s*(?:confidence|score|note|action|intent)[\s\S]*?\)', '', message)
-            # Remove (Note: ...) or [Note: ...] or (note: ...) or [note: ...]
-            message = re.sub(r'(?i)\(\s*note\s*:\s*[\s\S]*?\)', '', message)
-            message = re.sub(r'(?i)\[\s*note\s*:\s*[\s\S]*?\]', '', message)
-            # Strip markdown bold/italic formatting
-            message = message.replace("**", "").replace("*", "")
-            message = message.strip()
-            # Clean mismatched trailing brackets left from action/confidence stripping
-            if message.endswith("]") and "[" not in message:
-                message = message[:-1].strip()
-            if message.endswith(")") and "(" not in message:
-                message = message[:-1].strip()
+        parsed_result = extract_clean_message(reply)
+        intent = parsed_result["intent"]
+        action_type = parsed_result["action"]
+        action_params = parsed_result["parameters"]
+        message = parsed_result["message"]
+        confidence = parsed_result["confidence"]
 
     # 4. Offline Fallback if no LLM response could be fetched
     if not message:
