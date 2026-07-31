@@ -166,6 +166,10 @@ async def analyze_imaging(
                 except (ValueError, HTTPException) as val_err:
                     raise val_err
                 except Exception as skin_err:
+                    import traceback
+                    with open("imaging_error.log", "a") as f_err:
+                        f_err.write(f"\n--- Skin AI Failure at {datetime.datetime.now()} ---\n")
+                        traceback.print_exc(file=f_err)
                     print(f"Skin AI model failed, falling back to offline heuristics: {skin_err}")
                     pred_res = run_offline_heuristics(scan_type, file.filename)
                     analyzed_by = "Offline Clinical Heuristics Fallback Engine"
@@ -177,6 +181,10 @@ async def analyze_imaging(
                 except (ValueError, HTTPException) as val_err:
                     raise val_err
                 except Exception as xray_err:
+                    import traceback
+                    with open("imaging_error.log", "a") as f_err:
+                        f_err.write(f"\n--- X-Ray AI Failure at {datetime.datetime.now()} ---\n")
+                        traceback.print_exc(file=f_err)
                     print(f"X-Ray AI model failed, falling back to offline heuristics: {xray_err}")
                     pred_res = run_offline_heuristics(scan_type, file.filename)
                     analyzed_by = "Offline Clinical Heuristics Fallback Engine"
@@ -188,6 +196,10 @@ async def analyze_imaging(
                 except (ValueError, HTTPException) as val_err:
                     raise val_err
                 except Exception as throat_err:
+                    import traceback
+                    with open("imaging_error.log", "a") as f_err:
+                        f_err.write(f"\n--- Throat AI Failure at {datetime.datetime.now()} ---\n")
+                        traceback.print_exc(file=f_err)
                     print(f"Throat AI failed, falling back to offline heuristics: {throat_err}")
                     pred_res = run_offline_heuristics(scan_type, file.filename)
                     analyzed_by = "Offline Clinical Heuristics Fallback Engine"
@@ -199,6 +211,10 @@ async def analyze_imaging(
                 except (ValueError, HTTPException) as val_err:
                     raise val_err
                 except Exception as skin_err:
+                    import traceback
+                    with open("imaging_error.log", "a") as f_err:
+                        f_err.write(f"\n--- Default Skin AI Failure at {datetime.datetime.now()} ---\n")
+                        traceback.print_exc(file=f_err)
                     print(f"Default Skin AI failed, falling back to offline heuristics: {skin_err}")
                     pred_res = run_offline_heuristics(scan_type, file.filename)
                     analyzed_by = "Offline Clinical Heuristics Fallback Engine"
