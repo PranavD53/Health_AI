@@ -231,23 +231,34 @@ async def transcribe_audio(
 
 @app.get("/uploads/{filename}")
 def serve_db_upload(filename: str, db: Session = Depends(get_db)):
-    # Query database for MedicalRecord
+    import base64
+    from fastapi.responses import Response, FileResponse
+    
+    # 1. Check if the file is on disk in UPLOADS_DIR (fastest & handles active uploads)
+    local_path = os.path.join(UPLOADS_DIR, filename)
+    if os.path.exists(local_path):
+        return FileResponse(local_path)
+
+    # 2. Query database for MedicalRecord
     record = db.query(models.MedicalRecord).filter(
         (models.MedicalRecord.file_name == filename) |
         models.MedicalRecord.file_path.like(f"%/uploads/{filename}")
     ).first()
     
-    import base64
-    from fastapi.responses import Response
-    
-    if record and record.file_data:
-        try:
-            content_bytes = base64.b64decode(record.file_data)
-            return Response(content=content_bytes, media_type=record.file_type or "application/octet-stream")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to decode file: {str(e)}")
+    if record:
+        if record.file_data:
+            try:
+                content_bytes = base64.b64decode(record.file_data)
+                return Response(content=content_bytes, media_type=record.file_type or "application/octet-stream")
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Failed to decode medical record file: {str(e)}")
+        else:
+            raise HTTPException(
+                status_code=404, 
+                detail="Medical record file data is empty. Please delete and re-upload this record."
+            )
             
-    # If not found in MedicalRecord, check if it's a Doctor profile picture or license document
+    # 3. If not found in MedicalRecord, check if it's a Doctor profile picture or license document
     doctor = db.query(models.Doctor).filter(
         (models.Doctor.profile_picture.like(f"%/uploads/{filename}")) |
         (models.Doctor.license_document_path.like(f"%/uploads/{filename}"))
@@ -256,25 +267,26 @@ def serve_db_upload(filename: str, db: Session = Depends(get_db)):
     if doctor:
         try:
             # Check if it matches the profile picture
-            if doctor.profile_picture and filename in doctor.profile_picture:
-                data = doctor.profile_picture_data
-                mime = "image/png" if filename.lower().endswith(".png") else ("image/jpeg" if filename.lower().endswith((".jpg", ".jpeg")) else "application/octet-stream")
-            else:
-                data = doctor.license_document_data
-                mime = "application/pdf" if filename.lower().endswith(".pdf") else "application/octet-stream"
+            is_pic = doctor.profile_picture and filename in doctor.profile_picture
+            data = doctor.profile_picture_data if is_pic else doctor.license_document_data
             
             if data:
+                mime = "image/png" if filename.lower().endswith(".png") else ("image/jpeg" if filename.lower().endswith((".jpg", ".jpeg")) else "application/octet-stream")
+                if not is_pic:
+                    mime = "application/pdf" if filename.lower().endswith(".pdf") else "application/octet-stream"
                 content_bytes = base64.b64decode(data)
                 return Response(content=content_bytes, media_type=mime)
+            else:
+                file_type_str = "profile picture" if is_pic else "license document"
+                raise HTTPException(
+                    status_code=404, 
+                    detail=f"Doctor {file_type_str} not found on server. This is a legacy record without database backups. The doctor must re-upload this document in their profile Settings."
+                )
         except Exception as e:
+            if isinstance(e, HTTPException):
+                raise
             raise HTTPException(status_code=500, detail=f"Failed to decode doctor file: {str(e)}")
             
-    # Fall back to checking if the file is on disk in UPLOADS_DIR
-    local_path = os.path.join(UPLOADS_DIR, filename)
-    if os.path.exists(local_path):
-        from fastapi.responses import FileResponse
-        return FileResponse(local_path)
-        
     raise HTTPException(status_code=404, detail="File not found")
 
 
