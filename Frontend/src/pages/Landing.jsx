@@ -273,17 +273,17 @@ export default function Landing() {
             
             {/* Left text */}
             <div className="lg:col-span-5 space-y-6 text-center lg:text-left">
-              <span className="text-[var(--theme-primary)] font-bold text-xs uppercase tracking-widest block">Security</span>
+              <span className="text-[var(--theme-primary)] font-bold text-xs uppercase tracking-widest block">{t('secTitle')}</span>
               <h2 className="font-jakarta text-3xl md:text-4xl font-extrabold text-on-surface leading-tight tracking-tight">
-                Enterprise-grade Clinical Security
+                {t('secHeading')}
               </h2>
               <p className="font-inter text-sm md:text-base text-on-surface-variant leading-relaxed">
-                HealthAI is built from the ground up on modern cryptographic database frameworks, prioritizing user privacy, strict access logs, and complete compliance.
+                {t('secDesc')}
               </p>
               <div className="flex flex-wrap justify-center lg:justify-start gap-3 pt-2">
-                <span className="px-3 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/20 text-[10px] font-bold text-on-surface-variant tracking-wider uppercase">HIPAA Compliant</span>
-                <span className="px-3 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/20 text-[10px] font-bold text-on-surface-variant tracking-wider uppercase">SOC2 Audited</span>
-                <span className="px-3 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/20 text-[10px] font-bold text-on-surface-variant tracking-wider uppercase">GDPR Safeguarded</span>
+                <span className="px-3 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/20 text-[10px] font-bold text-on-surface-variant tracking-wider uppercase">{t('tagHipaa')}</span>
+                <span className="px-3 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/20 text-[10px] font-bold text-on-surface-variant tracking-wider uppercase">{t('tagSoc2')}</span>
+                <span className="px-3 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/20 text-[10px] font-bold text-on-surface-variant tracking-wider uppercase">{t('tagGdpr')}</span>
               </div>
             </div>
 
@@ -291,33 +291,33 @@ export default function Landing() {
             <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="bg-white dark:bg-[#0c0c17] border border-outline-variant/50 rounded-2xl p-6 shadow-sm hover:border-[var(--theme-primary)]/30 transition-all">
                 <span className="material-symbols-outlined text-[var(--theme-primary)] text-2xl mb-4">lock</span>
-                <h4 className="font-jakarta text-sm font-bold text-on-surface mb-2">End-to-End Encryption</h4>
+                <h4 className="font-jakarta text-sm font-bold text-on-surface mb-2">{t('cardEncTitle')}</h4>
                 <p className="font-inter text-xs text-on-surface-variant leading-relaxed">
-                  All communications and uploaded records are encrypted in transit and at rest using AES-256 standards.
+                  {t('cardEncDesc')}
                 </p>
               </div>
 
               <div className="bg-white dark:bg-[#0c0c17] border border-outline-variant/50 rounded-2xl p-6 shadow-sm hover:border-[var(--theme-primary)]/30 transition-all">
                 <span className="material-symbols-outlined text-[var(--theme-primary)] text-2xl mb-4">gavel</span>
-                <h4 className="font-jakarta text-sm font-bold text-on-surface mb-2">Access Control</h4>
+                <h4 className="font-jakarta text-sm font-bold text-on-surface mb-2">{t('cardAccTitle')}</h4>
                 <p className="font-inter text-xs text-on-surface-variant leading-relaxed">
-                  Granular role-based security settings ensure only authorized doctors and patients can access medical files.
+                  {t('cardAccDesc')}
                 </p>
               </div>
 
               <div className="bg-white dark:bg-[#0c0c17] border border-outline-variant/50 rounded-2xl p-6 shadow-sm hover:border-[var(--theme-primary)]/30 transition-all">
                 <span className="material-symbols-outlined text-[var(--theme-primary)] text-2xl mb-4">clinical_notes</span>
-                <h4 className="font-jakarta text-sm font-bold text-on-surface mb-2">Audit Trails</h4>
+                <h4 className="font-jakarta text-sm font-bold text-on-surface mb-2">{t('cardAudTitle')}</h4>
                 <p className="font-inter text-xs text-on-surface-variant leading-relaxed">
-                  Every document access, consultation link, and diagnostic query is recorded in immutable compliance logs.
+                  {t('cardAudDesc')}
                 </p>
               </div>
 
               <div className="bg-white dark:bg-[#0c0c17] border border-outline-variant/50 rounded-2xl p-6 shadow-sm hover:border-[var(--theme-primary)]/30 transition-all">
                 <span className="material-symbols-outlined text-[var(--theme-primary)] text-2xl mb-4">verified_user</span>
-                <h4 className="font-jakarta text-sm font-bold text-on-surface mb-2">Secure API Routing</h4>
+                <h4 className="font-jakarta text-sm font-bold text-on-surface mb-2">{t('cardApiTitle')}</h4>
                 <p className="font-inter text-xs text-on-surface-variant leading-relaxed">
-                  All external communication routes are authenticated using OAuth2 and signed cryptographic JSON web tokens.
+                  {t('cardApiDesc')}
                 </p>
               </div>
             </div>
@@ -403,10 +403,10 @@ export default function Landing() {
             <div className="space-y-3">
               <h4 className="text-[10px] font-bold text-on-surface uppercase tracking-wider">{t('footerCompliance')}</h4>
               <ul className="space-y-2 text-xs font-semibold text-on-surface-variant">
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('statArchitectureLbl')} Standards</span></li>
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">SOC2 Audits</span></li>
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Encryption Key Management</span></li>
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Audit Records</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('footerComplianceStd')}</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('footerSoc2')}</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('footerKeyMgmt')}</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('footerAuditRecs')}</span></li>
               </ul>
             </div>
 
@@ -414,10 +414,10 @@ export default function Landing() {
             <div className="space-y-3">
               <h4 className="text-[10px] font-bold text-on-surface uppercase tracking-wider">{t('footerSupport')}</h4>
               <ul className="space-y-2 text-xs font-semibold text-on-surface-variant">
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Knowledge Base</span></li>
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Clinic Directory</span></li>
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">Contact Support</span></li>
-                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">File Complaint</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('footerKnowledgeBase')}</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('footerClinicDir')}</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('footerContactSupport')}</span></li>
+                <li><span className="hover:text-[var(--theme-primary)] cursor-pointer">{t('footerFileComplaint')}</span></li>
               </ul>
             </div>
 

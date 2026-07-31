@@ -440,9 +440,25 @@ export default function GlobalAssistant() {
 
   // Automatic response language script detector
   const detectLanguageOfText = (str) => {
+    if (!str) return 'en';
+    const textVal = str.toLowerCase();
+    
+    // Native script detection
     if (/[\u0C00-\u0C7F]/.test(str)) return 'te';
     if (/[\u0900-\u097F]/.test(str)) return 'hi';
-    // If no native script is found, fallback to active settings/state to support Hinglish/Tinglish
+    
+    // Hinglish keywords/patterns detection for romanized speech
+    const hinglishKeywords = ["namaste", "aap", "chahiye", "hai", "kya", "mera", "hu", "ho", "bhai", "shukriya", "dost", "kar", "se", "ko", "par", "ek", "apko", "karo", "karna", "acha", "theek", "aapko", "karke", "sojao", "band", "kholo", "so jao", "utho"];
+    // Tinglish keywords/patterns detection for romanized speech
+    const tinglishKeywords = ["namaskaram", "enti", "ela", "undhi", "avunu", "kadhu", "cheyyandi", "nenu", "miru", "naa", "bhayam", "gurinchi", "vundhi", "vundi", "cheyandi", "meluko", "paduko", "oddu"];
+    
+    const hiMatches = hinglishKeywords.filter(w => new RegExp(`\\b${w}\\b`, 'i').test(textVal)).length;
+    const teMatches = tinglishKeywords.filter(w => new RegExp(`\\b${w}\\b`, 'i').test(textVal)).length;
+    
+    if (hiMatches > teMatches && hiMatches > 0) return 'hi';
+    if (teMatches > hiMatches && teMatches > 0) return 'te';
+    
+    // Fallback to settings
     if (language.startsWith('te') || currentLanguage === 'te') return 'te';
     if (language.startsWith('hi') || currentLanguage === 'hi') return 'hi';
     return 'en';
@@ -500,20 +516,20 @@ export default function GlobalAssistant() {
       let voice = null;
       
       if (detectedLang === 'te') {
-        // Telugu sweet female voice search
+        // Telugu sweet female voice search prioritising natural/online neural voices
         voice = voices.find(v => (v.lang.startsWith('te') || v.name.toLowerCase().includes('telugu')) && 
-                            (v.name.toLowerCase().includes('shruti') || v.name.toLowerCase().includes('chitra') || v.name.toLowerCase().includes('female')));
+                            (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('online') || v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('swara')));
         if (!voice) voice = voices.find(v => v.lang.startsWith('te') || v.name.toLowerCase().includes('telugu'));
         utterance.lang = 'te-IN';
       } else if (detectedLang === 'hi') {
-        // Hindi sweet female voice search
+        // Hindi sweet female voice search prioritising natural/online neural voices
         voice = voices.find(v => (v.lang.startsWith('hi') || v.name.toLowerCase().includes('hindi')) && 
-                            (v.name.toLowerCase().includes('kalpana') || v.name.toLowerCase().includes('heera') || v.name.toLowerCase().includes('female')));
+                            (v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('online') || v.name.toLowerCase().includes('female') || v.name.toLowerCase().includes('madhur') || v.name.toLowerCase().includes('kalpana') || v.name.toLowerCase().includes('heera')));
         if (!voice) voice = voices.find(v => v.lang.startsWith('hi') || v.name.toLowerCase().includes('hindi'));
         utterance.lang = 'hi-IN';
       } else {
-        // English sweet female voice priorities
-        const sweetFemaleEnglishPriorities = ['google us english', 'microsoft zira', 'samantha', 'google uk english female', 'karen', 'eva'];
+        // English sweet female voice priorities prioritising natural/online neural voices
+        const sweetFemaleEnglishPriorities = ['natural', 'online', 'google us english', 'microsoft zira', 'samantha', 'google uk english female', 'karen', 'eva'];
         for (const name of sweetFemaleEnglishPriorities) {
           const found = voices.find(v => v.name.toLowerCase().includes(name) && v.lang.startsWith('en'));
           if (found) {
@@ -530,9 +546,9 @@ export default function GlobalAssistant() {
         utterance.voice = voice;
       }
       
-      // Sweet friendly tone & natural human speaking pace
-      utterance.pitch = 1.15; 
-      utterance.rate = 0.82; 
+      // Reset to default pitch and speed to use the selected voice's high-quality authentic native accent and pace
+      utterance.pitch = 1.0; 
+      utterance.rate = 1.0; 
       
       const handleEnd = () => {
         utteranceRef.current = null;

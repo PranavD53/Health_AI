@@ -59,6 +59,38 @@ OFFLINE_TRANSLATIONS = {
     }
 }
 
+def detect_user_message_language(message: str, client_language: str) -> str:
+    if not message:
+        return "en"
+    
+    # Check native script characters
+    if re.search(r'[\u0C00-\u0C7F]', message): # Telugu
+        return "te"
+    if re.search(r'[\u0900-\u097F]', message): # Hindi
+        return "hi"
+        
+    # Check Hinglish/Tinglish romanized text keywords
+    text_lower = message.lower()
+    hinglish_keywords = ["namaste", "aap", "chahiye", "hai", "kya", "mera", "hu", "ho", "bhai", "shukriya", "dost", "kar", "se", "ko", "par", "ek", "apko", "karo", "karna", "acha", "theek", "aapko", "karke", "sojao", "band", "kholo", "so jao", "utho", "shuru"]
+    tinglish_keywords = ["namaskaram", "enti", "ela", "undhi", "avunu", "kadhu", "cheyyandi", "nenu", "miru", "naa", "bhayam", "gurinchi", "vundhi", "vundi", "cheyandi", "meluko", "paduko", "oddu"]
+    
+    # Count occurrences as whole words
+    hi_matches = sum(1 for w in hinglish_keywords if f" {w} " in f" {text_lower} ")
+    te_matches = sum(1 for w in tinglish_keywords if f" {w} " in f" {text_lower} ")
+    
+    if hi_matches > te_matches and hi_matches > 0:
+        return "hi"
+    elif te_matches > hi_matches and te_matches > 0:
+        return "te"
+        
+    # Normalize client language (e.g. 'en-US' -> 'en')
+    client_lang = "en"
+    if client_language:
+        client_lang = client_language.split("-")[0].strip().lower()
+        
+    return client_lang
+
+
 async def execute_tars_intent(
     message: str,
     current_user: models.User,
@@ -79,7 +111,10 @@ async def execute_tars_intent(
     - Returns structured payload.
     """
     current_msg = message.strip()
-    pref_lang = language or "en"
+    
+    # Dynamically detect language from the user's message, bypassing global selection
+    detected_lang = detect_user_message_language(current_msg, language)
+    pref_lang = detected_lang
     lang = pref_lang if pref_lang in OFFLINE_TRANSLATIONS else "en"
     disclaimer = OFFLINE_TRANSLATIONS[lang]["disclaimer"]
 
@@ -317,12 +352,12 @@ async def execute_tars_intent(
         "Rules:\n"
         "1. Act as a voice assistant, not a chatbot. Keep responses short and natural (maximum 2 sentences, 40 words max).\n"
         "2. Never perform actions outside the user's role. If the requested action is not allowed under their role, politely deny it in the 'message' field and return empty action.\n"
-        "3. You must classify user intent and return a JSON object with 'intent', 'action', 'parameters', 'message', and 'confidence'.\n"
+        "3. You must classify user intent and return a JSON object with 'intent', 'action', 'parameters', 'message', and 'confidence'. However, you must NEVER mention confidence scores, AI metrics, LLM terms, classification details, or intent/action names within the 'message' field. The 'message' field must remain strictly human-like, conversational, and direct.\n"
         "4. Clinic hours are strictly between 08:00 and 20:00. If the user requests an appointment time outside this window (e.g., at 10pm / 22:00), or if the requested appointment date is less than 2 days in the future (relative to the CURRENT DATE AND TIME provided), you must politely deny the request in the 'message' field (explaining the 2-day advance or clinic hour restriction) and set the 'action' field to an empty string \"\" (do NOT return createAppointment).\n"
         "5. For greetings, symptom checking, or health questions, do NOT execute any action (set the 'action' field to empty string \"\"), and provide a supportive reply or medical advice in the 'message' field. Crucial Medication Rule: If the symptoms represent a mild or low severity condition (like mild fever, minor sore throat, simple cough, mild skin itching), you MUST suggest appropriate, safe over-the-counter (OTC) or mild medicines (such as paracetamol for fever, throat lozenges for sore throat, antihistamines for allergies, or topical calamine/emollients for skin itching) directly inside the message response, while advising them to consult a doctor if symptoms persist.\n"
         "6. If the user wants to book a visit or find a doctor, and their previous messages or current query relate to a specific organ or condition (like heart/cardiology, skin/dermatology, children/pediatrics, brain/neurology, or general symptoms), specify the appropriate specialization (e.g. 'Cardiology', 'Dermatology', 'Pediatrics', 'Neurology', 'General Medicine') in the 'specialization' parameter of the action (under action: openPage / page_name: appointments).\n"
         "7. If the user's request is incomplete, ambiguous, or lacks required details to execute an action (for example, setting an alarm/reminder without a specified time/purpose, or booking an appointment without a doctor/date/time), you must ask for clarification in the 'message' field and set the 'action' field to an empty string \"\". Do not attempt to guess or execute with default/placeholder parameters unless the user explicitly confirms them.\n"
-        f"8. The user's preferred language/locale is '{pref_lang}'. You should respond in this language by default. However, if the user speaks or queries in a different language or mixed style (like Hindi, Telugu, Hinglish, or Tinglish, whether in native scripts or romanized/transliterated English characters), you MUST detect and match their input language, script, and code-mixing style in your response (e.g., reply in Hinglish if they ask in Hinglish, and reply in Tinglish if they ask in Tinglish).\n"
+        f"8. The user's message is detected to be in '{pref_lang}' style. You MUST respond in this language/dialect (e.g., reply in Hinglish if they ask in Hinglish, and reply in Tinglish if they ask in Tinglish, matching their script style).\n"
         "9. For actions that perform database modifications or background operations (like 'createAppointment', 'updatePatient', 'setReminder'), the 'message' field should state that you are *attempting* or *proceeding* to perform the action (e.g., 'I will proceed to book that appointment for you...', 'Updating your location now...', 'Setting a medication reminder...'), rather than asserting that the action has already succeeded, as the actual execution runs asynchronously after your response is returned.\n"
         "10. Crucial Booking Validation: When proposing or scheduling an appointment, you MUST check the doctor's 'Status', 'Booked Slots', and 'Approved Leaves' in the 'List of available doctors for bookings'. You MUST NOT suggest or schedule any slot if the doctor is 'Unavailable', or if the requested date/time conflicts with their 'Booked Slots' or falls within their 'Approved Leaves' dates. Also, you MUST NOT suggest or schedule any slot that is less than 2 days in advance from the current date and time. If a conflict or violation of these rules occurs, you MUST politely explain the issue and suggest alternative dates/times that are valid.\n"
         "\n"
@@ -577,6 +612,14 @@ async def execute_tars_intent(
         if isinstance(message, str):
             # Remove [Confidence: 0.X] or [confidence: X%] or [Confidence: 0.X/1.0]
             message = re.sub(r'(?i)\[\s*confidence\s*:\s*[\d.%/]+\s*\]', '', message)
+            # Remove any confidence score or accuracy mentions (e.g. "with 90% confidence", "confidence: 0.9")
+            message = re.sub(r'(?i)(?:with\s+)?(?:\d+(?:\.\d+)?%|\b0\.\d+|\b1\.0)(?:\s+)?(?:confidence|accuracy)\b', '', message)
+            message = re.sub(r'(?i)\bconfidence(?:\s+score)?(?:\s*:\s*|\s+is\s+)[\d.%/]+', '', message)
+            # Remove system classification/intent/model/action references
+            message = re.sub(r'(?i)\b(?:intent|classification|llm|ai|model|action)\b(?:\s+is\s+|\s*:\s*)[\w_]+', '', message)
+            # Remove any notes and bracketed text remnants
+            message = re.sub(r'(?i)\[\s*(?:confidence|score|note|action|intent)[\s\S]*?\]', '', message)
+            message = re.sub(r'(?i)\(\s*(?:confidence|score|note|action|intent)[\s\S]*?\)', '', message)
             # Remove (Note: ...) or [Note: ...] or (note: ...) or [note: ...]
             message = re.sub(r'(?i)\(\s*note\s*:\s*[\s\S]*?\)', '', message)
             message = re.sub(r'(?i)\[\s*note\s*:\s*[\s\S]*?\]', '', message)
