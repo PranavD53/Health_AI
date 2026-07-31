@@ -132,36 +132,61 @@ async def analyze_imaging(
 
         # Route prediction based on scan category
         scan_lower = scan_type.lower()
+        pred_res = None
+        analyzed_by = ""
         try:
             if "skin" in scan_lower or "derma" in scan_lower:
-                from app.services.skin_ai import predict_skin
-                pred_res = predict_skin(content)
-                analyzed_by = "LaurianeMD/vit-skin-disease (ViT)"
+                try:
+                    from app.services.skin_ai import predict_skin
+                    pred_res = predict_skin(content)
+                    analyzed_by = "LaurianeMD/vit-skin-disease (ViT)"
+                except (ValueError, HTTPException) as val_err:
+                    raise val_err
+                except Exception as skin_err:
+                    print(f"Skin AI model failed, falling back to offline heuristics: {skin_err}")
+                    pred_res = run_offline_heuristics(scan_type, file.filename)
+                    analyzed_by = "Offline Clinical Heuristics Fallback Engine"
             elif "x-ray" in scan_lower or "xray" in scan_lower or "chest" in scan_lower:
-                from app.services.xray_ai import predict_xray
-                pred_res = predict_xray(content)
-                analyzed_by = "hiroaki-f/my_chest_xray_model (ViT NIH ChestX-ray14)"
+                try:
+                    from app.services.xray_ai import predict_xray
+                    pred_res = predict_xray(content)
+                    analyzed_by = "hiroaki-f/my_chest_xray_model (ViT NIH ChestX-ray14)"
+                except (ValueError, HTTPException) as val_err:
+                    raise val_err
+                except Exception as xray_err:
+                    print(f"X-Ray AI model failed, falling back to offline heuristics: {xray_err}")
+                    pred_res = run_offline_heuristics(scan_type, file.filename)
+                    analyzed_by = "Offline Clinical Heuristics Fallback Engine"
             elif "throat" in scan_lower or "redness" in scan_lower or "pharynx" in scan_lower:
-                from app.services.throat_ai import predict_throat
-                pred_res = predict_throat(content)
-                analyzed_by = "Deterministic Feature Heuristic Engine"
+                try:
+                    from app.services.throat_ai import predict_throat
+                    pred_res = predict_throat(content)
+                    analyzed_by = "Deterministic Feature Heuristic Engine"
+                except (ValueError, HTTPException) as val_err:
+                    raise val_err
+                except Exception as throat_err:
+                    print(f"Throat AI failed, falling back to offline heuristics: {throat_err}")
+                    pred_res = run_offline_heuristics(scan_type, file.filename)
+                    analyzed_by = "Offline Clinical Heuristics Fallback Engine"
             else:
-                # Default to skin service if unmapped
-                from app.services.skin_ai import predict_skin
-                pred_res = predict_skin(content)
-                analyzed_by = "LaurianeMD/vit-skin-disease (ViT)"
+                try:
+                    from app.services.skin_ai import predict_skin
+                    pred_res = predict_skin(content)
+                    analyzed_by = "LaurianeMD/vit-skin-disease (ViT)"
+                except (ValueError, HTTPException) as val_err:
+                    raise val_err
+                except Exception as skin_err:
+                    print(f"Default Skin AI failed, falling back to offline heuristics: {skin_err}")
+                    pred_res = run_offline_heuristics(scan_type, file.filename)
+                    analyzed_by = "Offline Clinical Heuristics Fallback Engine"
         except ValueError as val_err:
             # Specific validation / image rejection error (e.g. Throat blur or invalid aspect ratio)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(val_err)
             )
-        except RuntimeError as rt_err:
-            # Model startup or uninitialized singleton failure
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Diagnostics temporarily unavailable for this tab. Please try again later."
-            )
+        except HTTPException:
+            raise
         except Exception as pred_err:
             print(f"Prediction layer error ({scan_type}): {pred_err}")
             raise HTTPException(
