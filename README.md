@@ -10,10 +10,14 @@ A secure, next-generation AI-powered healthcare platform combining real-time voi
 - **Wake Word Detection**: Background speech recognizer constantly listens for `"Hey TARS"`. Operates globally in visitor/guest mode to direct users to register or log in.
 - **Ultra-Low Latency STT**: Prioritizes Groq's Whisper API in the cloud, transcribing speech in under **200ms**, with a local CPU-bound `faster_whisper` backup.
 - **Voice-Native Execution**: Complete dashboard actions natively via voice commands (e.g., `"Run anti-fraud scan on report"`, `"Set medicine reminder for Paracetamol at 8 AM"`).
-- **Smooth Queue-Backed Text-to-Speech (TTS)**: Intelligently segments and streams spoken responses at sentence boundaries, avoiding speech overlaps and network stutter.
+- **Sarvam AI Studio-Quality TTS**: Integrates Sarvam AI (`bulbul:v3` model) for natural-sounding Indic voice synthesis (English, Hindi, and Telugu) with proper accent pacing. Gracefully falls back to browser-native `speechSynthesis` if disabled.
+- **Adaptive Language Synchronization**: Dynamically matches the language of the user's voice/text question, ignoring global translation settings when the user types or speaks in English.
+- **Clinical Context Access**: Directly queries the database to load clinical findings from patient diagnostic scans and medical record insights, allowing TARS to answer patient queries like *"Using that medical report, do I have cancer?"* without hallucinations.
 
-### 2. 👁️ YOLO Computer Vision & Diagnostics
+### 2. 👁️ YOLO & ViT Computer Vision Diagnostics
 - **Object Detection Overlay**: Visual diagnostic scans (skin mole reports, chest X-rays, etc.) render absolute YOLO bounding boxes (e.g., *Melanoma Risk Area*, *Benign Nevus*, *Clavicle Fracture*) directly over the scanned image in the AI Insights modal.
+- **Vision Model Inference**: Runs Vision Transformers (`vit-skin-disease` and `my_chest_xray_model`) natively on the server CPU for skin classification and lung disease scans, falling back to clinical heuristics on exceptions.
+- **Qwen 3.6 27B Migration**: Replaced deprecated Llama 3.2 Vision models with the active production `qwen/qwen3.6-27b` multimodal model for lightning-fast medical report parsing.
 - **Authenticity Anti-Fraud Scan**: Core heuristics analyze image metadata and document signatures (tampering signatures, Photoshop/GIMP tag detection) to flag manipulated documents. Available via automated file uploads and a manual "Run Anti-Fraud Security Scan" button.
 
 ### 3. 🚨 Geolocation SOS & Emergency Doctor Alerts
@@ -37,9 +41,9 @@ A secure, next-generation AI-powered healthcare platform combining real-time voi
 ### Backend (FastAPI)
 - **Framework**: FastAPI (python 3.11+)
 - **Database**: PostgreSQL (Supabase cloud integration with connection pooling) / SQLite for local fallback
-- **Authentication**: JWT tokens with custom Role-Based Access Control (RBAC)
 - **Notification Services**: Brevo API integration for automated emails
-- **Object Detection**: YOLO-simulated coordinates based on diagnostic tags
+- **Object Detection & Vision**: PyTorch Vision Transformers + YOLO-simulated coordinates based on diagnostic tags
+- **Indic Voice Proxy**: Sarvam AI REST API integration
 
 ### Frontend (React & Vite)
 - **Styling**: Vanilla CSS with modern HSL theme variables
@@ -77,6 +81,7 @@ A secure, next-generation AI-powered healthcare platform combining real-time voi
    DATABASE_URL=your_supabase_url
    DIRECT_DATABASE_URL=your_supabase_direct_url
    GROQ_API_KEY=your_groq_key
+   SARVAM_API_KEY=your_sarvam_key
    BREVO_API_KEY=your_brevo_key
    SECRET_KEY=your_jwt_signing_key
    ```
@@ -114,10 +119,11 @@ cd backend
 python -m pytest -v
 ```
 
-All 6 core test files are verified and pass:
+All 7 core test files are verified and pass:
 - `test_api.py` (Authentication, symptoms analysis, RBAC)
 - `test_calls.py` (LiveKit calling routes)
 - `test_chats_notifications.py` (System notifications logs)
 - `test_feedback.py` (Auditing feedbacks logs)
 - `test_new_endpoints.py` (Whisper, record analysis, online prescriptions, anti-fraud scans)
 - `test_voice_pipeline.py` (TARS WebSocket transcription)
+- `test_imaging_comprehensive.py` (Comprehensive Skin/X-Ray ViT classifier routes and offline heuristics fallbacks)
