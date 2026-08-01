@@ -764,3 +764,86 @@ def switch_role(current_user: models.User = Depends(get_current_user), db: Sessi
         "doctor_profile_id": current_user.doctor_profile_id,
         "message": f"Successfully switched to {current_user.role} mode."
     }
+
+@router.delete("/me")
+def delete_own_account(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        user_id = current_user.id
+        
+        # 1. Delete related PatientProfile
+        db.query(models.PatientProfile).filter(models.PatientProfile.user_id == user_id).delete(synchronize_session=False)
+        
+        # 2. Delete related MedicineReminders
+        db.query(models.MedicineReminder).filter(models.MedicineReminder.user_id == user_id).delete(synchronize_session=False)
+        
+        # 3. Delete related Notifications
+        db.query(models.Notification).filter(models.Notification.user_id == user_id).delete(synchronize_session=False)
+
+        # 4. Delete related call records, participants, logs
+        db.query(models.CallParticipants).filter(models.CallParticipants.user_id == user_id).delete(synchronize_session=False)
+        db.query(models.VideoCallAuditLog).filter(models.VideoCallAuditLog.actor_id == user_id).delete(synchronize_session=False)
+        db.query(models.CallRecord).filter(
+            (models.CallRecord.patient_id == user_id) | 
+            (models.CallRecord.doctor_id == user_id) | 
+            (models.CallRecord.created_by == user_id)
+        ).delete(synchronize_session=False)
+
+        # 5. Delete feedbacks
+        db.query(models.Feedback).filter(
+            (models.Feedback.patient_id == user_id) | 
+            (models.Feedback.doctor_id == user_id)
+        ).delete(synchronize_session=False)
+
+        # 6. Delete Private Conversations and Messages
+        db.query(models.PrivateConversation).filter(
+            (models.PrivateConversation.user1_id == user_id) | 
+            (models.PrivateConversation.user2_id == user_id)
+        ).delete(synchronize_session=False)
+        db.query(models.PrivateMessage).filter(models.PrivateMessage.sender_id == user_id).delete(synchronize_session=False)
+
+        # 7. Delete User Color Palette
+        db.query(models.UserColorPalette).filter(models.UserColorPalette.user_id == user_id).delete(synchronize_session=False)
+
+        # 8. Delete Imaging Diagnostics Scan History
+        db.query(models.MedicalImagingDiagnostic).filter(models.MedicalImagingDiagnostic.user_id == user_id).delete(synchronize_session=False)
+
+        # 9. Find doctor profile if any
+        doc = db.query(models.Doctor).filter(models.Doctor.user_id == user_id).first()
+        if doc:
+            db.query(models.LeaveRequest).filter(models.LeaveRequest.doctor_id == doc.id).delete(synchronize_session=False)
+            db.query(models.Appointment).filter(models.Appointment.doctor_id == doc.id).delete(synchronize_session=False)
+            db.query(models.DoctorVerification).filter(models.DoctorVerification.doctor_id == doc.id).delete(synchronize_session=False)
+            db.delete(doc)
+            
+        db.query(models.Appointment).filter(models.Appointment.patient_id == user_id).delete(synchronize_session=False)
+        db.query(models.SymptomLog).filter(models.SymptomLog.user_id == user_id).delete(synchronize_session=False)
+        db.query(models.MedicalRecord).filter(models.MedicalRecord.user_id == user_id).delete(synchronize_session=False)
+        
+        convs = db.query(models.Conversation).filter(models.Conversation.user_id == user_id).all()
+        for conv in convs:
+            db.query(models.Message).filter(models.Message.conversation_id == conv.id).delete(synchronize_session=False)
+            db.delete(conv)
+            
+        db.query(models.EmergencyAlert).filter(models.EmergencyAlert.patient_id == user_id).delete(synchronize_session=False)
+        db.query(models.Complaint).filter(models.Complaint.user_id == user_id).delete(synchronize_session=False)
+        db.query(models.PatientMetric).filter(models.PatientMetric.user_id == user_id).delete(synchronize_session=False)
+        db.query(models.AuditLog).filter(models.AuditLog.user_id == user_id).delete(synchronize_session=False)
+        
+        # 10. Delete the user model
+        db.delete(current_user)
+        db.commit()
+        
+        return {"status": "success", "message": "Your account and all history have been deleted successfully."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.delete("/users/me")
+def delete_own_account_alt(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return delete_own_account(current_user, db)

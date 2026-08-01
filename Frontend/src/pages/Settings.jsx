@@ -198,6 +198,28 @@ export default function Settings() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const confirmationMsg = "WARNING: Are you absolutely sure you want to permanently delete your account? This will erase all your medical records, diagnostics, reminders, and appointment history. This action is irreversible and cannot be undone!";
+    if (!window.confirm(confirmationMsg)) {
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      setError('');
+      await api.deleteOwnAccount();
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user_role');
+      localStorage.removeItem('is_verified');
+      window.location.href = '/register';
+    } catch (err) {
+      console.error(err);
+      setError("Failed to delete account: " + err.message);
+      setLoading(false);
+    }
+  };
+
   const loadProfile = async () => {
     if (!user) return;
     setLoading(true);
@@ -984,7 +1006,26 @@ export default function Settings() {
             </div>
           </div>
         )}
-      </div>
+      {/* Danger Zone / Delete Account Panel */}
+      {(user?.role === 'patient' || user?.role === 'doctor') && (
+        <div className="bg-white border border-red-200 rounded-2xl shadow-sm overflow-hidden p-lg mt-xl dark:bg-[#1a1a2e]/30 dark:border-red-900/30">
+          <h3 className="text-red-600 dark:text-red-400 font-title-lg text-title-lg mb-xs flex items-center gap-xs">
+            <span className="material-symbols-outlined text-red-600 dark:text-red-400">warning</span>
+            Danger Zone
+          </h3>
+          <p className="text-on-surface-variant font-body-md text-body-md mb-lg">
+            Permanently delete your account and all associated patient records, imaging scans, reminders, notifications, and profile details. Once completed, this action cannot be undone.
+          </p>
+          <button
+            type="button"
+            onClick={handleDeleteAccount}
+            className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors flex items-center gap-xs focus:outline-none shadow-md"
+          >
+            <span className="material-symbols-outlined">delete_forever</span>
+            Delete My Account
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -509,7 +509,7 @@ async def execute_tars_intent(
         "3. You must classify user intent and return a JSON object with 'intent', 'action', 'parameters', 'message', and 'confidence'. The JSON 'confidence' field must always be a valid floating-point number (e.g. 0.95 or 1.0). You must return ONLY the raw JSON object, without any markdown code block formatting (like ```json), without any conversational prefix, suffix, label, or preamble. Do not explain your choices. Your response must be directly parseable as a JSON object. However, you must NEVER mention confidence scores, AI metrics, LLM terms, classification details, or intent/action names within the 'message' field. The 'message' field must remain strictly human-like, conversational, and direct.\n"
         "4. Clinic hours are strictly between 08:00 and 20:00. If the user requests an appointment time outside this window (e.g., at 10pm / 22:00), or if the requested appointment date is less than 2 days in the future (relative to the CURRENT DATE AND TIME provided), you must politely deny the request in the 'message' field (explaining the 2-day advance or clinic hour restriction) and set the 'action' field to an empty string \"\" (do NOT return createAppointment).\n"
         "5. For greetings, symptom checking, or health questions, do NOT execute any action (set the 'action' field to empty string \"\"), and provide a supportive reply or medical advice in the 'message' field. Crucial Medication Rule: If the symptoms represent a mild or low severity condition (like mild fever, minor sore throat, simple cough, mild skin itching), you MUST suggest appropriate, safe over-the-counter (OTC) or mild medicines (such as paracetamol for fever, throat lozenges for sore throat, antihistamines for allergies, or topical calamine/emollients for skin itching) directly inside the message response, while advising them to consult a doctor if symptoms persist.\n"
-        "6. If the user wants to book a visit or find a doctor, and their previous messages or current query relate to a specific organ or condition (like heart/cardiology, skin/dermatology, children/pediatrics, brain/neurology, or general symptoms), specify the appropriate specialization (e.g. 'Cardiology', 'Dermatology', 'Pediatrics', 'Neurology', 'General Medicine') in the 'specialization' parameter of the action (under action: openPage / page_name: appointments).\n"
+        "6. If the user wants to book a visit or find a doctor, and their previous messages or current query relate to a specific organ or condition (like heart/cardiology, skin/dermatology, children/pediatrics, brain/neurology, or general symptoms), specify the appropriate specialization (e.g. 'Cardiology', 'Dermatology', 'Pediatrics', 'Neurology', 'General Medicine') in the 'specialization' parameter of the action (under action: openPage / page_name: appointments). Crucial Mapping Rule: If the user asks for a doctor related to their 'problem', 'record', or 'scan' without specifying the name or department, you MUST check their context reports history. If their recent scan recommended a 'dermatologist' or indicates a skin condition, set the specialization parameter to 'Dermatology'; if a heart scan, set to 'Cardiology'; if child/pediatric, set to 'Pediatrics'; if brain/neurology, set to 'Neurology'; otherwise default to 'General Medicine'.\n"
         "7. If the user's request is incomplete, ambiguous, or lacks required details to execute an action (for example, setting an alarm/reminder without a specified time/purpose, or booking an appointment without a doctor/date/time), you must ask for clarification in the 'message' field and set the 'action' field to an empty string \"\". Do not attempt to guess or execute with default/placeholder parameters unless the user explicitly confirms them.\n"
         f"8. The user's message is detected to be in '{pref_lang}' style. You MUST respond in this language/dialect (e.g., reply in Hinglish if they ask in Hinglish, and reply in Tinglish if they ask in Tinglish, matching their script style).\n"
         "9. For actions that perform database modifications or background operations (like 'createAppointment', 'updatePatient', 'setReminder'), the 'message' field should state that you are *attempting* or *proceeding* to perform the action (e.g., 'I will proceed to book that appointment for you...', 'Updating your location now...', 'Setting a medication reminder...'), rather than asserting that the action has already succeeded, as the actual execution runs asynchronously after your response is returned.\n"
@@ -564,7 +564,8 @@ async def execute_tars_intent(
     if has_gemini:
         try:
             gemini_contents = []
-            for msg in history_msgs[-8:]:
+            # Exclude the latest user message (which is already appended to history_msgs) to avoid duplication
+            for msg in history_msgs[:-1][-7:]:
                 role = "model" if msg.role == "assistant" else "user"
                 content_clean = msg.content
                 if msg.role == "assistant" and "[" in content_clean:
@@ -731,6 +732,26 @@ async def execute_tars_intent(
                 spec = "Neurology"
             elif any(k in msg_lower for k in ["child", "pediatrics", "बच्चा", "పిల్లలు"]):
                 spec = "Pediatrics"
+            
+            # Context-aware fallback: query patient's diagnostic history if specialization not specified in prompt
+            if not spec and current_user.role == "patient":
+                latest_scan = db.query(models.MedicalImagingDiagnostic).filter(
+                    models.MedicalImagingDiagnostic.user_id == current_user.id
+                ).order_by(models.MedicalImagingDiagnostic.created_at.desc()).first()
+                if latest_scan and latest_scan.recommended_specialist:
+                    spec_map = {
+                        "dermatologist": "Dermatology",
+                        "dermatology": "Dermatology",
+                        "cardiologist": "Cardiology",
+                        "cardiology": "Cardiology",
+                        "neurologist": "Neurology",
+                        "neurology": "Neurology",
+                        "pediatrician": "Pediatrics",
+                        "pediatrics": "Pediatrics",
+                        "general": "General Medicine"
+                    }
+                    spec = spec_map.get(latest_scan.recommended_specialist.lower().strip(), "")
+                    
             action_params = {"page_name": "appointments", "specialization": spec}
             if spec:
                 message = trans["appointments_spec"].format(spec=spec)

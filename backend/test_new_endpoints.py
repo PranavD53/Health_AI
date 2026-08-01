@@ -310,6 +310,17 @@ def test_new_endpoints():
         del_conv_resp = client.delete(f"/chats/conversations/{conversation_id}", headers=patient_headers)
         assert del_conv_resp.status_code == 200, del_conv_resp.text
 
+        # 11. Test account self-deletion (/auth/me)
+        print("Testing DELETE /auth/me...")
+        self_del_resp = client.delete("/auth/me", headers=patient_headers)
+        assert self_del_resp.status_code == 200, self_del_resp.text
+        # Verify login now fails
+        login_fail_resp = client.post("/auth/login", json={
+            "email": "test_patient@example.com",
+            "password": "SecurePassword123"
+        })
+        assert login_fail_resp.status_code != 200, "User login succeeded after self-deletion"
+
         print("\n=== NEW ENDPOINTS TESTS PASSED SUCCESSFULLY ===")
 
     except AssertionError as e:

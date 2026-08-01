@@ -879,5 +879,13 @@ export const api = {
       headers: getHeaders()
     });
     return handleResponse(res);
+  },
+  
+  deleteOwnAccount: async () => {
+    const res = await apiFetch('/auth/me', {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    return handleResponse(res);
   }
 };
