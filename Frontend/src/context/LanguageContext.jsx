@@ -410,7 +410,72 @@ export const translations = {
     forgotVerifyError: "Invalid OTP code. Please retry.",
     loginErrorMsg: "Failed to login. Please check credentials.",
     otpResendSuccess: "A verification code has been resent to your email address.",
-    otpResendFailed: "Failed to resend verification code."
+    otpResendFailed: "Failed to resend verification code.",
+    primaryFindingLabel: "Primary Finding",
+    severityLevelLabel: "Severity Level",
+    clinicalRecommendationLabel: "Clinical Recommendation",
+    confidenceLabel: "Confidence",
+    medicineReminders: "Medicine Reminders",
+    medicineName: "Medicine Name",
+    dosageLabel: "Dosage",
+    notifyVia: "Notify Via",
+    contactInfoOptional: "Contact Info (Optional)",
+    addReminder: "Add Reminder",
+    noMedicineRemindersConfigured: "No medicine reminders configured.",
+    yourScheduleLog: "Your Schedule Log",
+    inAppNotification: "In-App Notification",
+    emailAlert: "Email Alert",
+    smsAlert: "SMS Alert",
+    recentActivity: "Recent Activity",
+    allSpecialities: "All Specialities",
+    showAvailableOnly: "Show Available Only",
+    noSpecialistsFound: "No specialists found matching your filter criteria.",
+    yearsExperience: "Years Experience",
+    reviews: "reviews",
+    locationLabel: "Location",
+    emailLabel: "Email",
+    addressLabel: "Address",
+    clinicalDetailsGuidelines: "Clinical Details & Guidelines",
+    available: "Available",
+    unavailable: "Unavailable",
+    scheduleConsultation: "Schedule Consultation",
+    appointmentRequested: "Appointment Requested!",
+    appointmentScheduledSuccess: "Your visit has been scheduled successfully.",
+    selectConsultationDate: "Select Consultation Date",
+    selectTimeSlot: "Select Time Slot",
+    noSlotsAvailable: "No slots available for today",
+    confirmBooking: "Confirm Booking",
+    reviewsFor: "Reviews for",
+    specialist: "specialist",
+    loadingReviews: "Loading reviews...",
+    comm: "Comm",
+    ethics: "Ethics",
+    recordsSubtitle: "Store, organize, and view your diagnostic reports and medical files with secure backup.",
+    yourUploadedRecords: "Your Uploaded Records",
+    noMedicalRecords: "No medical records uploaded yet.",
+    uploadInstruction: "Select a file on the right side panel to upload your first report.",
+    uploadedLabel: "Uploaded",
+    scanLabel: "Scan",
+    scanning: "Scanning...",
+    verified: "Verified",
+    runAntiFraud: "Run Anti-Fraud",
+    aiInsights: "AI Insights",
+    viewFile: "View File",
+    delete: "Delete",
+    uploadDocument: "Upload Document",
+    selectPdfOrImage: "Select PDF or Image file",
+    maxSize: "Max size",
+    uploadReport: "Upload Report",
+    tarsClinicalAiInsights: "TARS Clinical AI Insights",
+    analyzing: "Analyzing",
+    tarsReadingReport: "TARS is reading your report and consulting medical models...",
+    yoloAnalysis: "Diagnostic Scan YOLO Analysis",
+    clinicalFindings: "Clinical Findings & Conditions",
+    suggestedMedications: "Suggested Medications",
+    noAnalysisData: "No analysis data available.",
+    autoGenerateReminders: "Auto-generate Reminders",
+    generating: "Generating...",
+    done: "Done"
   },
   hi: {
     // Nav / Sidebar
@@ -816,7 +881,72 @@ export const translations = {
     forgotVerifyError: "अमान्य ओटीपी कोड। कृपया पुनः प्रयास करें।",
     loginErrorMsg: "लॉगिन करने में विफल। कृपया क्रेडेंशियल जांचें।",
     otpResendSuccess: "सत्यापन कोड आपके ईमेल पते पर पुनः भेज दिया गया है।",
-    otpResendFailed: "सत्यापन कोड पुनः भेजने में विफल।"
+    otpResendFailed: "सत्यापन कोड पुनः भेजने में विफल।",
+    primaryFindingLabel: "मुख्य निष्कर्ष",
+    severityLevelLabel: "गंभीरता का स्तर",
+    clinicalRecommendationLabel: "नैदानिक सिफारिश",
+    confidenceLabel: "आत्मविश्वास",
+    medicineReminders: "दवा अनुस्मारक",
+    medicineName: "दवा का नाम",
+    dosageLabel: "खुराक",
+    notifyVia: "इसके माध्यम से सूचित करें",
+    contactInfoOptional: "संपर्क जानकारी (वैकल्पिक)",
+    addReminder: "अनुस्मारक जोड़ें",
+    noMedicineRemindersConfigured: "कोई दवा अनुस्मारक कॉन्फ़िगर नहीं किया गया है।",
+    yourScheduleLog: "आपकी अनुसूची लॉग",
+    inAppNotification: "इन-ऐप अधिसूचना",
+    emailAlert: "ईमेल अलर्ट",
+    smsAlert: "एसएमएस अलर्ट",
+    recentActivity: "हाल की गतिविधि",
+    allSpecialities: "सभी विशेषज्ञताएं",
+    showAvailableOnly: "केवल उपलब्ध दिखाएं",
+    noSpecialistsFound: "आपके फ़िल्टर मानदंडों से मेल खाने वाले कोई विशेषज्ञ नहीं मिले।",
+    yearsExperience: "वर्षों का अनुभव",
+    reviews: "समीक्षाएं",
+    locationLabel: "स्थान",
+    emailLabel: "ईमेल",
+    addressLabel: "पता",
+    clinicalDetailsGuidelines: "नैदानिक विवरण और दिशानिर्देश",
+    available: "उपलब्ध",
+    unavailable: "अनुपलब्ध",
+    scheduleConsultation: "परामर्श निर्धारित करें",
+    appointmentRequested: "अपॉइंटमेंट का अनुरोध किया गया!",
+    appointmentScheduledSuccess: "आपकी मुलाकात सफलतापूर्वक निर्धारित हो गई है।",
+    selectConsultationDate: "परामर्श तिथि चुनें",
+    selectTimeSlot: "समय स्लॉट चुनें",
+    noSlotsAvailable: "आज कोई स्लॉट उपलब्ध नहीं है",
+    confirmBooking: "बुकिंग की पुष्टि करें",
+    reviewsFor: "के लिए समीक्षाएं",
+    specialist: "विशेषज्ञ",
+    loadingReviews: "समीक्षाएं लोड हो रही हैं...",
+    comm: "कम्यूनिकेशन",
+    ethics: "नैतिकता",
+    recordsSubtitle: "सुरक्षित बैकअप के साथ अपने नैदानिक रिपोर्ट और चिकित्सा फ़ाइलों को संग्रहीत, व्यवस्थित और देखें।",
+    yourUploadedRecords: "आपके अपलोड किए गए रिकॉर्ड",
+    noMedicalRecords: "अभी तक कोई चिकित्सा रिकॉर्ड अपलोड नहीं किया गया है।",
+    uploadInstruction: "अपनी पहली रिपोर्ट अपलोड करने के लिए दाएं पैनल पर एक फ़ाइल चुनें।",
+    uploadedLabel: "अपलोड किया गया",
+    scanLabel: "स्कैन",
+    scanning: "स्कैन किया जा रहा है...",
+    verified: "सत्यापित",
+    runAntiFraud: "एंटी-फ्रॉड चलाएं",
+    aiInsights: "एआई अंतर्दृष्टि",
+    viewFile: "फ़ाइल देखें",
+    delete: "हटाएं",
+    uploadDocument: "दस्तावेज़ अपलोड करें",
+    selectPdfOrImage: "पीडीएफ या छवि फ़ाइल चुनें",
+    maxSize: "अधिकतम आकार",
+    uploadReport: "रिपोर्ट अपलोड करें",
+    tarsClinicalAiInsights: "टार्स क्लिनिकल एआई अंतर्दृष्टि",
+    analyzing: "विश्लेषण किया जा रहा है",
+    tarsReadingReport: "टार्स आपकी रिपोर्ट पढ़ रहा है और चिकित्सा मॉडलों से परामर्श कर रहा है...",
+    yoloAnalysis: "नैदानिक स्कैन योलो विश्लेषण",
+    clinicalFindings: "नैदानिक निष्कर्ष और स्थितियां",
+    suggestedMedications: "सुझाई गई दवाएं",
+    noAnalysisData: "कोई विश्लेषण डेटा उपलब्ध नहीं है।",
+    autoGenerateReminders: "अनुस्मारक स्वतः उत्पन्न करें",
+    generating: "उत्पन्न किया जा रहा है...",
+    done: "हो गया"
   },
   te: {
     // Nav / Sidebar
@@ -1222,7 +1352,72 @@ export const translations = {
     forgotVerifyError: "చెల్లని OTP కోడ్. దయచేసి మళ్లీ ప్రయత్నించండి.",
     loginErrorMsg: "లాగిన్ విఫలమైంది. దయచేసి ఆధారాలను తనిఖీ చేయండి.",
     otpResendSuccess: "మీ ఇమెయిల్ చిరునామాకు ధృవీకరణ కోడ్ మళ్లీ పంపబడింది.",
-    otpResendFailed: "ధృవీకరణ కోడ్ మళ్లీ పంపడం విఫలమైంది."
+    otpResendFailed: "ధృవీకరణ కోడ్ మళ్లీ పంపడం విఫలమైంది.",
+    primaryFindingLabel: "ముఖ్యమైన ఫలితం",
+    severityLevelLabel: "తీవ్రత స్థాయి",
+    clinicalRecommendationLabel: "వైద్య రికమండేషన్",
+    confidenceLabel: "విశ్వసనీయత",
+    medicineReminders: "మందుల రిమైండర్లు",
+    medicineName: "మందు పేరు",
+    dosageLabel: "మోతాదు",
+    notifyVia: "దీని ద్వారా తెలియజేయండి",
+    contactInfoOptional: "సంప్రదింపు సమాచారం (ఐచ్ఛికం)",
+    addReminder: "రిమైండర్ జోడించు",
+    noMedicineRemindersConfigured: "మందుల రిమైండర్లు ఏవీ కాన్ఫిగర్ చేయబడలేదు.",
+    yourScheduleLog: "మీ షెడ్యూల్ లాగ్",
+    inAppNotification: "ఇన్-యాప్ నోటిఫికేషన్",
+    emailAlert: "ఇమెయిల్ హెచ్చరిక",
+    smsAlert: "SMS హెచ్చరిక",
+    recentActivity: "ఇటీవలి కార్యాచరణ",
+    allSpecialities: "అన్ని ప్రత్యేకతలు",
+    showAvailableOnly: "అందుబాటులో ఉన్నవి మాత్రమే చూపించు",
+    noSpecialistsFound: "మీ ఫిల్టర్ ప్రమాణాలకు సరిపోయే నిపుణులు ఎవరూ కనుగొనబడలేదు.",
+    yearsExperience: "సంవత్సరాల అనుభవం",
+    reviews: "సమీక్షలు",
+    locationLabel: "స్థానం",
+    emailLabel: "ఇమెయిల్",
+    addressLabel: "చిరునామా",
+    clinicalDetailsGuidelines: "క్లినికల్ వివరాలు & మార్గదర్శకాలు",
+    available: "అందుబాటులో ఉంది",
+    unavailable: "అందుబాటులో లేదు",
+    scheduleConsultation: "సంప్రదింపులను షెడ్యూల్ చేయి",
+    appointmentRequested: "అపాయింట్‌మెంట్ అభ్యర్థించబడింది!",
+    appointmentScheduledSuccess: "మీ సందర్శన విజయవంతంగా షెడ్యూల్ చేయబడింది.",
+    selectConsultationDate: "సంప్రదింపు తేదీని ఎంచుకోండి",
+    selectTimeSlot: "సమయ స్లాట్‌ను ఎంచుకోండి",
+    noSlotsAvailable: "ఈ రోజుకు స్లాట్లు అందుబాటులో లేవు",
+    confirmBooking: "బుకింగ్ నిర్ధారించు",
+    reviewsFor: "సమీక్షలు",
+    specialist: "నిపుణుడు",
+    loadingReviews: "సమీక్షలను లోడ్ చేస్తోంది...",
+    comm: "కమ్యూనికేషన్",
+    ethics: "నీతి",
+    recordsSubtitle: "సురక్షితమైన బ్యాకప్‌తో మీ రోగనిర్ధారణ నివేదికలను మరియు వైద్య ఫైల్‌లను నిల్వ చేయండి, నిర్వహించండి మరియు వీక్షించండి.",
+    yourUploadedRecords: "మీరు అప్‌లోడ్ చేసిన రికార్డులు",
+    noMedicalRecords: "వైద్య రికార్డులు ఏవీ ఇంకా అప్‌లోడ్ చేయబడలేదు.",
+    uploadInstruction: "మీ మొదటి నివేదికను అప్‌లోడ్ చేయడానికి కుడి వైపు ప్యానెల్‌లో ఒక ఫైల్‌ను ఎంచుకోండి.",
+    uploadedLabel: "అప్‌లోడ్ చేయబడింది",
+    scanLabel: "స్కాన్",
+    scanning: "స్కాన్ చేస్తోంది...",
+    verified: "ధృవీకరించబడింది",
+    runAntiFraud: "యాంటీ-ఫ్రాడ్ రన్ చేయి",
+    aiInsights: "AI అంతర్దృష్టులు",
+    viewFile: "ఫైల్ చూడండి",
+    delete: "తొలగించు",
+    uploadDocument: "పత్రాన్ని అప్‌లోడ్ చేయి",
+    selectPdfOrImage: "PDF లేదా ఇమేజ్ ఫైల్‌ను ఎంచుకోండి",
+    maxSize: "గరిష్ట పరిమాణం",
+    uploadReport: "నివేదికను అప్‌లోడ్ చేయి",
+    tarsClinicalAiInsights: "TARS క్లినికల్ AI అంతర్దృష్టులు",
+    analyzing: "విశ్లేషిస్తోంది",
+    tarsReadingReport: "TARS మీ నివేదికను చదువుతోంది మరియు వైద్య నమూనాలను సంప్రదిస్తోంది...",
+    yoloAnalysis: "డయాగ్నోస్టిక్ స్కాన్ YOLO విశ్లేషణ",
+    clinicalFindings: "క్లినికల్ ఫలితాలు & పరిస్థితులు",
+    suggestedMedications: "సూచించబడిన మందులు",
+    noAnalysisData: "విశ్లేషణ డేటా అందుబాటులో లేదు.",
+    autoGenerateReminders: "రిమైండర్లను ఆటోమేటిక్‌గా సృష్టించు",
+    generating: "సృష్టిస్తోంది...",
+    done: "పూర్తయింది"
   }
 };
 
@@ -1243,8 +1438,26 @@ const nameTranslations = {
     "urgent medical leave": "आपातकालीन चिकित्सा अवकाश",
     "family issues": "पारिवारिक मुद्दे",
     "urgent surgery: reassign": "आपातकालीन सर्जरी: पुनः सौंपें",
-    "no upcoming patient visits scheduled.": "कोई आगामी रोगी नियुक्तियाँ निर्धारित नहीं हैं।",
-    "no consultation reminders configured.": "कोई परामर्श अनुस्मारक कॉन्फ़िगर नहीं किया गया है।"
+    "no upcoming patient visits scheduled.": "कोई आगामी रोगी नियुक्तियाँ निर्धारित हैं।",
+    "no consultation reminders configured.": "कोई परामर्श अनुस्मारक कॉन्फ़िगर नहीं किया गया है।",
+    "contact dermatitis / eczema": "संपर्क जिल्द की सूजन / एक्जिमा (Contact Dermatitis / Eczema)",
+    "acute pharyngitis": "तीव्र ग्रसनीशोथ (Acute Pharyngitis)",
+    "normal chest radiograph": "सामान्य छाती का एक्स-रे (Normal Chest Radiograph)",
+    "normal scan": "सामान्य स्कैन (Normal Scan)",
+    "eczema": "एक्जिमा",
+    "normal throat": "सामान्य गला",
+    "throat redness": "गले की लालिमा",
+    "visual inspection indicates localized dermatological lesions. moderate epidermal erythema and hyperpigmented borders are observed. the lesion displays distinct asymmetrical margins and minor scaling. recommend differential diagnosis for contact dermatitis, eczema, or localized fungal infection. patient advised to avoid scratching and apply soothing emollient (such as calamine lotion or mild hydrocortisone 1% cream topically twice daily as needed).": "दृश्य निरीक्षण स्थानीयकृत त्वचा संबंधी घावों को दर्शाता है। मध्यम बाह्यत्वचा एरिथेमा और हाइपरपिग्मेंटेड बॉर्डर देखे जाते हैं। घाव स्पष्ट असममित मार्जिन और मामूली स्केलिंग प्रदर्शित करता है। संपर्क जिल्द की सूजन, एक्जिमा, या स्थानीयकृत फंगल संक्रमण के लिए अंतर निदान की सिफारिश की जाती है। रोगी को खुजली से बचने और सुखदायक कम करने वाले (जैसे कैलामाइन लोशन या हल्के हाइड्रोकार्टिसोन 1% क्रीम को जरूरत के अनुसार दिन में दो बार शीर्ष पर लगाने) की सलाह दी जाती है।",
+    "posterior pharyngeal wall shows significant vascular congestion and diffuse erythema. tonsillar swelling is mild (grade 1) with no visible purulent exudate or cobblestoning. slight uvular inflammation noted. findings are highly consistent with acute viral pharyngitis. recommend warm saline rinses, adequate hydration, and symptomatic monitoring. suggested otc medicines: throat lozenges every 4 hours for irritation, and paracetamol (500mg up to 3 times daily as needed) for mild soreness.": "पीछे की ग्रसनी दीवार महत्वपूर्ण संवहनी जमाव और विसरित लालिमा दिखाती है। टॉन्सिलर सूजन हल्की (ग्रेड 1) है जिसमें कोई दृश्यमान मवाद या कोबलेस्टोनिंग नहीं है। यूवुला में हल्की सूजन देखी गई। निष्कर्ष तीव्र वायरल ग्रसनीशोथ के साथ अत्यधिक सुसंगत हैं। गर्म खारे पानी से कुल्ला करने, पर्याप्त जलयोजन और रोगसूचक निगरानी की सिफारिश की जाती है। सुझाई गई ओटीसी दवाएं: जलन के लिए हर 4 घंटे में गले की गोलियां, और हल्के दर्द के लिए पैरासिटामोल (500 मिलीग्राम आवश्यकतानुसार दैनिक 3 बार तक)।",
+    "chest/skeletal radiograph analyzed. lungs demonstrate clear aeration bilateral. no consolidation, pleural effusion, or active airspace disease detected. cardiomediastinal silhouette and hila are within normal limits. skeletal structures show normal alignment with no obvious signs of acute fracture or subluxation. findings suggest normal respiratory and osseous structures. no prescription medications required. maintain normal health monitoring.": "छाती/कंकाल रेडियोग्राफ का विश्लेषण किया गया। फेफड़े दोनों तरफ स्पष्ट वातन प्रदर्शित करते हैं। कोई संपीड़न, फुफ्फुस प्रवाह, या सक्रिय वायुमार्ग रोग नहीं पाया गया। कार्डियोमीडियास्टिनल सिल्हूट और हिला सामान्य सीमा के भीतर हैं। कंकाल संरचनाएं सामान्य संरेखण दिखाती हैं जिसमें तीव्र फ्रैक्चर या सब्लक्सेशन का कोई स्पष्ट संकेत नहीं है। निष्कर्ष सामान्य श्वसन और अस्थि संरचनाओं का सुझाव देते हैं। किसी प्रिस्क्रिप्शन दवा की आवश्यकता नहीं है। सामान्य स्वास्थ्य निगरानी बनाए रखें।",
+    "preliminary clinical imaging scan processed. general structural integrity of the target region appears unremarkable, with no clear anomalies or acute pathology visible. further specific diagnostic examinations may be required if clinical symptoms persist. mild symptoms may be managed with standard over-the-counter pain relievers or topical emollients as appropriate.": "प्रारंभिक नैदानिक इमेजिंग स्कैन संसाधित किया गया। लक्षित क्षेत्र की सामान्य संरचनात्मक अखंडता सामान्य प्रतीत होती है, जिसमें कोई स्पष्ट विसंगति या तीव्र विकृति दिखाई नहीं दे रही है। यदि नैदानिक लक्षण बने रहते हैं तो आगे विशिष्ट नैदानिक परीक्षाओं की आवश्यकता हो सकती है। हल्के लक्षणों को आवश्यकतानुसार मानक ओवर-द-काउंटर दर्द निवारक या सामयिक मलहम के साथ प्रबंधित किया जा सकता है।",
+    "apply soothing calamine lotion or mild hydrocortisone 1% cream topically twice daily as needed. avoid scratching.": "ज़रूरत के अनुसार दिन में दो बार सुखदायक कैलामाइन लोशन या हल्की हाइड्रोकार्टिसोन 1% क्रीम शीर्ष पर लगाएं। खुजली से बचें।",
+    "warm saline gargles, throat lozenges every 4 hours, and paracetamol 500mg up to 3 times daily as needed.": "गर्म खारे पानी के गरारे, हर 4 घंटे में गले की गोलियां, और आवश्यकतानुसार दिन में 3 बार तक पैरासिटामोल 500 मिलीग्राम।",
+    "no active airspace disease or fracture detected. maintain routine health checks.": "कोई सक्रिय वायुमार्ग रोग या फ्रैक्चर नहीं पाया गया। नियमित स्वास्थ्य जांच बनाए रखें।",
+    "no acute pathology visible. follow up if symptoms persist.": "कोई तीव्र विकृति दिखाई नहीं दे रही है। यदि लक्षण बने रहते हैं तो अनुवर्ती कार्रवाई करें।",
+    "standard clinical disclaimer: this ai-generated report is for informational purposes only. it does not replace professional medical advice, diagnosis, or treatment. please consult a qualified healthcare provider before starting any new medication or treatment plan.": "मानक नैदानिक अस्वीकरण: यह एआई-जनित रिपोर्ट केवल सूचनात्मक उद्देश्यों के लिए है। यह पेशेवर चिकित्सा सलाह, निदान या उपचार को प्रतिस्थापित नहीं करती है। कृपया कोई भी नई दवा या उपचार योजना शुरू करने से पहले एक योग्य स्वास्थ्य सेवा प्रदाता से परामर्श लें।",
+    "welcome": "स्वागत",
+    "account initialized. no appointments booked yet.": "खाता प्रारंभ किया गया। अभी तक कोई अपॉइंटमेंट बुक नहीं किया गया है।"
   },
   te: {
     "sarah johnson": "సారా జాన్సన్",
@@ -1263,7 +1476,25 @@ const nameTranslations = {
     "family issues": "కుటుంబ సమస్యలు",
     "urgent surgery: reassign": "అత్యవసర శస్త్రచికిత్స: తిరిగి కేటాయించు",
     "no upcoming patient visits scheduled.": "రాబోయే రోగి సందర్శనలు ఏవీ షెడ్యూల్ చేయబడలేదు.",
-    "no consultation reminders configured.": "సంప్రదింపుల రిమైండర్‌లు ఏవీ కాన్ఫిగర్ చేయబడలేదు."
+    "no consultation reminders configured.": "సంప్రదింపుల రిమైండర్‌లు ఏవీ కాన్గర్ చేయబడలేదు.",
+    "contact dermatitis / eczema": "కాంటాక్ట్ డెర్మటైటిస్ / తామర (Eczema)",
+    "acute pharyngitis": "తీవ్రమైన ఫారింజైటిస్ (Acute Pharyngitis)",
+    "normal chest radiograph": "సాధారణ ఛాతీ ఎక్స్-రే (Normal Chest Radiograph)",
+    "normal scan": "సాధారణ స్కాన్ (Normal Scan)",
+    "eczema": "తామర (Eczema)",
+    "normal throat": "సాధారణ గొంతు",
+    "throat redness": "గొంతు ఎరుపు",
+    "visual inspection indicates localized dermatological lesions. moderate epidermal erythema and hyperpigmented borders are observed. the lesion displays distinct asymmetrical margins and minor scaling. recommend differential diagnosis for contact dermatitis, eczema, or localized fungal infection. patient advised to avoid scratching and apply soothing emollient (such as calamine lotion or mild hydrocortisone 1% cream topically twice daily as needed).": "దృశ్య తనిఖీ స్థానికీకరించిన చర్మ సంబంధిత గాయాలను సూచిస్తుంది. మితమైన ఎపిడెర్మల్ ఎరిథీమా మరియు హైపర్‌పిగ్మెంటెడ్ అంచులు గమనించబడ్డాయి. గాయం స్పష్టమైన అసమాన అంచులు మరియు చిన్న పొలుసులను ప్రదర్శిస్తుంది. కాంటాక్ట్ డెర్మటైటిస్, తామర లేదా స్థానికీకరించిన ఫంగల్ ఇన్ఫెక్షన్ కోసం డిఫరెన్షియల్ డయాగ్నసిస్ సిఫార్సు చేయబడింది. రోగి గోకడం నివారించాలని మరియు అవసరమైనప్పుడు రోజుకు రెండుసార్లు ఓదార్పు ఎమోలియెంట్‌ను (కాలామైన్ లోషన్ లేదా తేలికపాటి హైడ్రోకార్టిసోన్ 1% క్రీమ్ వంటివి) అప్లై చేయాలని సూచించబడింది.",
+    "posterior pharyngeal wall shows significant vascular congestion and diffuse erythema. tonsillar swelling is mild (grade 1) with no visible purulent exudate or cobblestoning. slight uvular inflammation noted. findings are highly consistent with acute viral pharyngitis. recommend warm saline rinses, adequate hydration, and symptomatic monitoring. suggested otc medicines: throat lozenges every 4 hours for irritation, and paracetamol (500mg up to 3 times daily as needed) for mild soreness.": "వెనుక ఫారింజియల్ గోడ గణనీయమైన వాస్కులర్ రద్దీ మరియు విస్తరించిన ఎరిథీమాను చూపుతుంది. టాన్సిలర్ వాపు తేలికపాటిగా (గ్రేట్ 1) ఉంది, ఎటువంటి చీము లేదా బొబ్బలు కనిపించలేదు. స్వల్ప యువులార్ మంట గమనించబడింది. ఫలితాలు తీవ్రమైన వైరల్ ఫారింజైటిస్‌తో ఎక్కువగా సరిపోలుతున్నాయి. వెచ్చని సెలైన్ శుభ్రం చేయుట, తగినంత హైడ్రేషన్ మరియు రోగలక్షణ పర్యవేక్షణ సిఫార్సు చేయబడింది. సూచించబడిన OTC మందులు: చికాకు కోసం ప్రతి 4 గంటలకొకసారి గొంతు మాత్రలు, మరియు తేలికపాటి గొంతు నొప్పి కోసం పారాసిటమాల్ (500mg అవసరమైన విధంగా రోజుకు 3 సార్లు).",
+    "chest/skeletal radiograph analyzed. lungs demonstrate clear aeration bilateral. no consolidation, pleural effusion, or active airspace disease detected. cardiomediastinal silhouette and hila are within normal limits. skeletal structures show normal alignment with no obvious signs of acute fracture or subluxation. findings suggest normal respiratory and osseous structures. no prescription medications required. maintain normal health monitoring.": "ఛాతీ/అస్థిపంజర రేడియోగ్రాఫ్ విశ్లేషించబడింది. ఊపిరితిత్తులు రెండు వైపులా స్పష్టమైన గాలి ప్రసరణను ప్రదర్శిస్తాయి. ఎటువంటి ద్రవం చేరడం, ప్లూరల్ ఎఫ్యూషన్ లేదా క్రియాశీల ఎయిర్‌స్పేస్ వ్యాధి కనుగొనబడలేదు. కార్డియోమీడియాస్టినల్ సిల్హౌట్ మరియు హిలా సాధారణ పరిమితుల్లో ఉన్నాయి. అస్థిపంజర నిర్మాణాలు తీవ్రమైన పగుళ్లు లేదా సబ్‌లక్సేషన్ యొక్క స్పష్టమైన సంకేతాలు లేకుండా సాధారణ అమరికను చూపుతాయి. ఫలితాలు సాధారణ శ్వాసకోశ మరియు ఎముక నిర్మాణాలను సూచిస్తున్నాయి. ప్రిస్క్రిప్షన్ మందులు అవసరం లేదు. సాధారణ ఆరోగ్య పర్యవేక్షణను నిర్వహించండి.",
+    "preliminary clinical imaging scan processed. general structural integrity of the target region appears unremarkable, with no clear anomalies or acute pathology visible. further specific diagnostic examinations may be required if clinical symptoms persist. mild symptoms may be managed with standard over-the-counter pain relievers or topical emollients as appropriate.": "ప్రాథమిక క్లినికల్ ఇమేజింగ్ స్కాన్ ప్రాసెస్ చేయబడింది. లక్ష్య ప్రాంతం యొక్క సాధారణ నిర్మాణాత్మక సమగ్రత సాధారణమైనదిగా కనిపిస్తుంది, ఎటువంటి స్పష్టమైన అసాధారణతలు లేదా తీవ్రమైన వ్యాధి కనిపించదు. క్లినికల్ లక్షణాలు కొనసాగితే మరింత నిర్దిష్ట రోగనిర్ధారణ పరీక్షలు కావచ్చు. తేలికపాటి లక్షణాలను అవసరమైన విధంగా ప్రామాణిక ఓవర్-ది-కౌంటర్ నొప్పి నివారణలు లేదా సమయోచిత లేపనాలతో నిర్వహించవచ్చు.",
+    "apply soothing calamine lotion or mild hydrocortisone 1% cream topically twice daily as needed. avoid scratching.": "అవసరమైన విధంగా రోజుకు రెండుసార్లు కాలామైన్ లోషన్ లేదా తేలికపాటి హైడ్రోకార్టిసోన్ 1% క్రీమ్ అప్లై చేయండి. గోకడం నివారించండి.",
+    "warm saline gargles, throat lozenges every 4 hours, and paracetamol 500mg up to 3 times daily as needed.": "వెచ్చని సెలైన్ గార్గ్లింగ్, ప్రతి 4 గంటలకొకసారి గొంతు మాత్రలు, మరియు అవసరమైన విధంగా రోజుకు 3 సార్లు పారాసిటమాల్ 500mg.",
+    "no active airspace disease or fracture detected. maintain routine health checks.": "ఎటువంటి క్రియాశీల ఎయిర్‌స్పేస్ వ్యాధి లేదా పగుళ్లు కనుగొనబడలేదు. సాధారణ ఆరోగ్య పరీక్షలను నిర్వహించండి.",
+    "no acute pathology visible. follow up if symptoms persist.": "ఎటువంటి తీవ్రమైన వ్యాధి కనిపించదు. లక్షణాలు కొనసాగితే తదుపరి సంప్రదింపులు జరపండి.",
+    "standard clinical disclaimer: this ai-generated report is for informational purposes only. it does not replace professional medical advice, diagnosis, or treatment. please consult a qualified healthcare provider before starting any new medication or treatment plan.": "ప్రాథమిక క్లినికల్ నిరాకరణ: ఈ AI-ఉత్పత్తి చేసిన నివేదిక సమాచార ప్రయోజనాల కోసం మాత్రమే. ఇది వృత్తిపరమైన వైద్య సలహా, నిర్ధారణ లేదా చికిత్సకు ప్రత్యామ్నాయం కాదు. దయచేసి ఏదైనా కొత్త మందులు లేదా చికిత్స ప్రణాళికను ప్రారంభించే ముందు అర్హత కలిగిన ఆరోగ్య సంరక్షణ ప్రదాతని సంప్రదించండి.",
+    "welcome": "స్వాగతం",
+    "account initialized. no appointments booked yet.": "ఖాతా ప్రారంభించబడింది. ఇంకా అపాయింట్‌మెంట్‌లు బుక్ చేయబడలేదు."
   }
 };
 
@@ -1319,8 +1550,41 @@ export const LanguageProvider = ({ children }) => {
     return translations['en'][key] || key;
   };
 
+  const translateClinicalText = (text) => {
+    if (!text) return '';
+    const paragraphs = text.split('\n');
+    return paragraphs.map(para => {
+      const trimmed = para.trim();
+      if (!trimmed) return '';
+      
+      if (trimmed.startsWith('Primary Finding:')) {
+        let val = trimmed.replace('Primary Finding:', '').trim();
+        let confidenceStr = '';
+        const confMatch = val.match(/\\(Confidence:\\s*(\\d+(\\.\\d+)?%)\\)/i) || val.match(/\(Confidence:\s*(\d+(\.\d+)?%)\)/i);
+        if (confMatch) {
+          const confidenceLabel = t('confidenceLabel') || 'Confidence';
+          confidenceStr = ` (${confidenceLabel}: ${confMatch[1]})`;
+          val = val.replace(confMatch[0], '').trim();
+        }
+        const label = t('primaryFindingLabel') || 'Primary Finding';
+        return `${label}: ${t(val)}${confidenceStr}`;
+      }
+      if (trimmed.startsWith('Severity Level:')) {
+        const val = trimmed.replace('Severity Level:', '').trim();
+        const label = t('severityLevelLabel') || 'Severity Level';
+        return `${label}: ${t(val)}`;
+      }
+      if (trimmed.startsWith('Clinical Recommendation:')) {
+        const val = trimmed.replace('Clinical Recommendation:', '').trim();
+        const label = t('clinicalRecommendationLabel') || 'Clinical Recommendation';
+        return `${label}: ${t(val)}`;
+      }
+      return t(trimmed);
+    }).join('\n');
+  };
+
   return (
-    <LanguageContext.Provider value={{ currentLanguage, setCurrentLanguage, t }}>
+    <LanguageContext.Provider value={{ currentLanguage, setCurrentLanguage, t, translateClinicalText }}>
       {children}
     </LanguageContext.Provider>
   );

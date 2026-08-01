@@ -4,7 +4,7 @@ import { resolveMediaUrl } from '../utils/apiConfig';
 import { useLanguage } from '../context/LanguageContext';
 
 export default function MedicalRecords() {
-  const { t } = useLanguage();
+  const { t, currentLanguage, translateClinicalText } = useLanguage();
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -26,10 +26,10 @@ export default function MedicalRecords() {
     setRemindersSuccessMsg('');
     try {
       const res = await api.generateRemindersFromPrescription(selectedRecord.id);
-      setRemindersSuccessMsg(`Generated ${res.reminders_count || 0} reminders!`);
+      setRemindersSuccessMsg(currentLanguage === 'hi' ? `${res.reminders_count || 0} अनुस्मारक उत्पन्न किए गए!` : currentLanguage === 'te' ? `${res.reminders_count || 0} రిమైండర్లు సృష్టించబడ్డాయి!` : `Generated ${res.reminders_count || 0} reminders!`);
       window.dispatchEvent(new Event('reminders_updated'));
     } catch (err) {
-      alert("Failed to generate reminders: " + err.message);
+      alert((currentLanguage === 'hi' ? "अनुस्मारक उत्पन्न करने में विफल: " : currentLanguage === 'te' ? "రిమైండర్లను సృష్టించడం విఫలమైంది: " : "Failed to generate reminders: ") + err.message);
     } finally {
       setGenRemindersLoading(false);
     }
@@ -109,7 +109,7 @@ export default function MedicalRecords() {
       loadRecords();
     } catch (err) {
       console.error(err);
-      setError("File upload failed: " + err.message);
+      setError((currentLanguage === 'hi' ? "फ़ाइल अपलोड विफल: " : currentLanguage === 'te' ? "ఫైల్ అప్‌లోడ్ విఫలమైంది: " : "File upload failed: ") + err.message);
     } finally {
       setUploadLoading(false);
     }
@@ -128,14 +128,15 @@ export default function MedicalRecords() {
       setAnalysisResult(data);
     } catch (err) {
       console.error(err);
-      setAnalysisError(err.message || "Failed to analyze document. Ensure your GROQ_API_KEY is configured.");
+      setAnalysisError(err.message || (currentLanguage === 'hi' ? "दस्तावेज़ का विश्लेषण करने में विफल। सुनिश्चित करें कि आपकी GROQ_API_KEY कॉन्फ़िगर की गई है।" : currentLanguage === 'te' ? "పత్రాన్ని విశ్లేషించడంలో విఫలమైంది. మీ GROQ_API_KEY కాన్ఫిగర్ చేయబడిందని నిర్ధారించుకోండి." : "Failed to analyze document. Ensure your GROQ_API_KEY is configured."));
     } finally {
       setInsightsLoading(false);
     }
   };
 
   const handleDeleteRecord = async (recordId) => {
-    if (!window.confirm("Are you sure you want to delete this medical record? This will delete the file permanently.")) {
+    const confirmMsg = currentLanguage === 'hi' ? "क्या आप वाकई इस चिकित्सा रिकॉर्ड को हटाना चाहते हैं? यह फ़ाइल को स्थायी रूप से हटा देगा।" : currentLanguage === 'te' ? "మీరు నిజంగా ఈ వైద్య రికార్డును తొలగించాలనుకుంటున్నారా? ఇది ఫైల్‌ను శాశ్వతంగా తొలగిస్తుంది." : "Are you sure you want to delete this medical record? This will delete the file permanently.";
+    if (!window.confirm(confirmMsg)) {
       return;
     }
     try {
@@ -143,7 +144,7 @@ export default function MedicalRecords() {
       loadRecords();
     } catch (err) {
       console.error(err);
-      alert("Failed to delete medical record: " + err.message);
+      alert((currentLanguage === 'hi' ? "चिकित्सा रिकॉर्ड हटाने में विफल: " : currentLanguage === 'te' ? "వైద్య రికార్డును తొలగించడం విఫలమైంది: " : "Failed to delete medical record: ") + err.message);
     }
   };
 
@@ -167,7 +168,7 @@ export default function MedicalRecords() {
         <h2 className="text-on-surface font-headline-lg text-headline-lg">
           {t('records')}
         </h2>
-        <p className="text-on-surface-variant font-body-md text-body-md">Store, organize, and view your diagnostic reports and medical files with secure backup.</p>
+        <p className="text-on-surface-variant font-body-md text-body-md">{t('recordsSubtitle')}</p>
       </header>
 
       {error && (
@@ -183,14 +184,14 @@ export default function MedicalRecords() {
           <div className="bg-white border border-outline-variant/30 rounded-2xl p-lg shadow-sm interactive-card">
             <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
               <span className="material-symbols-outlined text-secondary">folder_open</span>
-              Your Uploaded Records
+              {t('yourUploadedRecords')}
             </h3>
 
             {records.length === 0 ? (
               <div className="p-xl border border-dashed border-outline-variant rounded-xl text-center text-outline bg-surface">
                 <span className="material-symbols-outlined text-4xl mb-xs">cloud_off</span>
-                <p className="text-sm font-semibold">No medical records uploaded yet.</p>
-                <p className="text-xs">Select a file on the right side panel to upload your first report.</p>
+                <p className="text-sm font-semibold">{t('noMedicalRecords')}</p>
+                <p className="text-xs">{t('uploadInstruction')}</p>
               </div>
             ) : (
               <div className="divide-y divide-outline-variant/20">
@@ -205,7 +206,7 @@ export default function MedicalRecords() {
                       }
                     }}
                     className="py-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-md hover:bg-surface-container-low/40 transition-all px-2 rounded-lg cursor-pointer hover:shadow-sm"
-                    title={record.fraud_status?.includes('VERIFIED') ? "Click to view AI Insights" : "Click to view file"}
+                    title={record.fraud_status?.includes('VERIFIED') ? (currentLanguage === 'hi' ? "एआई अंतर्दृष्टि देखने के लिए क्लिक करें" : currentLanguage === 'te' ? "AI అంతర్దృష్టులను వీక్షించడానికి క్లిక్ చేయండి" : "Click to view AI Insights") : (currentLanguage === 'hi' ? "फ़ाइल देखने के लिए क्लिक करें" : currentLanguage === 'te' ? "ఫైల్ వీక్షించడానికి క్లిక్ చేయండి" : "Click to view file")}
                   >
                     <div className="flex gap-md items-start">
                       <div className="w-10 h-10 rounded-lg bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
@@ -215,7 +216,7 @@ export default function MedicalRecords() {
                       </div>
                       <div>
                         <h4 className="font-bold text-on-surface text-sm max-w-sm truncate">{record.file_name}</h4>
-                        <p className="text-xs text-outline">{record.file_type} | Uploaded: {new Date(record.uploaded_at).toLocaleDateString()}</p>
+                        <p className="text-xs text-outline">{record.file_type} | {t('uploadedLabel')}: {new Date(record.uploaded_at).toLocaleDateString()}</p>
                         <div className="flex items-center gap-xs mt-1">
                           <span className={`w-1.5 h-1.5 rounded-full ${
                             record.fraud_status?.includes('VERIFIED') ? 'bg-emerald-500' : 'bg-error animate-pulse'
@@ -223,13 +224,13 @@ export default function MedicalRecords() {
                           <span className={`text-[10px] font-bold ${
                             record.fraud_status?.includes('VERIFIED') ? 'text-emerald-600' : 'text-error'
                           }`}>
-                            🛡️ Scan: {record.fraud_status || 'VERIFIED (Authentic)'}
+                            🛡️ {t('scanLabel')}: {record.fraud_status?.includes('VERIFIED') ? t('verified') || 'VERIFIED (Authentic)' : record.fraud_status}
                           </span>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex flex-wrap items-center gap-xs">
+                    <div className="flex flex-wrap items-center gap-xs" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={(e) => handleAntiFraudScan(e, record.id)}
                         disabled={scanningIds[record.id] || record.fraud_status?.includes('VERIFIED')}
@@ -238,12 +239,12 @@ export default function MedicalRecords() {
                             ? 'bg-neutral-200 text-neutral-500 cursor-not-allowed border border-neutral-300'
                             : 'bg-amber-600 hover:bg-amber-700 text-white hover:shadow-md'
                         }`}
-                        title={record.fraud_status?.includes('VERIFIED') ? "Document verified" : "Run Anti-Fraud Security Scan"}
+                        title={record.fraud_status?.includes('VERIFIED') ? (currentLanguage === 'hi' ? "दस्तावेज़ सत्यापित है" : currentLanguage === 'te' ? "పత్రం ధృవీకరించబడింది" : "Document verified") : (currentLanguage === 'hi' ? "एंटी-फ्रॉड सुरक्षा स्कैन चलाएं" : currentLanguage === 'te' ? "యాంటీ-ఫ్రాడ్ సెక్యూరిటీ స్కాన్ రన్ చేయి" : "Run Anti-Fraud Security Scan")}
                       >
                         <span className={`material-symbols-outlined text-[16px] ${scanningIds[record.id] ? 'animate-spin' : ''}`}>
                           {scanningIds[record.id] ? 'autorenew' : record.fraud_status?.includes('VERIFIED') ? 'verified' : 'shield_heart'}
                         </span>
-                        {scanningIds[record.id] ? 'Scanning...' : record.fraud_status?.includes('VERIFIED') ? 'Verified' : 'Run Anti-Fraud'}
+                        {scanningIds[record.id] ? t('scanning') : record.fraud_status?.includes('VERIFIED') ? t('verified') : t('runAntiFraud')}
                       </button>
 
                       {record.fraud_status?.includes('VERIFIED') && (
@@ -255,7 +256,7 @@ export default function MedicalRecords() {
                           className="px-3.5 py-1.5 bg-primary hover:bg-primary/95 text-on-primary font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm focus:outline-none"
                         >
                           <span className="material-symbols-outlined text-[16px]">psychology</span>
-                          AI Insights
+                          {t('aiInsights')}
                         </button>
                       )}
 
@@ -269,7 +270,7 @@ export default function MedicalRecords() {
                         className="px-3.5 py-1.5 bg-secondary hover:bg-secondary/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm"
                       >
                         <span className="material-symbols-outlined text-[16px]">visibility</span>
-                        View File
+                        {t('viewFile')}
                       </a>
 
                       <button
@@ -280,7 +281,7 @@ export default function MedicalRecords() {
                         className="px-3.5 py-1.5 bg-error hover:bg-error/95 text-white font-bold text-xs rounded-lg transition-colors flex items-center gap-xs shadow-sm focus:outline-none"
                       >
                         <span className="material-symbols-outlined text-[16px]">delete</span>
-                        Delete
+                        {t('delete')}
                       </button>
                     </div>
                   </div>
@@ -295,14 +296,14 @@ export default function MedicalRecords() {
           <div className="bg-white border border-outline-variant/30 rounded-2xl p-lg shadow-sm interactive-card">
             <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
               <span className="material-symbols-outlined text-secondary">cloud_upload</span>
-              Upload Document
+              {t('uploadDocument')}
             </h3>
 
             <form onSubmit={handleUploadSubmit} className="space-y-md">
               <div className="border border-dashed border-outline-variant rounded-xl p-md bg-surface text-center flex flex-col items-center justify-center min-h-[140px] relative">
                 <span className="material-symbols-outlined text-4xl text-outline mb-sm">file_upload</span>
-                <span className="text-xs font-semibold text-primary mb-xs">Select PDF or Image file</span>
-                <span className="text-[10px] text-outline">Max size: 10MB</span>
+                <span className="text-xs font-semibold text-primary mb-xs">{t('selectPdfOrImage')}</span>
+                <span className="text-[10px] text-outline">{t('maxSize')}: 10MB</span>
                 <input 
                   id="record-file-input"
                   required
@@ -330,7 +331,7 @@ export default function MedicalRecords() {
                 ) : (
                   <>
                     <span className="material-symbols-outlined">upload</span>
-                    Upload Report
+                    {t('uploadReport')}
                   </>
                 )}
               </button>
@@ -347,8 +348,8 @@ export default function MedicalRecords() {
               <div className="flex items-center gap-xs">
                 <span className="material-symbols-outlined text-primary">psychology</span>
                 <div>
-                  <h3 className="font-bold text-primary text-sm">TARS Clinical AI Insights</h3>
-                  <p className="text-[10px] text-outline">Analyzing: {selectedRecord?.file_name}</p>
+                  <h3 className="font-bold text-primary text-sm">{t('tarsClinicalAiInsights')}</h3>
+                  <p className="text-[10px] text-outline">{t('analyzing')}: {selectedRecord?.file_name}</p>
                 </div>
               </div>
               <button 
@@ -364,7 +365,7 @@ export default function MedicalRecords() {
               {insightsLoading ? (
                 <div className="flex flex-col justify-center items-center py-xl space-y-md text-outline">
                   <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-xs font-semibold animate-pulse text-primary">TARS is reading your report and consulting medical models...</p>
+                  <p className="text-xs font-semibold animate-pulse text-primary">{t('tarsReadingReport')}</p>
                 </div>
               ) : analysisError ? (
                 <div className="p-4 bg-error-container text-on-error-container rounded-xl flex items-center gap-sm">
@@ -378,7 +379,7 @@ export default function MedicalRecords() {
                     <div className="space-y-xs flex flex-col items-center">
                       <h4 className="text-xs font-bold text-primary flex items-center gap-2xs uppercase tracking-wider self-start w-full">
                         <span className="material-symbols-outlined text-md">image</span>
-                        Diagnostic Scan YOLO Analysis
+                        {t('yoloAnalysis')}
                       </h4>
                       <div className="relative inline-block overflow-hidden rounded-xl border border-outline-variant bg-slate-900 max-w-full">
                         <img 
@@ -400,7 +401,7 @@ export default function MedicalRecords() {
                               }}
                             >
                               <span className="absolute top-0 left-0 bg-red-500 text-white font-bold text-[9px] px-1 py-0.5 whitespace-nowrap shadow-md">
-                                {det.label} ({Math.round(det.confidence * 100)}%)
+                                {t(det.label)} ({Math.round(det.confidence * 100)}%)
                               </span>
                             </div>
                           );
@@ -413,10 +414,10 @@ export default function MedicalRecords() {
                   <div className="space-y-xs">
                     <h4 className="text-xs font-bold text-primary flex items-center gap-2xs uppercase tracking-wider">
                       <span className="material-symbols-outlined text-md">analytics</span>
-                      Clinical Findings & Conditions
+                      {t('clinicalFindings')}
                     </h4>
                     <div className="p-4 bg-surface-container-low border border-outline-variant/40 rounded-xl">
-                      <p className="text-xs leading-relaxed text-on-surface whitespace-pre-wrap">{analysisResult.insights}</p>
+                      <p className="text-xs leading-relaxed text-on-surface whitespace-pre-wrap">{translateClinicalText(analysisResult.insights)}</p>
                     </div>
                   </div>
 
@@ -424,21 +425,21 @@ export default function MedicalRecords() {
                   <div className="space-y-xs">
                     <h4 className="text-xs font-bold text-secondary flex items-center gap-2xs uppercase tracking-wider">
                       <span className="material-symbols-outlined text-md">medication</span>
-                      Suggested Medications
+                      {t('suggestedMedications')}
                     </h4>
                     <div className="p-4 bg-surface-container-low border border-outline-variant/40 rounded-xl">
-                      <p className="text-xs leading-relaxed text-on-surface whitespace-pre-wrap">{analysisResult.medications}</p>
+                      <p className="text-xs leading-relaxed text-on-surface whitespace-pre-wrap">{translateClinicalText(analysisResult.medications)}</p>
                     </div>
                   </div>
 
                   {/* Disclaimer */}
                   <div className="p-4 bg-error-container/20 border border-error/20 rounded-xl flex gap-xs items-start">
                     <span className="material-symbols-outlined text-error text-md mt-[2px]">warning</span>
-                    <p className="text-[10px] text-error font-semibold leading-normal">{analysisResult.disclaimer}</p>
+                    <p className="text-[10px] text-error font-semibold leading-normal">{translateClinicalText(analysisResult.disclaimer)}</p>
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-outline text-center">No analysis data available.</p>
+                <p className="text-xs text-outline text-center">{t('noAnalysisData')}</p>
               )}
             </div>
             
@@ -462,12 +463,12 @@ export default function MedicalRecords() {
                     {genRemindersLoading ? (
                       <>
                         <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        Generating...
+                        {t('generating')}
                       </>
                     ) : (
                       <>
                         <span className="material-symbols-outlined text-[16px]">alarm_add</span>
-                        Auto-generate Reminders
+                        {t('autoGenerateReminders')}
                       </>
                     )}
                   </button>
@@ -477,7 +478,7 @@ export default function MedicalRecords() {
                   onClick={() => setShowInsightsModal(false)}
                   className="px-5 py-2 bg-primary hover:bg-primary/95 text-on-primary font-bold text-xs rounded-xl hover:shadow-md active:scale-95 transition-all focus:outline-none"
                 >
-                  Done
+                  {t('done')}
                 </button>
               </div>
             </div>

@@ -17,6 +17,23 @@ from app.routes.appointments import adjust_timestamps_generic
 
 logger = logging.getLogger(__name__)
 
+def normalize_specialization(spec: str) -> str:
+    if not spec:
+        return ""
+    spec_lower = spec.lower()
+    if any(k in spec_lower for k in ["cardio", "heart", "గుండె", "హృదయ", "दिल", "हृदय"]):
+        return "Cardiology"
+    if any(k in spec_lower for k in ["derm", "skin", "చర్మ", "త్వచ"]):
+        return "Dermatology"
+    if any(k in spec_lower for k in ["neuro", "brain", "నరాల", "మెదడు", "नसों", "न्यूरो"]):
+        return "Neurology"
+    if any(k in spec_lower for k in ["pediatr", "child", "పిల్లల", "बाल"]):
+        return "Pediatrics"
+    if any(k in spec_lower for k in ["general", "medicine", "జనరల్", "सामान्य"]):
+        return "General Medicine"
+    return spec
+
+
 OFFLINE_TRANSLATIONS = {
     "en": {
         "emergency": "EMERGENCY WARNING: Severe symptoms detected. Please call 108 or head to the nearest emergency department immediately.",
@@ -794,6 +811,25 @@ async def execute_tars_intent(
                 p_name_lower = p_name.lower().strip()
                 if "appoint" in p_name_lower or "doctor" in p_name_lower:
                     action_params["page_name"] = "appointments"
+                    spec = normalize_specialization(action_params.get("specialization", ""))
+                    if not spec and current_user.role == "patient":
+                        latest_scan = db.query(models.MedicalImagingDiagnostic).filter(
+                            models.MedicalImagingDiagnostic.user_id == current_user.id
+                        ).order_by(models.MedicalImagingDiagnostic.created_at.desc()).first()
+                        if latest_scan and latest_scan.recommended_specialist:
+                            spec_map = {
+                                "dermatologist": "Dermatology",
+                                "dermatology": "Dermatology",
+                                "cardiologist": "Cardiology",
+                                "cardiology": "Cardiology",
+                                "neurologist": "Neurology",
+                                "neurology": "Neurology",
+                                "pediatrician": "Pediatrics",
+                                "pediatrics": "Pediatrics",
+                                "general": "General Medicine"
+                            }
+                            spec = spec_map.get(latest_scan.recommended_specialist.lower().strip(), "")
+                    action_params["specialization"] = spec
                 elif "record" in p_name_lower or "prescription" in p_name_lower:
                     action_params["page_name"] = "records"
                 elif "dash" in p_name_lower:
@@ -802,9 +838,26 @@ async def execute_tars_intent(
                     action_params["page_name"] = "settings"
                 elif "chat" in p_name_lower or "message" in p_name_lower:
                     action_params["page_name"] = "chat"
-        elif action_type == 'OPEN_DOCTORS' or action_type == 'find_doctors':
+        elif action_type in ['OPEN_DOCTORS', 'find_doctors', 'book_appointment', 'bookAppointment', 'create_appointment', 'createAppointment']:
             action_type = 'openPage'
-            spec = action_params.get("specialization", "")
+            spec = normalize_specialization(action_params.get("specialization", ""))
+            if not spec and current_user.role == "patient":
+                latest_scan = db.query(models.MedicalImagingDiagnostic).filter(
+                    models.MedicalImagingDiagnostic.user_id == current_user.id
+                ).order_by(models.MedicalImagingDiagnostic.created_at.desc()).first()
+                if latest_scan and latest_scan.recommended_specialist:
+                    spec_map = {
+                        "dermatologist": "Dermatology",
+                        "dermatology": "Dermatology",
+                        "cardiologist": "Cardiology",
+                        "cardiology": "Cardiology",
+                        "neurologist": "Neurology",
+                        "neurology": "Neurology",
+                        "pediatrician": "Pediatrics",
+                        "pediatrics": "Pediatrics",
+                        "general": "General Medicine"
+                    }
+                    spec = spec_map.get(latest_scan.recommended_specialist.lower().strip(), "")
             action_params = {"page_name": "appointments", "specialization": spec}
         elif action_type in ['OPEN_PRESCRIPTIONS', 'OPEN_RECORDS', 'view_records']:
             action_type = 'openPage'

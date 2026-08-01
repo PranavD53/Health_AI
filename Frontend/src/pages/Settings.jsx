@@ -1006,6 +1006,7 @@ export default function Settings() {
             </div>
           </div>
         )}
+      </div>
       {/* Danger Zone / Delete Account Panel */}
       {(user?.role === 'patient' || user?.role === 'doctor') && (
         <div className="bg-white border border-red-200 rounded-2xl shadow-sm overflow-hidden p-lg mt-xl dark:bg-[#1a1a2e]/30 dark:border-red-900/30">

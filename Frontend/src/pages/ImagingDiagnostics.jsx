@@ -50,7 +50,10 @@ const pageTranslations = {
     instantBookingDesc: "If visual signals indicate moderate to critical pathology, the system pre-fills routing details to let you book the correct specialist instantly.",
     tarsAudio: "TARS Audio Output",
     tarsAudioDesc: "TARS reads clinical outputs aloud and suggests routing actions using our real-time voice pipeline.",
-    modelActive: "AI Core Diagnostics Model Active"
+    modelActive: "AI Core Diagnostics Model Active",
+    disclaimerTitle: "Medical & Clinical Disclaimer",
+    disclaimerText: "This AI-generated result is a preliminary screening aid only and is not a medical diagnosis. Confidence scores reflect model output on limited datasets and may not generalize to your specific case. Please consult a licensed specialist for an accurate clinical assessment.",
+    heuristicNote: "Note: Throat tab results are rule-based (heuristic), not machine-learning-based."
   },
   es: {
     title: "Imágenes Médicas y Diagnóstico de Piel con IA",
@@ -142,7 +145,10 @@ const pageTranslations = {
     instantBookingDesc: "यदि दृश्य संकेत मध्यम से गंभीर विकृति का संकेत देते हैं, तो सिस्टम रूटिंग विवरणों को पहले से भर देता है ताकि आप तुरंत सही विशेषज्ञ को बुक कर सकें।",
     tarsAudio: "टार्स ऑडियो आउटपुट",
     tarsAudioDesc: "टार्स नैदानिक परिणामों को जोर से पढ़ता है और हमारी रीयल-टाइम वॉयस पाइपलाइन का उपयोग करके रूटिंग क्रियाओं का सुझाव देता है।",
-    modelActive: "एआई कोर निदान मॉडल सक्रिय"
+    modelActive: "एआई कोर निदान मॉडल सक्रिय",
+    disclaimerTitle: "चिकित्सा और नैदानिक अस्वीकरण",
+    disclaimerText: "यह एआई-जनित परिणाम केवल एक प्रारंभिक स्क्रीनिंग सहायता है और यह एक चिकित्सा निदान नहीं है। आत्मविश्वास स्कोर सीमित डेटासेट पर मॉडल आउटपुट को दर्शाते हैं और आपके विशिष्ट मामले के लिए सामान्य नहीं हो सकते हैं। कृपया सटीक नैदानिक मूल्यांकन के लिए एक लाइसेंस प्राप्त विशेषज्ञ से परामर्श लें।",
+    heuristicNote: "नोट: गले के परिणाम नियम-आधारित (ह्यूरिस्टिक) हैं, मशीन-लर्निंग-आधारित नहीं।"
   },
   te: {
     title: "AI మెడికల్ ఇమేజింగ్ & స్కిన్ డయాగ్నోస్టిక్స్",
@@ -188,12 +194,15 @@ const pageTranslations = {
     instantBookingDesc: "విజువల్ సిగ్నల్స్ ఒక మోస్తరు లేదా తీవ్రమైన వ్యాధిని సూచిస్తే, తగిన నిపుణుడిని వెంటనే బుక్ చేసుకోవడానికి సిస్టమ్ రూటింగ్ వివరాలను స్వయంచాలకంగా పూరిస్తుంది.",
     tarsAudio: "TARS ఆడియో అవుట్‌పుట్",
     tarsAudioDesc: "TARS క్లినికల్ ఫలితాలను బిగ్గరగా చదువుతుంది మరియు మా రియల్ టైమ్ వాయిస్ పైప్‌లైన్ ఉపయోగించి తగిన చర్యలను సూచిస్తుంది.",
-    modelActive: "AI కోర్ డయాగ్నోస్టిక్స్ మోడల్ సక్రియంగా ఉంది"
+    modelActive: "AI కోర్ డయాగ్నోస్టిక్స్ మోడల్ సక్రియంగా ఉంది",
+    disclaimerTitle: "వైద్య & క్లినికల్ నిరాకరణ",
+    disclaimerText: "ఈ AI-ఉత్పత్తి ఫలితం కేవలం ప్రాథమిక స్క్రీనింగ్ సహాయం మాత్రమే మరియు ఇది వైద్య నిర్ధారణ కాదు. కాన్ఫిడెన్స్ స్కోర్లు పరిమిత డేటాసెట్‌లపై మోడల్ అవుట్‌పుట్‌ను ప్రతిబింబిస్తాయి మరియు మీ నిర్దిష్ట కేసుకు వర్తించకపోవచ్చు.",
+    heuristicNote: "గమనిక: గొంతు ఫలితాలు నియమ-ఆధారిత (హ్యూరిస్టిక్), మెషిన్ లెర్నింగ్ ఆధారితం కాదు।"
   }
 };
 
 export default function ImagingDiagnostics() {
-  const { currentLanguage, t } = useLanguage();
+  const { currentLanguage, t, translateClinicalText } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
@@ -808,7 +817,7 @@ export default function ImagingDiagnostics() {
                         </div>
                         {item.recommendation && (
                           <p className="text-[11px] text-outline pl-6 leading-tight">
-                            {item.recommendation}
+                            {translateClinicalText(item.recommendation)}
                           </p>
                         )}
                       </div>
@@ -823,7 +832,7 @@ export default function ImagingDiagnostics() {
                   {localT.findings}
                 </h4>
                 <div className="text-body-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
-                  {activeReport.findings ? activeReport.findings.split('[Diagnostic')[0].trim() : ''}
+                  {translateClinicalText(activeReport.findings ? activeReport.findings.split('[Diagnostic')[0].trim() : '')}
                 </div>
               </div>
 
@@ -835,12 +844,15 @@ export default function ImagingDiagnostics() {
               }`}>
                 <div className="flex items-center gap-xs font-black uppercase text-[11px] tracking-wider text-primary">
                   <span className="material-symbols-outlined text-[16px]">info</span>
-                  <span>Medical & Clinical Disclaimer</span>
+                  <span>{localT.disclaimerTitle || 'Medical & Clinical Disclaimer'}</span>
                 </div>
                 <p>
-                  This AI-generated result is a preliminary screening aid only and is not a medical diagnosis. 
-                  Confidence scores reflect model output on limited datasets and may not generalize to your specific case. 
-                  Please consult a licensed <strong>{translateSpecialist(activeReport.recommended_specialist)}</strong> for an accurate clinical assessment.
+                  {localT.disclaimerText || 'This AI-generated result is a preliminary screening aid only and is not a medical diagnosis. Confidence scores reflect model output on limited datasets and may not generalize to your specific case.'}
+                </p>
+                <p>
+                  {currentLanguage === 'hi' ? 'कृपया सटीक नैदानिक मूल्यांकन के लिए लाइसेंस प्राप्त ' : currentLanguage === 'te' ? 'దయచేసి ఖచ్చితమైన క్లినికల్ అసెస్‌మెంట్ కోసం లైసెన్స్ పొందిన ' : 'Please consult a licensed '}
+                  <strong>{translateSpecialist(activeReport.recommended_specialist)}</strong>
+                  {currentLanguage === 'hi' ? ' से परामर्श करें।' : currentLanguage === 'te' ? ' ని సంప్రదించండి.' : ' for an accurate clinical assessment.'}
                 </p>
                 {isHeuristic && (
                   <p className="font-bold text-[11px] text-amber-600 dark:text-amber-400">

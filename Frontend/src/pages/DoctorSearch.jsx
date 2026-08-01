@@ -265,7 +265,7 @@ export default function DoctorSearch() {
               className="w-full px-4 py-2.5 rounded-lg border border-outline-variant bg-surface focus:outline-none focus:border-secondary text-sm"
             >
               {specialties.map(spec => (
-                <option key={spec} value={spec}>{spec === 'All' ? 'All Specialities' : spec}</option>
+                <option key={spec} value={spec}>{spec === 'All' ? t('allSpecialities') : t(spec)}</option>
               ))}
             </select>
           </div>
@@ -278,7 +278,7 @@ export default function DoctorSearch() {
               onChange={(e) => setOnlyAvailable(e.target.checked)}
               className="w-4 h-4 rounded text-secondary focus:ring-secondary border-outline-variant"
             />
-            <span className="text-xs text-on-surface font-bold">Show Available Only</span>
+            <span className="text-xs text-on-surface font-bold">{t('showAvailableOnly')}</span>
           </label>
         </div>
       </div>
@@ -287,7 +287,7 @@ export default function DoctorSearch() {
       {filteredDoctors.length === 0 ? (
         <div className="p-xl border border-dashed border-outline-variant rounded-2xl text-center text-outline bg-white">
           <span className="material-symbols-outlined text-5xl mb-xs">search_off</span>
-          <p className="font-semibold text-sm">No specialists found matching your filter criteria.</p>
+          <p className="font-semibold text-sm">{t('noSpecialistsFound')}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
@@ -319,11 +319,11 @@ export default function DoctorSearch() {
                     <div>
                       <h3 className="font-bold text-on-surface text-base">{t(doc.name)}</h3>
                       <p className="text-xs text-secondary font-bold">{t(doc.specialization) || doc.specialization}</p>
-                      <p className="text-[10px] text-outline font-semibold mb-1">{doc.experience_years} Years Experience</p>
+                      <p className="text-[10px] text-outline font-semibold mb-1">{doc.experience_years} {t('yearsExperience')}</p>
                       <div className="flex items-center gap-xs mt-0.5">
                         <span className="material-symbols-outlined text-[16px] text-amber-500" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                         <span className="text-xs font-bold text-on-surface">{doc.rating_average || 4.9}</span>
-                        <span className="text-[10px] text-outline font-bold">({doc.review_count || 0} reviews)</span>
+                        <span className="text-[10px] text-outline font-bold">({doc.review_count || 0} {t('reviews')})</span>
                       </div>
                     </div>
                   </div>
@@ -331,16 +331,16 @@ export default function DoctorSearch() {
                   <div className="space-y-sm text-xs font-semibold text-on-surface-variant">
                     <div className="flex items-start gap-xs">
                       <span className="material-symbols-outlined text-[16px] text-secondary">home_pin</span>
-                      <span>Location: {doc.location}</span>
+                      <span>{t('locationLabel')}: {doc.location}</span>
                     </div>
                     <div className="flex items-center gap-xs">
                       <span className="material-symbols-outlined text-[16px] text-secondary">contact_mail</span>
-                      <span>Email: {doc.contact}</span>
+                      <span>{t('emailLabel')}: {doc.contact}</span>
                     </div>
                     {doc.address && (
                       <div className="flex items-start gap-xs">
                         <span className="material-symbols-outlined text-[16px] text-secondary">location_on</span>
-                        <span>Address: {doc.address}</span>
+                        <span>{t('addressLabel')}: {doc.address}</span>
                       </div>
                     )}
                   </div>
@@ -348,9 +348,13 @@ export default function DoctorSearch() {
 
                 {isSelected && (
                   <div className="px-lg pb-md pt-xs border-t border-outline-variant/20 bg-surface-container-lowest/60 space-y-xs animate-in slide-in-from-top duration-150">
-                    <p className="text-[10px] text-outline font-bold uppercase tracking-wider">Clinical Details & Guidelines</p>
+                    <p className="text-[10px] text-outline font-bold uppercase tracking-wider">{t('clinicalDetailsGuidelines')}</p>
                     <p className="text-xs text-on-surface leading-relaxed font-medium">
-                      Dr. {t(doc.name.split(' ').pop())} provides comprehensive care in {t(doc.specialization) || doc.specialization} at the {doc.location} clinic. Consultation documents, prescriptions, and diagnostics are saved securely to your HealthAI account.
+                      {currentLanguage === 'hi' 
+                        ? `डॉ. ${t(doc.name.split(' ').pop())} ${doc.location} क्लिनिक में ${t(doc.specialization) || doc.specialization} में व्यापक देखभाल प्रदान करते हैं। परामर्श दस्तावेज़, नुस्खे और निदान आपके HealthAI खाते में सुरक्षित रूप से सहेजे जाते हैं।`
+                        : currentLanguage === 'te'
+                        ? `డా. ${t(doc.name.split(' ').pop())} ${doc.location} క్లినిక్‌లో ${t(doc.specialization) || doc.specialization} లో సమగ్రమైన సంరక్షణను అందిస్తారు. సంప్రదింపు పత్రాలు, ప్రిస్క్రిప్షన్‌లు మరియు డయాగ్నోస్టిక్స్ మీ HealthAI ఖాతాలో సురక్షితంగా సేవ్ చేయబడతాయి.`
+                        : `Dr. ${t(doc.name.split(' ').pop())} provides comprehensive care in ${t(doc.specialization) || doc.specialization} at the ${doc.location} clinic. Consultation documents, prescriptions, and diagnostics are saved securely to your HealthAI account.`}
                     </p>
                   </div>
                 )}
@@ -360,7 +364,7 @@ export default function DoctorSearch() {
                     <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold ${
                       doc.available ? 'bg-success/15 text-success' : 'bg-outline/20 text-outline'
                     }`}>
-                      {doc.available ? 'Available' : 'Unavailable'}
+                      {doc.available ? t('available') : t('unavailable')}
                     </span>
                     
                     <button
@@ -387,7 +391,7 @@ export default function DoctorSearch() {
                         : 'bg-outline-variant/40 text-outline cursor-not-allowed'
                     }`}
                   >
-                    Book Visit
+                    {t('scheduleConsultation')}
                   </button>
                 </div>
               </div>
@@ -401,7 +405,7 @@ export default function DoctorSearch() {
         <div className="fixed inset-0 bg-primary/20 backdrop-blur-sm flex items-center justify-center z-[100] animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl w-full max-w-md border border-outline-variant shadow-2xl overflow-hidden interactive-card">
             <div className="p-6 border-b border-outline-variant bg-surface flex justify-between items-center">
-              <h3 className="font-bold text-primary text-title-md">Schedule Consultation</h3>
+              <h3 className="font-bold text-primary text-title-md">{t('scheduleConsultation')}</h3>
               <button 
                 onClick={() => setBookingDoc(null)}
                 className="p-1 hover:bg-surface-container-high rounded-full transition-colors text-outline focus:outline-none"
@@ -414,8 +418,8 @@ export default function DoctorSearch() {
               <div className="p-xl text-center space-y-md">
                 <span className="material-symbols-outlined text-6xl text-success animate-bounce">check_circle</span>
                 <div>
-                  <h4 className="font-bold text-lg text-on-surface">Appointment Requested!</h4>
-                  <p className="text-xs text-outline mt-xs">Your visit has been scheduled successfully.</p>
+                  <h4 className="font-bold text-lg text-on-surface">{t('appointmentRequested')}</h4>
+                  <p className="text-xs text-outline mt-xs">{t('appointmentScheduledSuccess')}</p>
                 </div>
               </div>
             ) : (
@@ -439,7 +443,7 @@ export default function DoctorSearch() {
                 </div>
 
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Select Consultation Date</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('selectConsultationDate')}</label>
                   <input 
                     required
                     type="date"
@@ -455,7 +459,7 @@ export default function DoctorSearch() {
                 </div>
 
                 <div className="space-y-xs">
-                  <label className="text-xs font-bold text-primary ml-unit">Select Time Slot</label>
+                  <label className="text-xs font-bold text-primary ml-unit">{t('selectTimeSlot')}</label>
                   <select
                     value={bookingTime}
                     onChange={(e) => setBookingTime(e.target.value)}
@@ -463,7 +467,7 @@ export default function DoctorSearch() {
                     disabled={getAvailableTimeSlots().length === 0}
                   >
                     {getAvailableTimeSlots().length === 0 ? (
-                      <option value="">No slots available for today</option>
+                      <option value="">{t('noSlotsAvailable')}</option>
                     ) : (
                       getAvailableTimeSlots().map(slot => (
                         <option key={slot.value} value={slot.value}>{slot.label}</option>
@@ -482,7 +486,7 @@ export default function DoctorSearch() {
                   ) : (
                     <>
                       <span className="material-symbols-outlined">done</span>
-                      Confirm Booking
+                      {t('confirmBooking')}
                     </>
                   )}
                 </button>
@@ -500,9 +504,9 @@ export default function DoctorSearch() {
               <div>
                 <h3 className="font-bold text-primary text-title-md flex items-center gap-xs">
                   <span className="material-symbols-outlined text-secondary">rate_review</span>
-                  Reviews for {t(reviewsDoc.name)}
+                  {t('reviewsFor')} {t(reviewsDoc.name)}
                 </h3>
-                <p className="text-xs text-outline font-semibold mt-0.5">{t(reviewsDoc.specialization) || reviewsDoc.specialization} specialist</p>
+                <p className="text-xs text-outline font-semibold mt-0.5">{t(reviewsDoc.specialization) || reviewsDoc.specialization} {t('specialist')}</p>
               </div>
               <button 
                 onClick={() => { setReviewsDoc(null); setReviewsList([]); }}
@@ -516,7 +520,7 @@ export default function DoctorSearch() {
               {reviewsLoading ? (
                 <div className="py-xl flex flex-col items-center justify-center gap-md">
                   <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-xs text-outline font-semibold">Loading reviews...</span>
+                  <span className="text-xs text-outline font-semibold">{t('loadingReviews')}</span>
                 </div>
               ) : reviewsList.length === 0 ? (
                 <div className="text-center py-xl text-outline text-xs">
@@ -552,8 +556,8 @@ export default function DoctorSearch() {
                       <div className="flex justify-between items-center text-[10px] text-outline font-semibold">
                         <span>{t('anonymousReview') || 'Verified Patient'}</span>
                         <div className="flex gap-sm">
-                          {review.rating_communication && <span>Comm: {review.rating_communication}/5</span>}
-                          {review.rating_professionalism && <span>Ethics: {review.rating_professionalism}/5</span>}
+                          {review.rating_communication && <span>{t('comm')}: {review.rating_communication}/5</span>}
+                          {review.rating_professionalism && <span>{t('ethics')}: {review.rating_professionalism}/5</span>}
                         </div>
                       </div>
                     </div>
@@ -567,7 +571,7 @@ export default function DoctorSearch() {
                 onClick={() => { setReviewsDoc(null); setReviewsList([]); }}
                 className="px-4 py-2 bg-primary text-white font-bold text-xs rounded-lg transition-colors focus:outline-none hover:bg-primary/95 active:scale-95"
               >
-                Close
+                {t('close') || 'Close'}
               </button>
             </div>
           </div>

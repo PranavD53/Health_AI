@@ -55,8 +55,8 @@ def _cleanup_db(engine, Base):
 
 def setup_module():
     app.dependency_overrides[get_db] = override_get_db
-    Base.metadata.create_all(bind=engine)
     _cleanup_db(engine, Base)
+    Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
     try:
         from app.routes.doctors import seed_doctors

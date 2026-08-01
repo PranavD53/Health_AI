@@ -396,7 +396,7 @@ export default function PatientDashboard() {
           <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg interactive-card space-y-md">
             <h3 className="text-title-md font-bold text-primary flex items-center gap-xs border-b border-outline-variant/20 pb-2">
               <span className="material-symbols-outlined text-secondary">notifications_active</span>
-              Medicine Reminders
+              {t('medicineReminders')}
             </h3>
 
             {/* Add Reminder Form */}
@@ -417,52 +417,52 @@ export default function PatientDashboard() {
                   contact_info,
                   days: "Daily"
                 });
-                alert("Reminder successfully set!");
+                alert(currentLanguage === 'hi' ? "अनुस्मारक सफलतापूर्वक सेट किया गया!" : currentLanguage === 'te' ? "రిమైండర్ విజయవంతంగా సెట్ చేయబడింది!" : "Reminder successfully set!");
                 e.target.reset();
                 loadReminders();
               } catch (err) {
-                alert("Failed to create reminder: " + err.message);
+                alert((currentLanguage === 'hi' ? "अनुस्मारक बनाने में विफल: " : currentLanguage === 'te' ? "రిమైండర్ సృష్టించడం విఫలమైంది: " : "Failed to create reminder: ") + err.message);
               }
             }} className="space-y-sm text-xs">
               <div className="space-y-xs">
-                <label className="font-bold text-outline uppercase block">Medicine Name</label>
-                <input required type="text" name="medicine_name" placeholder="e.g. Paracetamol" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                <label className="font-bold text-outline uppercase block">{t('medicineName')}</label>
+                <input required type="text" name="medicine_name" placeholder={t('medicineName')} className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
               </div>
               <div className="grid grid-cols-2 gap-sm">
                 <div className="space-y-xs">
-                  <label className="font-bold text-outline uppercase block">Dosage</label>
-                  <input required type="text" name="dosage" placeholder="e.g. 1 pill, 5ml" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                  <label className="font-bold text-outline uppercase block">{t('dosageLabel')}</label>
+                  <input required type="text" name="dosage" placeholder={t('dosageLabel')} className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
                 </div>
                 <div className="space-y-xs">
-                  <label className="font-bold text-outline uppercase block">Time</label>
+                  <label className="font-bold text-outline uppercase block">{t('selectTimeSlot')}</label>
                   <input required type="time" name="time" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-sm">
                 <div className="space-y-xs">
-                  <label className="font-bold text-outline uppercase block">Notify Via</label>
+                  <label className="font-bold text-outline uppercase block">{t('notifyVia')}</label>
                   <select name="method" defaultValue="app" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none font-bold">
-                    <option value="app">In-App Notification</option>
-                    <option value="email">Email Alert</option>
-                    <option value="sms">SMS Alert</option>
+                    <option value="app">{t('inAppNotification')}</option>
+                    <option value="email">{t('emailAlert')}</option>
+                    <option value="sms">{t('smsAlert')}</option>
                   </select>
                 </div>
                 <div className="space-y-xs">
-                  <label className="font-bold text-outline uppercase block">Contact Info (Optional)</label>
-                  <input type="text" name="contact_info" placeholder="Email / Mobile" className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
+                  <label className="font-bold text-outline uppercase block">{t('contactInfoOptional')}</label>
+                  <input type="text" name="contact_info" placeholder={t('contactInfoOptional')} className="w-full border border-outline-variant rounded p-2 bg-surface text-on-surface focus:border-primary outline-none" />
                 </div>
               </div>
               <button type="submit" className="w-full bg-primary hover:bg-primary/95 text-white py-2 rounded font-bold shadow-md transition active:scale-[0.98]">
-                Add Reminder
+                {t('addReminder')}
               </button>
             </form>
 
             {/* Reminders List */}
             {reminders.length === 0 ? (
-              <p className="text-center text-xs text-outline py-2">No medicine reminders configured.</p>
+              <p className="text-center text-xs text-outline py-2">{t('noMedicineRemindersConfigured')}</p>
             ) : (
               <div className="pt-2 border-t border-outline-variant/30 space-y-2">
-                <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">Your Schedule Log</span>
+                <span className="text-[10px] text-outline font-bold uppercase tracking-wider block">{t('yourScheduleLog')}</span>
                 <div className="space-y-2 max-h-[180px] overflow-y-auto pr-xs">
                   {reminders.map(rem => (
                     <div key={rem.id} className={`p-2 border rounded-xl bg-surface-container-low flex justify-between items-center transition-all ${
@@ -478,7 +478,7 @@ export default function PatientDashboard() {
                           </span>
                         </div>
                         <p className="text-[9px] text-on-surface-variant">
-                          Dosage: {rem.dosage} | Daily: {rem.time}
+                          {t('dosageLabel')}: {rem.dosage} | {rem.time}
                         </p>
                       </div>
                       
@@ -491,13 +491,13 @@ export default function PatientDashboard() {
                               await api.toggleReminder(rem.id);
                               loadReminders();
                             } catch (err) {
-                              alert("Failed to toggle status: " + err.message);
+                              alert((currentLanguage === 'hi' ? "स्थिति बदलने में विफल: " : currentLanguage === 'te' ? "స్థితి మార్చడం విఫలమైంది: " : "Failed to toggle status: ") + err.message);
                             }
                           }}
                           className={`p-1 rounded-lg transition-colors focus:outline-none ${
                             rem.is_active ? 'text-success hover:bg-success/10' : 'text-outline hover:bg-outline-variant/10'
                           }`}
-                          title={rem.is_active ? "Pause Reminder" : "Resume Reminder"}
+                          title={rem.is_active ? (t('pauseReminder') || "Pause Reminder") : (t('resumeReminder') || "Resume Reminder")}
                         >
                           <span className="material-symbols-outlined text-[18px]">
                             {rem.is_active ? 'toggle_on' : 'toggle_off'}
@@ -508,17 +508,18 @@ export default function PatientDashboard() {
                         <button
                           type="button"
                           onClick={async () => {
-                            if (window.confirm(`Delete reminder for ${rem.medicine_name}?`)) {
+                            const confirmMsg = currentLanguage === 'hi' ? `क्या आप ${rem.medicine_name} के लिए अनुस्मारक हटाना चाहते हैं?` : currentLanguage === 'te' ? `${rem.medicine_name} కోసం రిమైండర్‌ను తొలగించాలా?` : `Delete reminder for ${rem.medicine_name}?`;
+                            if (window.confirm(confirmMsg)) {
                               try {
                                 await api.deleteReminder(rem.id);
                                 loadReminders();
                               } catch (err) {
-                                alert("Failed to delete: " + err.message);
+                                alert((currentLanguage === 'hi' ? "हटाने में विफल: " : currentLanguage === 'te' ? "తొలగించడం విఫలమైంది: " : "Failed to delete: ") + err.message);
                               }
                             }
                           }}
                           className="p-1 hover:bg-error/10 text-error rounded-lg transition-colors focus:outline-none"
-                          title="Delete Reminder"
+                          title={t('delete') || "Delete Reminder"}
                         >
                           <span className="material-symbols-outlined text-[16px]">delete</span>
                         </button>
@@ -534,7 +535,7 @@ export default function PatientDashboard() {
           <div className="bg-white border border-outline-variant/30 rounded-2xl shadow-sm p-lg flex flex-col interactive-card">
             <h3 className="text-title-md font-bold text-primary mb-md flex items-center gap-xs">
               <span className="material-symbols-outlined text-secondary">history</span>
-              Recent Activity
+              {t('recentActivity')}
             </h3>
             
             <div className="space-y-md overflow-y-auto max-h-[220px]">
@@ -543,7 +544,7 @@ export default function PatientDashboard() {
                   key={log.id || index} 
                   onClick={() => setSelectedActivity(log)}
                   className="flex gap-md items-center justify-between border-b border-outline-variant/10 pb-3 last:border-0 cursor-pointer hover:bg-surface-container-low/30 p-1.5 rounded-lg transition-colors w-full text-left"
-                  title="Click to view activity details"
+                  title={currentLanguage === 'hi' ? "गतिविधि विवरण देखने के लिए क्लिक करें" : currentLanguage === 'te' ? "కార్యాచరణ వివరాలను వీక్షించడానికి క్లిక్ చేయండి" : "Click to view activity details"}
                 >
                   <div className="flex gap-md items-start min-w-0">
                     <div className="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center shrink-0">
@@ -552,8 +553,8 @@ export default function PatientDashboard() {
                       </span>
                     </div>
                     <div className="min-w-0">
-                      <h4 className="font-bold text-on-surface text-sm truncate">{log.action}</h4>
-                      <p className="text-xs text-on-surface-variant mb-0.5 break-words">{log.details}</p>
+                      <h4 className="font-bold text-on-surface text-sm truncate">{t(log.action)}</h4>
+                      <p className="text-xs text-on-surface-variant mb-0.5 break-words">{t(log.details)}</p>
                       <span className="text-[10px] text-outline font-semibold">
                         {new Date(log.timestamp).toLocaleString()}
                       </span>
