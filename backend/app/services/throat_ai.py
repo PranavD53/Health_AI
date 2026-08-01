@@ -66,25 +66,22 @@ THROAT_SEVERITY_SPECIALIST_MAP = {
 def preprocess(pil_image: Image.Image) -> dict:
     """
     Validates input image quality and extracts deterministic image features.
-    Raises ValueError with specific user-friendly message if image is invalid/blurry.
+    Only raises ValueError for severe blur (< 30.0 Laplacian variance).
+    Non-red or normal oral photos pass through to infer() for Normal classification.
     """
-    # 1. Blur Check
+    # 1. Blur Check (extreme blur filter)
     blur_score = calculate_blur_laplacian(pil_image)
-    if blur_score < LAPLACIAN_BLUR_THRESHOLD:
+    if blur_score < 30.0:
         raise ValueError("Image too blurry — please retake with steady lighting and clear focus.")
 
     # 2. Aspect Ratio & Dimension Check
     w, h = pil_image.size
     aspect_ratio = max(w / h, h / w)
-    if aspect_ratio > 3.5:
+    if aspect_ratio > 4.0:
         raise ValueError("Invalid image aspect ratio. Please upload a standard oral scan photo.")
 
-    # 3. Red Hue Coverage Check (confirm oral cavity/throat presence)
+    # 3. Red Hue Coverage & Inflammation Extraction
     red_ratio = extract_red_hue_ratio(pil_image)
-    if red_ratio < MIN_RED_HUE_RATIO:
-        raise ValueError("Image does not match expected oral/throat format — please upload a clear, focused throat photo.")
-
-    # 4. Inflammation Intensity
     inflammation_score = extract_inflammation_intensity(pil_image)
 
     return {
@@ -97,24 +94,28 @@ def preprocess(pil_image: Image.Image) -> dict:
 def infer(features: dict) -> list:
     """
     Maps extracted feature thresholds deterministically to pharyngeal findings.
-    Same image input always produces identical feature values and classification.
+    - red_ratio > 0.40 or inflammation > 1.40 -> Possible Acute Pharyngitis (High)
+    - red_ratio > 0.25 or inflammation > 1.22 -> Moderate Posterior Inflammation (Moderate)
+    - red_ratio > 0.10 or inflammation > 1.06 -> Mild Pharyngeal Erythema (Low)
+    - otherwise -> Normal Pharyngeal Appearance (Normal)
     """
     red_ratio = features["red_ratio"]
     inflammation = features["inflammation_score"]
 
     # Threshold rules
-    if red_ratio > 0.45 or inflammation > 1.45:
+    if red_ratio > 0.40 or inflammation > 1.40:
         label = "Possible Acute Pharyngitis"
-        confidence = min(96.5, round(60.0 + (red_ratio * 50.0), 1))
-    elif red_ratio > 0.28 or inflammation > 1.25:
+        confidence = min(96.5, round(65.0 + (red_ratio * 40.0), 1))
+    elif red_ratio > 0.25 or inflammation > 1.22:
         label = "Moderate Posterior Inflammation"
-        confidence = min(92.0, round(55.0 + (red_ratio * 45.0), 1))
-    elif red_ratio > 0.12 or inflammation > 1.08:
+        confidence = min(92.0, round(58.0 + (red_ratio * 35.0), 1))
+    elif red_ratio > 0.10 or inflammation > 1.06:
         label = "Mild Pharyngeal Erythema"
-        confidence = min(88.0, round(50.0 + (red_ratio * 40.0), 1))
+        confidence = min(88.0, round(52.0 + (red_ratio * 30.0), 1))
     else:
         label = "Normal Pharyngeal Appearance"
-        confidence = min(95.0, round(70.0 + ((1.0 - red_ratio) * 25.0), 1))
+        conf_score = round(92.0 - (red_ratio * 30.0), 1)
+        confidence = max(75.0, min(95.0, conf_score))
 
     return [{
         "label": label,

@@ -210,7 +210,10 @@ def infer(tensor: torch.Tensor, model, config) -> list:
 
 
 def postprocess(predictions: list) -> dict:
-    """Maps raw top predictions through severity/specialist lookup table into standardized dict."""
+    """
+    Maps raw top predictions through severity/specialist lookup table into standardized dict.
+    If top confidence is below 35.0%, outputs 'Unknown Normal' to prevent false positive classifications.
+    """
     formatted_top = []
     for pred in predictions:
         lbl = pred["label"]
@@ -224,13 +227,19 @@ def postprocess(predictions: list) -> dict:
             "specialist": map_info["specialist"]
         })
 
-    top_1 = formatted_top[0] if formatted_top else {
-        "label": "Unknown Normal",
-        "confidence": 0.0,
-        "severity": "Low",
-        "recommendation": "Practice routine skin care.",
-        "specialist": "Dermatologist"
-    }
+    top_1 = formatted_top[0] if formatted_top else None
+
+    # Confidence threshold check for single-label ViT Skin model
+    if top_1 is None or top_1["confidence"] < 35.0:
+        normal_info = SKIN_SEVERITY_SPECIALIST_MAP["Unknown Normal"]
+        return {
+            "condition": "Unknown Normal",
+            "confidence": round(top_1["confidence"] if top_1 else 0.0, 2),
+            "severity": normal_info["severity"],
+            "specialist": normal_info["specialist"],
+            "recommendation": normal_info["recommendation"],
+            "top_predictions": formatted_top
+        }
 
     return {
         "condition": top_1["label"],
