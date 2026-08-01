@@ -1100,6 +1100,63 @@ class UIConfirmationInput(BaseModel):
 def get_ai_config(current_user: models.User = Depends(get_current_user)):
     return SYSTEM_CAPABILITIES
 
+class TTSRequest(BaseModel):
+    text: str
+    language: str
+
+@app.post("/ai/tts")
+async def text_to_speech_sarvam(
+    req: TTSRequest,
+    current_user: models.User = Depends(get_current_user)
+):
+    sarvam_key = os.getenv("SARVAM_API_KEY")
+    if not sarvam_key:
+        raise HTTPException(
+            status_code=400, 
+            detail="Sarvam AI API key is not configured in backend .env"
+        )
+    
+    # Map languages to Sarvam codes
+    lang_map = {
+        "hi": "hi-IN",
+        "te": "te-IN",
+        "en": "en-IN"
+    }
+    target_lang = lang_map.get(req.language.lower(), "en-IN")
+    
+    # Select speaker profile
+    speaker = "female_1"
+    if req.language.lower() == "hi":
+        speaker = "shubh"
+    elif req.language.lower() == "te":
+        speaker = "swara"
+
+    try:
+        import httpx
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.sarvam.ai/text-to-speech",
+                headers={
+                    "api-subscription-key": sarvam_key,
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "text": req.text,
+                    "target_language_code": target_lang,
+                    "speaker": speaker,
+                    "model": "bulbul:v3"
+                },
+                timeout=25.0
+            )
+            if response.status_code == 200:
+                return response.json()
+            else:
+                raise HTTPException(status_code=response.status_code, detail=f"Sarvam API error: {response.text}")
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/ai/evaluate_confirmation")
 async def evaluate_confirmation(
     input_data: UIConfirmationInput,

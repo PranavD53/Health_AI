@@ -90,6 +90,7 @@ export default function GlobalAssistant() {
   const vadWorkerRef = useRef(null);
   const pcmPlayerRef = useRef(null);
   const bgActivationTriggeredRef = useRef(false);
+  const audioRef = useRef(null);
   
   const [tarsVoiceEnabled, setTarsVoiceEnabled] = useState(() => {
     return localStorage.getItem('tars_voice_enabled') !== 'false';
@@ -464,17 +465,15 @@ export default function GlobalAssistant() {
     return 'en';
   };
 
-  const processSpeechQueue = () => {
-    if (isInCall) {
-      speechQueueRef.current = [];
+  const processSpeechQueue = async () => {
+    if (speechQueueRef.current.length === 0) {
       isProcessingQueueRef.current = false;
       setIsSpeaking(false);
       return;
     }
 
-    if (speechQueueRef.current.length === 0) {
-      isProcessingQueueRef.current = false;
-      setIsSpeaking(false);
+    if (utteranceRef.current || audioRef.current) {
+      // Already speaking or playing
       return;
     }
 
@@ -490,29 +489,84 @@ export default function GlobalAssistant() {
 
     const { text, callback } = nextItem;
 
-    if ('speechSynthesis' in window) {
-      // Clean up text for speech to avoid speaking punctuation like "asterisk", "square bracket", etc.
-      const cleanedText = text
-        .replace(/\*/g, '')
-        .replace(/[\[\]]/g, '')
-        .replace(/[{}]/g, '')
-        .replace(/[-_]/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
+    // Clean up text for speech to avoid speaking punctuation like "asterisk", "square bracket", etc.
+    const cleanedText = text
+      .replace(/\*/g, '')
+      .replace(/[\[\]]/g, '')
+      .replace(/[{}]/g, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-      if (!cleanedText) {
-        if (callback) callback();
-        setTimeout(() => {
-          processSpeechQueue();
-        }, 100);
-        return;
+    if (!cleanedText) {
+      if (callback) callback();
+      setTimeout(() => {
+        processSpeechQueue();
+      }, 100);
+      return;
+    }
+
+    const detectedLang = detectLanguageOfText(text);
+
+    // Try playing voice using Sarvam AI via backend proxy first
+    const token = localStorage.getItem('access_token');
+    const apiBase = getApiBaseUrl();
+    let playedSarvam = false;
+
+    try {
+      const response = await fetch(`${apiBase}/ai/tts`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ text: cleanedText, language: detectedLang })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.audios && data.audios[0]) {
+          const audioSrc = `data:audio/wav;base64,${data.audios[0]}`;
+          const audio = new Audio(audioSrc);
+          audioRef.current = audio;
+          
+          const handleEnd = () => {
+            audioRef.current = null;
+            if (callback) {
+              try {
+                callback();
+              } catch (e) {
+                console.error("Callback error in speech queue:", e);
+              }
+            }
+            setTimeout(() => {
+              processSpeechQueue();
+            }, 100);
+          };
+
+          audio.onended = handleEnd;
+          audio.onerror = (e) => {
+            console.warn("Sarvam AI Audio playback error:", e);
+            handleEnd();
+          };
+
+          await audio.play();
+          playedSarvam = true;
+        }
       }
+    } catch (err) {
+      console.warn("Sarvam AI TTS failed, falling back to local speech synthesis:", err);
+    }
 
+    if (playedSarvam) {
+      return;
+    }
+
+    if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(cleanedText);
       utteranceRef.current = utterance; // Keep a reference to prevent garbage collection
       const voices = window.speechSynthesis.getVoices();
       
-      const detectedLang = detectLanguageOfText(text);
       let voice = null;
       
       if (detectedLang === 'te') {
@@ -636,6 +690,12 @@ export default function GlobalAssistant() {
     isProcessingQueueRef.current = false;
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+    }
+    if (audioRef.current) {
+      try {
+        audioRef.current.pause();
+      } catch (e) {}
+      audioRef.current = null;
     }
     if (pcmPlayerRef.current) {
       pcmPlayerRef.current.stop();
