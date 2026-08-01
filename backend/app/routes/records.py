@@ -368,7 +368,7 @@ async def analyze_record(
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "llama-3.2-11b-vision-preview",
+                        "model": "qwen/qwen3.6-27b",
                         "messages": [
                             {"role": "system", "content": system_prompt},
                             {
@@ -579,7 +579,7 @@ async def generate_reminders_from_prescription(
                         "Content-Type": "application/json"
                     },
                     json={
-                        "model": "llama-3.2-11b-vision-preview",
+                        "model": "qwen/qwen3.6-27b",
                         "messages": [
                             {"role": "system", "content": system_prompt},
                             {
