@@ -466,6 +466,13 @@ async def analyze_record(
                 medications_val = format_to_string(parsed.get("medications", "No medications suggested."))
                 disclaimer_val = format_to_string(parsed.get("disclaimer", disclaimer))
 
+                # Persist parsed AI insights directly to database
+                record.analysis_insights = insights_val
+                record.analysis_medications = medications_val
+                record.analysis_disclaimer = disclaimer_val
+                db.commit()
+                db.refresh(record)
+
                 return RecordAnalysisResponse(
                     insights=insights_val,
                     medications=medications_val,

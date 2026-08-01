@@ -71,17 +71,42 @@ def detect_user_message_language(message: str, client_language: str) -> str:
         
     # Check Hinglish/Tinglish romanized text keywords
     text_lower = message.lower()
-    hinglish_keywords = ["namaste", "aap", "chahiye", "hai", "kya", "mera", "hu", "ho", "bhai", "shukriya", "dost", "kar", "se", "ko", "par", "ek", "apko", "karo", "karna", "acha", "theek", "aapko", "karke", "sojao", "band", "kholo", "so jao", "utho", "shuru"]
-    tinglish_keywords = ["namaskaram", "enti", "ela", "undhi", "avunu", "kadhu", "cheyyandi", "nenu", "miru", "naa", "bhayam", "gurinchi", "vundhi", "vundi", "cheyandi", "meluko", "paduko", "oddu"]
+    hinglish_keywords = [
+        "namaste", "aap", "chahiye", "hai", "kya", "mera", "hu", "ho", "bhai", "shukriya", "dost", "kar", 
+        "se", "ko", "par", "ek", "apko", "karo", "karna", "acha", "theek", "aapko", "karke", "sojao", 
+        "band", "kholo", "so jao", "utho", "shuru", "chahiye", "chahye", "he", "mujhe", "mujhko", "mera", "meri"
+    ]
+    tinglish_keywords = [
+        "namaskaram", "enti", "ela", "undhi", "avunu", "kadhu", "cheyyandi", "nenu", "miru", "naa", 
+        "bhayam", "gurinchi", "vundhi", "vundi", "cheyandi", "meluko", "paduko", "oddu", "kavali", "naaku", 
+        "kavaali", "naku", "kavalii"
+    ]
     
     # Count occurrences as whole words
     hi_matches = sum(1 for w in hinglish_keywords if f" {w} " in f" {text_lower} ")
     te_matches = sum(1 for w in tinglish_keywords if f" {w} " in f" {text_lower} ")
     
-    if hi_matches > te_matches and hi_matches > 0:
-        return "hi"
-    elif te_matches > hi_matches and te_matches > 0:
-        return "te"
+    if hi_matches > 0 or te_matches > 0:
+        if hi_matches >= te_matches:
+            return "hi"
+        else:
+            return "te"
+            
+    # Check for common English words to enforce answering in English if typed in English
+    english_words = {
+        "the", "be", "to", "of", "and", "a", "in", "that", "have", "i", "it", "for", "not", "on", "with", 
+        "he", "as", "you", "do", "at", "this", "but", "his", "by", "from", "they", "we", "say", "her", 
+        "she", "or", "an", "will", "my", "one", "all", "would", "there", "their", "what", "so", "up", 
+        "out", "if", "about", "who", "get", "which", "go", "me", "your", "can", "tell", "report", "medical",
+        "show", "view", "what", "appointment", "doctor", "help", "please", "am", "are", "was", "were",
+        "has", "had", "any", "other", "some", "no", "yes", "than", "then", "them", "cancer", "illness",
+        "disease", "sick", "pain", "fever", "cough", "throat", "headache", "appointment", "schedule", "book",
+        "critical", "using", "tell"
+    }
+    
+    en_matches = sum(1 for w in english_words if f" {w} " in f" {text_lower} ")
+    if en_matches > 0:
+        return "en"
         
     # Normalize client language (e.g. 'en-US' -> 'en')
     client_lang = "en"
@@ -346,7 +371,9 @@ async def execute_tars_intent(
         
         records_list = []
         for rec in medical_records:
-            records_list.append(f"- Record: {rec.file_name} (Type: {rec.file_type}, ID: {rec.id}, FilePath: {rec.file_path}, Status: {rec.fraud_status})")
+            insights_part = f", AI Insights: {rec.analysis_insights}" if rec.analysis_insights else ""
+            meds_part = f", Suggested Medications: {rec.analysis_medications}" if rec.analysis_medications else ""
+            records_list.append(f"- Record: {rec.file_name} (Type: {rec.file_type}, ID: {rec.id}, Status: {rec.fraud_status}{insights_part}{meds_part})")
         
         if records_list:
             user_context += "YOUR UPLOADED MEDICAL RECORDS & PRESCRIPTIONS:\n" + "\n".join(records_list) + "\n"
@@ -359,7 +386,8 @@ async def execute_tars_intent(
         
         imaging_list = []
         for img in imaging_records:
-            imaging_list.append(f"- Imaging Diagnostic Scan: {img.file_name} (Category: {img.scan_type}, ID: {img.id}, Severity: {img.severity}, Specialist: {img.recommended_specialist})")
+            clean_findings = img.findings.split('[Diagnostic')[0].strip().replace('\n', ' ') if img.findings else "No findings recorded"
+            imaging_list.append(f"- Imaging Diagnostic Scan: {img.file_name} (Category: {img.scan_type}, ID: {img.id}, Severity: {img.severity}, Specialist: {img.recommended_specialist}, Findings: {clean_findings})")
         
         if imaging_list:
             user_context += "YOUR IMAGING DIAGNOSTICS HISTORY:\n" + "\n".join(imaging_list) + "\n"

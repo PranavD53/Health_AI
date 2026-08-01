@@ -150,6 +150,9 @@ class MedicalRecord(Base):
     file_data = Column(Text, nullable=True)
     uploaded_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
     fraud_status = Column(String, default="VERIFIED (Authentic)", nullable=False)
+    analysis_insights = Column(Text, nullable=True)
+    analysis_medications = Column(Text, nullable=True)
+    analysis_disclaimer = Column(Text, nullable=True)
 
     # Relationships
     user = relationship("User", back_populates="medical_records")

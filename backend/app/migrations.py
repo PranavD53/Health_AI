@@ -82,6 +82,9 @@ def _column_migrations(db_url: str) -> list[tuple[str, str, str]]:
         # medical_records
         ("medical_records", "fraud_status", "VARCHAR DEFAULT 'VERIFIED (Authentic)'"),
         ("medical_records", "file_data", "TEXT"),
+        ("medical_records", "analysis_insights", "TEXT"),
+        ("medical_records", "analysis_medications", "TEXT"),
+        ("medical_records", "analysis_disclaimer", "TEXT"),
         # private chat (added after initial release)
         ("private_messages", "attachment_path", "VARCHAR"),
         ("private_messages", "attachment_name", "VARCHAR"),
